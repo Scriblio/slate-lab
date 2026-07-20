@@ -1,6 +1,7 @@
 """The first automatic SKILL TRANSPLANT — opus writes the recipe, the cube runs it.
 
-procedure.py proved capability moves through pure memory when a skill is
+procedure.py showed capability can be carried by compact transition rules (run
+by a generic feedback loop; control in Python, rules in the store) when a skill is
 distilled as composable steps + feedback (4-rule parity 100%, 8-rule addition
 100%) — but a human (CC) wrote those step-tables by hand. This closes the loop:
 

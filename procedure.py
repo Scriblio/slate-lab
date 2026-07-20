@@ -8,7 +8,8 @@ tiny lookup rules and run them in a loop (the C1 feedback machinery), instead
 of storing input->answer pairs.
 
 The claim under test:
-  capability DOES transfer through pure memory — IF it is distilled as a
+  capability can be carried by compact transition memories, run by a generic
+  feedback loop (loop control in Python, task rules in the store) — IF distilled as a
   recipe of small composable steps rather than as example answers. A
   non-smooth global function (parity) is a chain of trivially-smooth local
   steps (1-bit XOR). Memory can hold the steps; feedback supplies the chain.

@@ -1,0 +1,5 @@
+numpy>=1.24
+# The no-API experiments (run.py, depth_test.py, noise_ceiling.py, router.py,
+# procedure.py, bench_vs_baselines.py, bench_program_family.py) need only numpy.
+# The LLM legs (distill_llm.py, transplant.py) additionally need `anthropic`
+# and an ANTHROPIC_API_KEY -- see requirements-llm.txt.
