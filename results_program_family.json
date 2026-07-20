@@ -1,0 +1,409 @@
+{
+ "config": {
+  "seeds": 5,
+  "m": 25,
+  "sigma": 0.75,
+  "out": "results_program_family.json"
+ },
+ "n_programs": 48,
+ "aggregate": {
+  "dict": {
+   "clean": 1.0,
+   "noisy": 0.0
+  },
+  "slate": {
+   "clean": 1.0,
+   "noisy": 1.0
+  }
+ },
+ "capacity_one_slate": {
+  "total_rules": 957,
+  "clean_acc_all_in_one": 1.0
+ },
+ "per_program": [
+  {
+   "program": "(x mod 2) in [0]",
+   "rules": 6,
+   "dict_clean": 1.0,
+   "dict_noisy": 0.0,
+   "slate_clean": 1.0,
+   "slate_noisy": 1.0
+  },
+  {
+   "program": "(x mod 2) in [1]",
+   "rules": 6,
+   "dict_clean": 1.0,
+   "dict_noisy": 0.0,
+   "slate_clean": 1.0,
+   "slate_noisy": 1.0
+  },
+  {
+   "program": "(x mod 3) in [0]",
+   "rules": 9,
+   "dict_clean": 1.0,
+   "dict_noisy": 0.0,
+   "slate_clean": 1.0,
+   "slate_noisy": 1.0
+  },
+  {
+   "program": "(x mod 3) in [1]",
+   "rules": 9,
+   "dict_clean": 1.0,
+   "dict_noisy": 0.0,
+   "slate_clean": 1.0,
+   "slate_noisy": 1.0
+  },
+  {
+   "program": "(x mod 4) in [0]",
+   "rules": 12,
+   "dict_clean": 1.0,
+   "dict_noisy": 0.0,
+   "slate_clean": 1.0,
+   "slate_noisy": 1.0
+  },
+  {
+   "program": "(x mod 4) in [1]",
+   "rules": 12,
+   "dict_clean": 1.0,
+   "dict_noisy": 0.0,
+   "slate_clean": 1.0,
+   "slate_noisy": 1.0
+  },
+  {
+   "program": "(x mod 4) in [3]",
+   "rules": 12,
+   "dict_clean": 1.0,
+   "dict_noisy": 0.0,
+   "slate_clean": 1.0,
+   "slate_noisy": 1.0
+  },
+  {
+   "program": "(x mod 5) in [0]",
+   "rules": 15,
+   "dict_clean": 1.0,
+   "dict_noisy": 0.0,
+   "slate_clean": 1.0,
+   "slate_noisy": 1.0
+  },
+  {
+   "program": "(x mod 5) in [1]",
+   "rules": 15,
+   "dict_clean": 1.0,
+   "dict_noisy": 0.0,
+   "slate_clean": 1.0,
+   "slate_noisy": 1.0
+  },
+  {
+   "program": "(x mod 5) in [4]",
+   "rules": 15,
+   "dict_clean": 1.0,
+   "dict_noisy": 0.0,
+   "slate_clean": 1.0,
+   "slate_noisy": 1.0
+  },
+  {
+   "program": "(x mod 6) in [0]",
+   "rules": 18,
+   "dict_clean": 1.0,
+   "dict_noisy": 0.0,
+   "slate_clean": 1.0,
+   "slate_noisy": 1.0
+  },
+  {
+   "program": "(x mod 6) in [1]",
+   "rules": 18,
+   "dict_clean": 1.0,
+   "dict_noisy": 0.0,
+   "slate_clean": 1.0,
+   "slate_noisy": 1.0
+  },
+  {
+   "program": "(x mod 6) in [5]",
+   "rules": 18,
+   "dict_clean": 1.0,
+   "dict_noisy": 0.0,
+   "slate_clean": 1.0,
+   "slate_noisy": 1.0
+  },
+  {
+   "program": "(x mod 7) in [0]",
+   "rules": 21,
+   "dict_clean": 1.0,
+   "dict_noisy": 0.0,
+   "slate_clean": 1.0,
+   "slate_noisy": 1.0
+  },
+  {
+   "program": "(x mod 7) in [1]",
+   "rules": 21,
+   "dict_clean": 1.0,
+   "dict_noisy": 0.0,
+   "slate_clean": 1.0,
+   "slate_noisy": 1.0
+  },
+  {
+   "program": "(x mod 7) in [6]",
+   "rules": 21,
+   "dict_clean": 1.0,
+   "dict_noisy": 0.0,
+   "slate_clean": 1.0,
+   "slate_noisy": 1.0
+  },
+  {
+   "program": "(x mod 8) in [0]",
+   "rules": 24,
+   "dict_clean": 1.0,
+   "dict_noisy": 0.0,
+   "slate_clean": 1.0,
+   "slate_noisy": 1.0
+  },
+  {
+   "program": "(x mod 8) in [1]",
+   "rules": 24,
+   "dict_clean": 1.0,
+   "dict_noisy": 0.0,
+   "slate_clean": 1.0,
+   "slate_noisy": 1.0
+  },
+  {
+   "program": "(x mod 8) in [7]",
+   "rules": 24,
+   "dict_clean": 1.0,
+   "dict_noisy": 0.0,
+   "slate_clean": 1.0,
+   "slate_noisy": 1.0
+  },
+  {
+   "program": "(x mod 9) in [0]",
+   "rules": 27,
+   "dict_clean": 1.0,
+   "dict_noisy": 0.0,
+   "slate_clean": 1.0,
+   "slate_noisy": 1.0
+  },
+  {
+   "program": "(x mod 9) in [1]",
+   "rules": 27,
+   "dict_clean": 1.0,
+   "dict_noisy": 0.0,
+   "slate_clean": 1.0,
+   "slate_noisy": 1.0
+  },
+  {
+   "program": "(x mod 9) in [8]",
+   "rules": 27,
+   "dict_clean": 1.0,
+   "dict_noisy": 0.0,
+   "slate_clean": 1.0,
+   "slate_noisy": 1.0
+  },
+  {
+   "program": "(x mod 10) in [0]",
+   "rules": 30,
+   "dict_clean": 1.0,
+   "dict_noisy": 0.0,
+   "slate_clean": 1.0,
+   "slate_noisy": 1.0
+  },
+  {
+   "program": "(x mod 10) in [1]",
+   "rules": 30,
+   "dict_clean": 1.0,
+   "dict_noisy": 0.0,
+   "slate_clean": 1.0,
+   "slate_noisy": 1.0
+  },
+  {
+   "program": "(x mod 10) in [9]",
+   "rules": 30,
+   "dict_clean": 1.0,
+   "dict_noisy": 0.0,
+   "slate_clean": 1.0,
+   "slate_noisy": 1.0
+  },
+  {
+   "program": "(x mod 11) in [0]",
+   "rules": 33,
+   "dict_clean": 1.0,
+   "dict_noisy": 0.0,
+   "slate_clean": 1.0,
+   "slate_noisy": 1.0
+  },
+  {
+   "program": "(x mod 11) in [1]",
+   "rules": 33,
+   "dict_clean": 1.0,
+   "dict_noisy": 0.0,
+   "slate_clean": 1.0,
+   "slate_noisy": 1.0
+  },
+  {
+   "program": "(x mod 11) in [10]",
+   "rules": 33,
+   "dict_clean": 1.0,
+   "dict_noisy": 0.0,
+   "slate_clean": 1.0,
+   "slate_noisy": 1.0
+  },
+  {
+   "program": "(x mod 12) in [0]",
+   "rules": 36,
+   "dict_clean": 1.0,
+   "dict_noisy": 0.0,
+   "slate_clean": 1.0,
+   "slate_noisy": 1.0
+  },
+  {
+   "program": "(x mod 12) in [1]",
+   "rules": 36,
+   "dict_clean": 1.0,
+   "dict_noisy": 0.0,
+   "slate_clean": 1.0,
+   "slate_noisy": 1.0
+  },
+  {
+   "program": "(x mod 12) in [11]",
+   "rules": 36,
+   "dict_clean": 1.0,
+   "dict_noisy": 0.0,
+   "slate_clean": 1.0,
+   "slate_noisy": 1.0
+  },
+  {
+   "program": "(x mod 13) in [0]",
+   "rules": 39,
+   "dict_clean": 1.0,
+   "dict_noisy": 0.0,
+   "slate_clean": 1.0,
+   "slate_noisy": 1.0
+  },
+  {
+   "program": "(x mod 13) in [1]",
+   "rules": 39,
+   "dict_clean": 1.0,
+   "dict_noisy": 0.0,
+   "slate_clean": 1.0,
+   "slate_noisy": 1.0
+  },
+  {
+   "program": "(x mod 13) in [12]",
+   "rules": 39,
+   "dict_clean": 1.0,
+   "dict_noisy": 0.0,
+   "slate_clean": 1.0,
+   "slate_noisy": 1.0
+  },
+  {
+   "program": "(popcount mod 2) in [0]",
+   "rules": 6,
+   "dict_clean": 1.0,
+   "dict_noisy": 0.0,
+   "slate_clean": 1.0,
+   "slate_noisy": 1.0
+  },
+  {
+   "program": "(popcount mod 2) in [1]",
+   "rules": 6,
+   "dict_clean": 1.0,
+   "dict_noisy": 0.0,
+   "slate_clean": 1.0,
+   "slate_noisy": 1.0
+  },
+  {
+   "program": "(popcount mod 3) in [0]",
+   "rules": 9,
+   "dict_clean": 1.0,
+   "dict_noisy": 0.0,
+   "slate_clean": 1.0,
+   "slate_noisy": 1.0
+  },
+  {
+   "program": "(popcount mod 3) in [1]",
+   "rules": 9,
+   "dict_clean": 1.0,
+   "dict_noisy": 0.0,
+   "slate_clean": 1.0,
+   "slate_noisy": 1.0
+  },
+  {
+   "program": "(popcount mod 3) in [2]",
+   "rules": 9,
+   "dict_clean": 1.0,
+   "dict_noisy": 0.0,
+   "slate_clean": 1.0,
+   "slate_noisy": 1.0
+  },
+  {
+   "program": "(popcount mod 4) in [0]",
+   "rules": 12,
+   "dict_clean": 1.0,
+   "dict_noisy": 0.0,
+   "slate_clean": 1.0,
+   "slate_noisy": 1.0
+  },
+  {
+   "program": "(popcount mod 4) in [1]",
+   "rules": 12,
+   "dict_clean": 1.0,
+   "dict_noisy": 0.0,
+   "slate_clean": 1.0,
+   "slate_noisy": 1.0
+  },
+  {
+   "program": "(popcount mod 4) in [2]",
+   "rules": 12,
+   "dict_clean": 1.0,
+   "dict_noisy": 0.0,
+   "slate_clean": 1.0,
+   "slate_noisy": 1.0
+  },
+  {
+   "program": "(popcount mod 4) in [3]",
+   "rules": 12,
+   "dict_clean": 1.0,
+   "dict_noisy": 0.0,
+   "slate_clean": 1.0,
+   "slate_noisy": 1.0
+  },
+  {
+   "program": "(popcount mod 5) in [0]",
+   "rules": 15,
+   "dict_clean": 1.0,
+   "dict_noisy": 0.0,
+   "slate_clean": 1.0,
+   "slate_noisy": 1.0
+  },
+  {
+   "program": "(popcount mod 5) in [1]",
+   "rules": 15,
+   "dict_clean": 1.0,
+   "dict_noisy": 0.0,
+   "slate_clean": 1.0,
+   "slate_noisy": 1.0
+  },
+  {
+   "program": "(popcount mod 5) in [2]",
+   "rules": 15,
+   "dict_clean": 1.0,
+   "dict_noisy": 0.0,
+   "slate_clean": 1.0,
+   "slate_noisy": 1.0
+  },
+  {
+   "program": "(popcount mod 5) in [3]",
+   "rules": 15,
+   "dict_clean": 1.0,
+   "dict_noisy": 0.0,
+   "slate_clean": 1.0,
+   "slate_noisy": 1.0
+  },
+  {
+   "program": "(popcount mod 5) in [4]",
+   "rules": 15,
+   "dict_clean": 1.0,
+   "dict_noisy": 0.0,
+   "slate_clean": 1.0,
+   "slate_noisy": 1.0
+  }
+ ]
+}

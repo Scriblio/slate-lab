@@ -23,11 +23,21 @@ and 64/112,694 (filed 2026-07-15).
 3. Redistribution of substantial portions outside the context of evaluation or
    research, without attribution and a copy of this license.
 
+## Contributions
+
+By submitting a contribution (pull request, patch, or suggestion) you agree it
+may be incorporated under this same license, and you grant the copyright holder
+a perpetual, royalty-free right to use it, including in commercially-licensed
+versions of the methods. You retain your own copyright. Contributions grant you
+no patent license.
+
 ## Commercial licensing
 
 For commercial rights to the methods demonstrated here — knowledge distillation
 into associative substrate, in-substrate procedure execution, automatic skill
-transplant — contact: **mattclancaster@gmail.com**.
+transplant — contact via the **Scriblio GitHub organization**
+(https://github.com/Scriblio): open an issue on this repository, or use the
+contact route on the organization profile.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
