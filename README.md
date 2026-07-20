@@ -44,7 +44,8 @@ Precisely, this project is:
 **What we claim** (now measured against baselines, over many seeds):
 1. One task-agnostic interpreter executes a family of ~50 finite-state programs
    from stored tables - the task logic lives in memory, not the interpreter
-   (`bench_program_family.py`).
+   (`bench_program_family.py`) - and a frontier model, not the author, compiles
+   all 48 into provably-correct DFAs (`bench_synthesis.py`, 48/48 exact vs gold).
 2. A procedure stored as **compact transition rules** generalises to unseen
    inputs where the same procedure stored as **example answers** (flashcards)
    does not (`procedure.py`).
@@ -101,6 +102,7 @@ the cue is imperfect - shown across a program family, not one cherry-picked case
 | div-7 (`transplant.py`) | 21-rule remainder DFA | MSB bit loop | flashcards 48% / haiku 57% | 1 (det.) | 100% |
 | program family (`bench_program_family.py`) | 48 tables, 957 rules | ONE universal interpreter | identical dict-backed interpreter | 5 | Slate 100% clean+noisy; dict 0% noisy |
 | store baseline (`bench_vs_baselines.py`) | div-7 table | the interpreter | dict, kNN | 30 | ties clean; beats dict under noise; ~= kNN |
+| model synthesis (`bench_synthesis.py`) | 48 model-authored DFAs | the universal interpreter | true gold (all 4096) + dict | 3 | opus 48/48 exact; Slate runs them 100% clean+noisy, dict 0% noisy; ~$1 |
 
 Deterministic demos have variance 0 by construction (a DFA is exact); the seeds
 matter for the stochastic store / noise comparisons.
@@ -147,6 +149,7 @@ the nearest stored basin (error-correction) and reads the bound payload. The
 
 | `bench_vs_baselines.py` | Slate vs dict vs kNN, 30 seeds | clean all 100%; under noisy cues dict -> 0%, kNN ~100%, Slate 98-100% |
 | `bench_program_family.py` | one interpreter, 48 finite-state programs, 5 seeds | Slate 100% clean+noisy vs identical dict-backed interpreter 0% noisy; 957 rules coexist in one store |
+| `bench_synthesis.py` (needs API key) | a frontier model compiles the 48 specs, not CC | claude-opus-4-8 authored **48/48 provably-correct DFAs** (exact vs gold on all 4096 inputs), ~$1; Slate runs the model's own tables 100% clean+noisy vs dict 0% noisy |
 
 ## Interpretation — hypotheses, NOT established by the tests above
 
@@ -177,4 +180,5 @@ python bench_vs_baselines.py    # Slate vs dict vs kNN (the crux baseline)
 python bench_program_family.py  # one interpreter, 48 finite-state programs
 python make_results.py          # one command -> RESULTS.md (all no-API results)
 pytest -q                       # unit tests for the primitive
+python bench_synthesis.py       # a frontier model compiles all 48 (needs ANTHROPIC_API_KEY)
 ```

@@ -1,0 +1,842 @@
+{
+ "model": "claude-opus-4-8",
+ "n_specs": 48,
+ "synthesis": {
+  "correct": 48,
+  "wrong": 0,
+  "malformed": 0,
+  "reliability": 1.0
+ },
+ "execution_on_model_tables": {
+  "dict": {
+   "clean": 1.0,
+   "noisy": 0.0
+  },
+  "slate": {
+   "clean": 1.0,
+   "noisy": 1.0
+  }
+ },
+ "spend": {
+  "calls": 48,
+  "usd": 1.07
+ },
+ "rows": [
+  {
+   "id": "div2",
+   "nl": "x is divisible by 2",
+   "status": "correct",
+   "states": 3,
+   "rules": 9,
+   "exec": {
+    "dict": [
+     1.0,
+     0.0
+    ],
+    "slate": [
+     1.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "id": "rem2_1",
+   "nl": "x leaves remainder 1 when divided by 2",
+   "status": "correct",
+   "states": 3,
+   "rules": 9,
+   "exec": {
+    "dict": [
+     1.0,
+     0.0
+    ],
+    "slate": [
+     1.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "id": "div3",
+   "nl": "x is divisible by 3",
+   "status": "correct",
+   "states": 3,
+   "rules": 9,
+   "exec": {
+    "dict": [
+     1.0,
+     0.0
+    ],
+    "slate": [
+     1.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "id": "rem3_1",
+   "nl": "x leaves remainder 1 when divided by 3",
+   "status": "correct",
+   "states": 3,
+   "rules": 9,
+   "exec": {
+    "dict": [
+     1.0,
+     0.0
+    ],
+    "slate": [
+     1.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "id": "div4",
+   "nl": "x is divisible by 4",
+   "status": "correct",
+   "states": 4,
+   "rules": 12,
+   "exec": {
+    "dict": [
+     1.0,
+     0.0
+    ],
+    "slate": [
+     1.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "id": "rem4_1",
+   "nl": "x leaves remainder 1 when divided by 4",
+   "status": "correct",
+   "states": 7,
+   "rules": 21,
+   "exec": {
+    "dict": [
+     1.0,
+     0.0
+    ],
+    "slate": [
+     1.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "id": "rem4_3",
+   "nl": "x leaves remainder 3 when divided by 4",
+   "status": "correct",
+   "states": 4,
+   "rules": 12,
+   "exec": {
+    "dict": [
+     1.0,
+     0.0
+    ],
+    "slate": [
+     1.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "id": "div5",
+   "nl": "x is divisible by 5",
+   "status": "correct",
+   "states": 5,
+   "rules": 15,
+   "exec": {
+    "dict": [
+     1.0,
+     0.0
+    ],
+    "slate": [
+     1.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "id": "rem5_1",
+   "nl": "x leaves remainder 1 when divided by 5",
+   "status": "correct",
+   "states": 5,
+   "rules": 15,
+   "exec": {
+    "dict": [
+     1.0,
+     0.0
+    ],
+    "slate": [
+     1.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "id": "rem5_4",
+   "nl": "x leaves remainder 4 when divided by 5",
+   "status": "correct",
+   "states": 5,
+   "rules": 15,
+   "exec": {
+    "dict": [
+     1.0,
+     0.0
+    ],
+    "slate": [
+     1.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "id": "div6",
+   "nl": "x is divisible by 6",
+   "status": "correct",
+   "states": 6,
+   "rules": 18,
+   "exec": {
+    "dict": [
+     1.0,
+     0.0
+    ],
+    "slate": [
+     1.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "id": "rem6_1",
+   "nl": "x leaves remainder 1 when divided by 6",
+   "status": "correct",
+   "states": 6,
+   "rules": 18,
+   "exec": {
+    "dict": [
+     1.0,
+     0.0
+    ],
+    "slate": [
+     1.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "id": "rem6_5",
+   "nl": "x leaves remainder 5 when divided by 6",
+   "status": "correct",
+   "states": 6,
+   "rules": 18,
+   "exec": {
+    "dict": [
+     1.0,
+     0.0
+    ],
+    "slate": [
+     1.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "id": "div7",
+   "nl": "x is divisible by 7",
+   "status": "correct",
+   "states": 7,
+   "rules": 21,
+   "exec": {
+    "dict": [
+     1.0,
+     0.0
+    ],
+    "slate": [
+     1.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "id": "rem7_1",
+   "nl": "x leaves remainder 1 when divided by 7",
+   "status": "correct",
+   "states": 7,
+   "rules": 21,
+   "exec": {
+    "dict": [
+     1.0,
+     0.0
+    ],
+    "slate": [
+     1.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "id": "rem7_6",
+   "nl": "x leaves remainder 6 when divided by 7",
+   "status": "correct",
+   "states": 7,
+   "rules": 21,
+   "exec": {
+    "dict": [
+     1.0,
+     0.0
+    ],
+    "slate": [
+     1.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "id": "div8",
+   "nl": "x is divisible by 8",
+   "status": "correct",
+   "states": 8,
+   "rules": 24,
+   "exec": {
+    "dict": [
+     1.0,
+     0.0
+    ],
+    "slate": [
+     1.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "id": "rem8_1",
+   "nl": "x leaves remainder 1 when divided by 8",
+   "status": "correct",
+   "states": 8,
+   "rules": 24,
+   "exec": {
+    "dict": [
+     1.0,
+     0.0
+    ],
+    "slate": [
+     1.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "id": "rem8_7",
+   "nl": "x leaves remainder 7 when divided by 8",
+   "status": "correct",
+   "states": 8,
+   "rules": 24,
+   "exec": {
+    "dict": [
+     1.0,
+     0.0
+    ],
+    "slate": [
+     1.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "id": "div9",
+   "nl": "x is divisible by 9",
+   "status": "correct",
+   "states": 9,
+   "rules": 27,
+   "exec": {
+    "dict": [
+     1.0,
+     0.0
+    ],
+    "slate": [
+     1.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "id": "rem9_1",
+   "nl": "x leaves remainder 1 when divided by 9",
+   "status": "correct",
+   "states": 9,
+   "rules": 27,
+   "exec": {
+    "dict": [
+     1.0,
+     0.0
+    ],
+    "slate": [
+     1.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "id": "rem9_8",
+   "nl": "x leaves remainder 8 when divided by 9",
+   "status": "correct",
+   "states": 9,
+   "rules": 27,
+   "exec": {
+    "dict": [
+     1.0,
+     0.0
+    ],
+    "slate": [
+     1.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "id": "div10",
+   "nl": "x is divisible by 10",
+   "status": "correct",
+   "states": 10,
+   "rules": 30,
+   "exec": {
+    "dict": [
+     1.0,
+     0.0
+    ],
+    "slate": [
+     1.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "id": "rem10_1",
+   "nl": "x leaves remainder 1 when divided by 10",
+   "status": "correct",
+   "states": 10,
+   "rules": 30,
+   "exec": {
+    "dict": [
+     1.0,
+     0.0
+    ],
+    "slate": [
+     1.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "id": "rem10_9",
+   "nl": "x leaves remainder 9 when divided by 10",
+   "status": "correct",
+   "states": 10,
+   "rules": 30,
+   "exec": {
+    "dict": [
+     1.0,
+     0.0
+    ],
+    "slate": [
+     1.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "id": "div11",
+   "nl": "x is divisible by 11",
+   "status": "correct",
+   "states": 11,
+   "rules": 33,
+   "exec": {
+    "dict": [
+     1.0,
+     0.0
+    ],
+    "slate": [
+     1.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "id": "rem11_1",
+   "nl": "x leaves remainder 1 when divided by 11",
+   "status": "correct",
+   "states": 11,
+   "rules": 33,
+   "exec": {
+    "dict": [
+     1.0,
+     0.0
+    ],
+    "slate": [
+     1.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "id": "rem11_10",
+   "nl": "x leaves remainder 10 when divided by 11",
+   "status": "correct",
+   "states": 11,
+   "rules": 33,
+   "exec": {
+    "dict": [
+     1.0,
+     0.0
+    ],
+    "slate": [
+     1.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "id": "div12",
+   "nl": "x is divisible by 12",
+   "status": "correct",
+   "states": 12,
+   "rules": 36,
+   "exec": {
+    "dict": [
+     1.0,
+     0.0
+    ],
+    "slate": [
+     1.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "id": "rem12_1",
+   "nl": "x leaves remainder 1 when divided by 12",
+   "status": "correct",
+   "states": 12,
+   "rules": 36,
+   "exec": {
+    "dict": [
+     1.0,
+     0.0
+    ],
+    "slate": [
+     1.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "id": "rem12_11",
+   "nl": "x leaves remainder 11 when divided by 12",
+   "status": "correct",
+   "states": 12,
+   "rules": 36,
+   "exec": {
+    "dict": [
+     1.0,
+     0.0
+    ],
+    "slate": [
+     1.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "id": "div13",
+   "nl": "x is divisible by 13",
+   "status": "correct",
+   "states": 13,
+   "rules": 39,
+   "exec": {
+    "dict": [
+     1.0,
+     0.0
+    ],
+    "slate": [
+     1.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "id": "rem13_1",
+   "nl": "x leaves remainder 1 when divided by 13",
+   "status": "correct",
+   "states": 13,
+   "rules": 39,
+   "exec": {
+    "dict": [
+     1.0,
+     0.0
+    ],
+    "slate": [
+     1.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "id": "rem13_12",
+   "nl": "x leaves remainder 12 when divided by 13",
+   "status": "correct",
+   "states": 13,
+   "rules": 39,
+   "exec": {
+    "dict": [
+     1.0,
+     0.0
+    ],
+    "slate": [
+     1.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "id": "pop2_0",
+   "nl": "the number of 1-bits in x is congruent to 0 modulo 2",
+   "status": "correct",
+   "states": 2,
+   "rules": 6,
+   "exec": {
+    "dict": [
+     1.0,
+     0.0
+    ],
+    "slate": [
+     1.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "id": "pop2_1",
+   "nl": "the number of 1-bits in x is congruent to 1 modulo 2",
+   "status": "correct",
+   "states": 2,
+   "rules": 6,
+   "exec": {
+    "dict": [
+     1.0,
+     0.0
+    ],
+    "slate": [
+     1.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "id": "pop3_0",
+   "nl": "the number of 1-bits in x is congruent to 0 modulo 3",
+   "status": "correct",
+   "states": 3,
+   "rules": 9,
+   "exec": {
+    "dict": [
+     1.0,
+     0.0
+    ],
+    "slate": [
+     1.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "id": "pop3_1",
+   "nl": "the number of 1-bits in x is congruent to 1 modulo 3",
+   "status": "correct",
+   "states": 3,
+   "rules": 9,
+   "exec": {
+    "dict": [
+     1.0,
+     0.0
+    ],
+    "slate": [
+     1.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "id": "pop3_2",
+   "nl": "the number of 1-bits in x is congruent to 2 modulo 3",
+   "status": "correct",
+   "states": 3,
+   "rules": 9,
+   "exec": {
+    "dict": [
+     1.0,
+     0.0
+    ],
+    "slate": [
+     1.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "id": "pop4_0",
+   "nl": "the number of 1-bits in x is congruent to 0 modulo 4",
+   "status": "correct",
+   "states": 4,
+   "rules": 12,
+   "exec": {
+    "dict": [
+     1.0,
+     0.0
+    ],
+    "slate": [
+     1.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "id": "pop4_1",
+   "nl": "the number of 1-bits in x is congruent to 1 modulo 4",
+   "status": "correct",
+   "states": 4,
+   "rules": 12,
+   "exec": {
+    "dict": [
+     1.0,
+     0.0
+    ],
+    "slate": [
+     1.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "id": "pop4_2",
+   "nl": "the number of 1-bits in x is congruent to 2 modulo 4",
+   "status": "correct",
+   "states": 4,
+   "rules": 12,
+   "exec": {
+    "dict": [
+     1.0,
+     0.0
+    ],
+    "slate": [
+     1.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "id": "pop4_3",
+   "nl": "the number of 1-bits in x is congruent to 3 modulo 4",
+   "status": "correct",
+   "states": 4,
+   "rules": 12,
+   "exec": {
+    "dict": [
+     1.0,
+     0.0
+    ],
+    "slate": [
+     1.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "id": "pop5_0",
+   "nl": "the number of 1-bits in x is congruent to 0 modulo 5",
+   "status": "correct",
+   "states": 5,
+   "rules": 15,
+   "exec": {
+    "dict": [
+     1.0,
+     0.0
+    ],
+    "slate": [
+     1.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "id": "pop5_1",
+   "nl": "the number of 1-bits in x is congruent to 1 modulo 5",
+   "status": "correct",
+   "states": 5,
+   "rules": 15,
+   "exec": {
+    "dict": [
+     1.0,
+     0.0
+    ],
+    "slate": [
+     1.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "id": "pop5_2",
+   "nl": "the number of 1-bits in x is congruent to 2 modulo 5",
+   "status": "correct",
+   "states": 5,
+   "rules": 15,
+   "exec": {
+    "dict": [
+     1.0,
+     0.0
+    ],
+    "slate": [
+     1.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "id": "pop5_3",
+   "nl": "the number of 1-bits in x is congruent to 3 modulo 5",
+   "status": "correct",
+   "states": 5,
+   "rules": 15,
+   "exec": {
+    "dict": [
+     1.0,
+     0.0
+    ],
+    "slate": [
+     1.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "id": "pop5_4",
+   "nl": "the number of 1-bits in x is congruent to 4 modulo 5",
+   "status": "correct",
+   "states": 5,
+   "rules": 15,
+   "exec": {
+    "dict": [
+     1.0,
+     0.0
+    ],
+    "slate": [
+     1.0,
+     1.0
+    ]
+   }
+  }
+ ]
+}
