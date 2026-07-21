@@ -81,6 +81,19 @@ class Slate:
             s = s_new
         return s, cyc
 
+    def overlaps_for(self, key):
+        """Pre-settle overlap of `key` against every stored pattern. Read-only.
+
+        Additive accessor: `recall` reports the top1-top2 gap, which goes to
+        ~0 whenever two stored entries are duplicates of each other. A caller
+        that stores many episodes sharing one outcome needs the gap to the best
+        *competing* outcome instead, and that needs the raw overlaps.
+        """
+        self._ensure()
+        if self.keys is None:
+            return None
+        return self._overlaps(self._proj(key))
+
     def recall(self, key, max_cycles=4, topk=4):
         """Return winner meta + confidence + margin + `accepted` + top-k.
 
