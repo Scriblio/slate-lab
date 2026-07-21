@@ -35,6 +35,12 @@ class Slate:
         self._buf = []              # committed bipolar patterns (n_cells,)
         self.keys = None            # cached (K, n_cells) stack; built lazily
         self.meta = []              # parallel: [{"id","payload","value"}]
+        # Every symbol name ever committed. A cue built from a symbol that is
+        # NOT in here is out of distribution as a matter of FACT, not of
+        # confidence — no threshold, no calibration, no held-out sample. This is
+        # the structural half of escalation; `margin` is the statistical half,
+        # for cues whose symbols are all known but whose COMBINATION is not.
+        self.vocab = set()
 
     # ── encoding ─────────────────────────────────────────────────────────
     def _proj(self, v):
@@ -43,11 +49,17 @@ class Slate:
         return np.where(self.R @ v >= 0.0, 1.0, -1.0).astype(np.float32)
 
     # ── write (O(1) amortised: the stack is built lazily, not re-vstacked) ─
-    def commit(self, key, payload=None, value=0.0, id=None):
+    def commit(self, key, payload=None, value=0.0, id=None, symbols=None):
         self._buf.append(self._proj(key))
         self.meta.append({"id": id, "payload": payload, "value": float(value)})
+        if symbols:
+            self.vocab.update(symbols)
         self.keys = None            # invalidate cached stack
         return len(self.meta) - 1
+
+    def knows(self, *symbols):
+        """Has every one of these symbols been committed? Exact, O(1), free."""
+        return all(s in self.vocab for s in symbols)
 
     def _ensure(self):
         if self.keys is None and self._buf:

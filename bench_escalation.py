@@ -73,10 +73,11 @@ def build_library(progs, seed, n_cells=4096, beta=35.0, settle_floor=0.12):
     for pi, p in enumerate(progs):
         for (st, b), nxt in p["trans"].items():
             lib.commit(key(f"P{pi}", "T", st, f"B{b}"), payload=("T", nxt),
-                       id=f"P{pi}/T/{st}/B{b}")
+                       id=f"P{pi}/T/{st}/B{b}",
+                       symbols=(f"P{pi}", "T", st, f"B{b}"))
         for st, o in p["out"].items():
             lib.commit(key(f"P{pi}", "O", st, "PAD"), payload=("O", int(o)),
-                       id=f"P{pi}/O/{st}")
+                       id=f"P{pi}/O/{st}", symbols=(f"P{pi}", "O", st, "PAD"))
     return lib
 
 
@@ -175,10 +176,12 @@ def run_request(lib, pi, start, stream, sigma, rng):
     signal is the min over the trajectory — one unrecognised step is enough to
     mean 'no stored skill covers this'.
     """
-    st, fams, margins, rejects, verdict = start, [], [], 0, None
+    st, fams, margins, rejects, verdict, unknown = start, [], [], 0, None, 0
 
-    def step(cue):
-        nonlocal rejects
+    def step(*syms):
+        nonlocal rejects, unknown
+        unknown += (not lib.knows(*syms))       # exact: was this symbol committed?
+        cue = key(*syms)
         if sigma:
             cue = cue + sigma * rng.standard_normal(DIMK).astype(np.float32)
         r = lib.recall(cue)
@@ -187,15 +190,16 @@ def run_request(lib, pi, start, stream, sigma, rng):
         return r["winner"]["payload"]
 
     for symbol in stream:
-        kind, val = step(key(f"P{pi}", "T", st, symbol))
+        kind, val = step(f"P{pi}", "T", st, symbol)
         if kind != "T":                        # fell out of the transition table
             break
         st = val
     else:
-        kind, val = step(key(f"P{pi}", "O", st, "PAD"))
+        kind, val = step(f"P{pi}", "O", st, "PAD")
         verdict = val if kind == "O" else None
     return {"verdict": verdict, "fams": fams, "min_fam": min(fams),
-            "min_margin": min(margins), "n_reject": rejects}
+            "min_margin": min(margins), "n_reject": rejects,
+            "unknown_symbols": unknown}
 
 
 def bits(x):
@@ -323,6 +327,8 @@ def main():
     req = {sg: {"auc": {s: {p: [] for p in REQ_POPS[1:]} for s in SIG},
                 "shipped_answer": {p: [] for p in REQ_POPS},
                 "gated": {s: {p: [] for p in REQ_POPS} for s in SIG},
+                "structural": {p: [] for p in REQ_POPS},
+                "combined": {p: [] for p in REQ_POPS},
                 "thresh": {s: [] for s in SIG},
                 "mix": {s: [] for s in SIG},
                 "id_acc": [], "misroute_acc": [],
@@ -374,6 +380,13 @@ def main():
                 for s in SIG:
                     R["auc"][s][p].append(auc([r["min_" + s] for r in ev["id"]],
                                               [r["min_" + s] for r in ev[p]]))
+            # the structural gate alone, and the two together
+            for p in REQ_POPS:
+                R["structural"][p].append(
+                    float(np.mean([r["unknown_symbols"] == 0 for r in ev[p]])))
+                R["combined"][p].append(float(np.mean(
+                    [r["unknown_symbols"] == 0 and r["min_margin"] >= thr["margin"]
+                     for r in ev[p]])))
             for s in SIG:
                 st = {p: gate_stats(ev[p], "min_" + s, thr[s]) for p in REQ_POPS}
                 for p in REQ_POPS:
@@ -402,6 +415,10 @@ def main():
                 "answer_rate_calibrated_gate":
                     {s: {p: ms(v) for p, v in d.items()}
                      for s, d in req[sg]["gated"].items()},
+                "answer_rate_structural_only":
+                    {p: ms(v) for p, v in req[sg]["structural"].items()},
+                "answer_rate_structural_plus_margin":
+                    {p: ms(v) for p, v in req[sg]["combined"].items()},
                 "threshold": {s: ms(v) for s, v in req[sg]["thresh"].items()},
                 "id_task_accuracy": ms(req[sg]["id_acc"]),
                 "misroute_accuracy": ms(req[sg]["misroute_acc"]),
@@ -457,6 +474,14 @@ def main():
         for p in REQ_POPS:
             f_m, f_s = ms(R["gated"]["fam"][p]); m_m, m_s = ms(R["gated"]["margin"][p])
             print(f"    {p:<22}{f_m:>11.1%} +/-{f_s:<4.1%}{m_m:>13.1%} +/-{m_s:<4.1%}"
+                  f"  ({'want ~1.0' if p in ('id', 'misroute') else 'want ~0.0'})")
+
+        print(f"\n  answer-rate, STRUCTURAL gate (was every symbol committed? "
+              f"exact, no threshold)\n  and structural + margin together:")
+        print(f"    {'':<22}{'structural only':>18}{'both':>14}")
+        for p in REQ_POPS:
+            a_m, a_s = ms(R["structural"][p]); b_m, b_s = ms(R["combined"][p])
+            print(f"    {p:<22}{a_m:>12.1%} +/-{a_s:<4.1%}{b_m:>8.1%} +/-{b_s:<4.1%}"
                   f"  ({'want ~1.0' if p in ('id', 'misroute') else 'want ~0.0'})")
 
         m, s = ms(R["id_acc"]); mm, mss = ms(R["misroute_acc"])

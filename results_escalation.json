@@ -186,6 +186,50 @@
      ]
     }
    },
+   "answer_rate_structural_only": {
+    "id": [
+     1.0,
+     0.0
+    ],
+    "ood_unseen_value": [
+     0.0,
+     0.0
+    ],
+    "ood_unknown_skill": [
+     0.0,
+     0.0
+    ],
+    "ood_far": [
+     0.0,
+     0.0
+    ],
+    "misroute": [
+     1.0,
+     0.0
+    ]
+   },
+   "answer_rate_structural_plus_margin": {
+    "id": [
+     0.9983,
+     0.0033
+    ],
+    "ood_unseen_value": [
+     0.0,
+     0.0
+    ],
+    "ood_unknown_skill": [
+     0.0,
+     0.0
+    ],
+    "ood_far": [
+     0.0,
+     0.0
+    ],
+    "misroute": [
+     0.9983,
+     0.0033
+    ]
+   },
    "threshold": {
     "fam": [
      1.0,
@@ -393,6 +437,50 @@
       0.0085
      ]
     }
+   },
+   "answer_rate_structural_only": {
+    "id": [
+     1.0,
+     0.0
+    ],
+    "ood_unseen_value": [
+     0.0,
+     0.0
+    ],
+    "ood_unknown_skill": [
+     0.0,
+     0.0
+    ],
+    "ood_far": [
+     0.0,
+     0.0
+    ],
+    "misroute": [
+     1.0,
+     0.0
+    ]
+   },
+   "answer_rate_structural_plus_margin": {
+    "id": [
+     0.9883,
+     0.01
+    ],
+    "ood_unseen_value": [
+     0.0,
+     0.0
+    ],
+    "ood_unknown_skill": [
+     0.0,
+     0.0
+    ],
+    "ood_far": [
+     0.0,
+     0.0
+    ],
+    "misroute": [
+     0.9783,
+     0.0085
+    ]
    },
    "threshold": {
     "fam": [

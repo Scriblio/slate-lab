@@ -66,9 +66,14 @@ Precisely, this project is:
 - Not that the shipped abstain flag was ever a working escalation gate. It
   accepted 100% of near-OOD cues and answered 100% of OOD *requests*
   (`bench_escalation.py`); familiarity rises along an out-of-distribution
-  trajectory (0.30 -> 0.59) because each step settles into a stored basin. A
-  min-margin gate calibrated on held-out in-distribution traffic fixes it; the
-  optional `margin_floor` on `core.Slate` is that fix, off by default.
+  trajectory (0.30 -> 0.59) because each step settles into a stored basin.
+- Not that escalation needs a fitted threshold at all for the common case. A
+  cue built from a symbol that was never committed is out of distribution as a
+  FACT (`Slate.vocab` / `Slate.knows()`) - exact, no calibration, no held-out
+  sample, 100% of in-dist answered and 0% of every OOD population. At 100k
+  decisions it caught 15,000 of 15,000 escalations while the calibrated margin
+  threshold caught none. The margin earns its keep only on novel COMBINATIONS
+  of known symbols (rule-level margin AUC 0.9995-1.000 vs familiarity 0.62-0.66).
 - Not that Slate beats deterministic code, a rules engine, or a memoised dict at
   executing a policy over clean structured input - it is ~1,400x slower than all
   three and ties them on accuracy, and the dict matches its OOD detection too.

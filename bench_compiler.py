@@ -164,13 +164,19 @@ def at_scale(program, n, ood_share, thresh, rng, sigma, per_call):
 
     lat, escalated, answered_ok, answered = [], 0, 0, 0
     wrong_answered_ood, correctly_escalated, id_escalated = 0, 0, 0
+    by_structure, by_margin = 0, 0
     t_all = time.perf_counter()
     for rec, is_id in recs:
         t0 = time.perf_counter()
         verdict, sig = interpret(store, start, tokens(rec), sigma, rng)
         lat.append(time.perf_counter() - t0)
-        if sig["min_margin"] < thresh:                 # -> escalate to the model
+        # Structural first: an uncommitted token is out of distribution as a
+        # fact, so it never reaches the fitted threshold at all.
+        novel = sig["unknown_symbols"] > 0
+        if novel or sig["min_margin"] < thresh:        # -> escalate to the model
             escalated += 1
+            by_structure += novel
+            by_margin += (not novel)
             correctly_escalated += (not is_id)
             id_escalated += is_id
             continue
@@ -193,6 +199,8 @@ def at_scale(program, n, ood_share, thresh, rng, sigma, per_call):
         "escalation_rate": round(escalated / n, 4),
         "escalation_correct": correctly_escalated, "escalation_of_ood_traffic":
             round(correctly_escalated / max(n_ood, 1), 4),
+        "escalated_by_unknown_symbol": by_structure,
+        "escalated_by_margin_threshold": by_margin,
         "in_dist_escalated": id_escalated,
         "in_dist_escalation_rate": round(id_escalated / max(n - n_ood, 1), 4),
         "answered": answered,
@@ -341,6 +349,10 @@ def main():
           f"(the false-alarm cost)")
     print(f"    unfamiliar ANSWERED     {sc['ood_answered_without_a_program']}   "
           f"(silent-wrong-answer count; want 0)")
+    print(f"    caught by structure     {sc['escalated_by_unknown_symbol']:,}"
+          f"   (uncommitted token — exact, no threshold)")
+    print(f"    caught by margin        {sc['escalated_by_margin_threshold']:,}"
+          f"   (all tokens known, combination/cue was not)")
     print(f"  accuracy on answered      {sc['answered_accuracy']:.2%}")
     print(f"  latency, Slate path       median {sc['slate_latency_ms_median']:.3f} ms  "
           f"p99 {sc['slate_latency_ms_p99']:.3f} ms")

@@ -213,34 +213,44 @@ def verify(start, trans, out, limit_examples=3):
 def load_slate(start, trans, out, seed=0, n_cells=2048, margin_floor=None):
     s = Slate(DIMK, n_cells=n_cells, beta=35.0, seed=seed, margin_floor=margin_floor)
     for (st, tok), nxt in trans.items():
-        s.commit(key("T", st, tok), payload=("T", nxt), id=f"T/{st}/{tok}")
+        s.commit(key("T", st, tok), payload=("T", nxt), id=f"T/{st}/{tok}",
+                 symbols=("T", st, tok))
     for st, v in out.items():
-        s.commit(key("O", st, "PAD"), payload=("O", v), id=f"O/{st}")
+        s.commit(key("O", st, "PAD"), payload=("O", v), id=f"O/{st}",
+                 symbols=("O", st, "PAD"))
     return s
 
 
 def interpret(store, start, toks, sigma=0.0, rng=None):
     """ONE interpreter, zero policy logic. Returns (verdict, escalation signals).
 
-    Identical in shape to the interpreter used for the 48-program family: the
-    policy lives entirely in the stored table.
+    Two independent escalation signals come back, because there are two
+    different ways a request can be out of distribution:
+
+      unknown_symbols  a field value the program was never compiled for. This
+                       is a FACT — the token was never committed — so it is
+                       checked exactly, with no threshold and no calibration.
+      min_margin       every symbol is known but their COMBINATION is not, or
+                       the cue arrived corrupted. Nothing structural is wrong,
+                       so this one genuinely needs a threshold.
     """
-    st, margins, fams, rejects = start, [], [], 0
+    st, margins, fams, rejects, unknown = start, [], [], 0, 0
     for tok in list(toks) + [None]:
-        cue = key("O", st, "PAD") if tok is None else key("T", st, tok)
+        syms = ("O", st, "PAD") if tok is None else ("T", st, tok)
+        unknown += (not store.knows(*syms))
+        cue = key(*syms)
         if sigma:
             cue = cue + sigma * rng.standard_normal(DIMK).astype(np.float32)
         r = store.recall(cue)
         margins.append(r["margin"]); fams.append(r["familiarity"])
         rejects += (not r["accepted"])
         kind, val = r["winner"]["payload"]
+        sig = {"min_margin": min(margins), "min_fam": min(fams),
+               "n_reject": rejects, "unknown_symbols": unknown}
         if tok is None:
-            return (val if kind == "O" else None,
-                    {"min_margin": min(margins), "min_fam": min(fams),
-                     "n_reject": rejects})
+            return (val if kind == "O" else None), sig
         if kind != "T":
-            return None, {"min_margin": min(margins), "min_fam": min(fams),
-                          "n_reject": rejects}
+            return None, sig
         st = val
 
 

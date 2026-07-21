@@ -165,7 +165,10 @@ class SlateProgram:
     def fit(self, *_): return self
     def predict(self, rec):
         v, sig = interpret(self.store, self.start, tokens(rec))
-        return v, sig["min_margin"]        # min-margin = its escalation signal
+        # A token that was never committed is out of distribution as a fact, so
+        # it reports confidence 0 rather than being pushed through a fitted
+        # threshold. Everything else falls back on the margin.
+        return v, (0.0 if sig["unknown_symbols"] else sig["min_margin"])
     def footprint(self):
         self.store._ensure()
         return self.store.keys.nbytes
