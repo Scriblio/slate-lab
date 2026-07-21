@@ -19,15 +19,33 @@
  },
  "spend": {
   "calls": 48,
-  "usd": 1.07
+  "usd": 1.17
  },
  "rows": [
   {
    "id": "div2",
    "nl": "x is divisible by 2",
+   "prompt": "You are compiling a decision procedure into a deterministic finite automaton (DFA) that reads the bits of a 12-bit unsigned integer x MOST-SIGNIFICANT-BIT FIRST (bit 11 down to bit 0). The DFA must decide: x is divisible by 2.\nReturn ONLY a JSON object (no prose, no code fence) with keys:\n  \"start\": the start state (a string),\n  \"transition\": an object mapping \"STATE,BIT\" -> \"NEWSTATE\" for every state and BIT in {0,1},\n  \"output\": an object mapping each STATE -> 1 (predicate holds) or 0.\nThe automaton must be EXACTLY correct for all inputs 0..4095.",
+   "raw_response": "Divisibility by 2 depends only on the last bit (LSB), which is read last (MSB-first, so bit 0 is last). The output depends on the final bit read.\n\nI'll track the last bit seen. State \"S\" is start, \"E\" means last bit was 0 (even), \"O\" means last bit was 1 (odd).\n\n{\"start\":\"S\",\"transition\":{\"S,0\":\"E\",\"S,1\":\"O\",\"E,0\":\"E\",\"E,1\":\"O\",\"O,0\":\"E\",\"O,1\":\"O\"},\"output\":{\"S\":1,\"E\":1,\"O\":0}}",
    "status": "correct",
    "states": 3,
    "rules": 9,
+   "dfa": {
+    "start": "S",
+    "transition": {
+     "S,0": "E",
+     "S,1": "O",
+     "E,0": "E",
+     "E,1": "O",
+     "O,0": "E",
+     "O,1": "O"
+    },
+    "output": {
+     "S": 1,
+     "E": 1,
+     "O": 0
+    }
+   },
    "exec": {
     "dict": [
      1.0,
@@ -42,9 +60,27 @@
   {
    "id": "rem2_1",
    "nl": "x leaves remainder 1 when divided by 2",
+   "prompt": "You are compiling a decision procedure into a deterministic finite automaton (DFA) that reads the bits of a 12-bit unsigned integer x MOST-SIGNIFICANT-BIT FIRST (bit 11 down to bit 0). The DFA must decide: x leaves remainder 1 when divided by 2.\nReturn ONLY a JSON object (no prose, no code fence) with keys:\n  \"start\": the start state (a string),\n  \"transition\": an object mapping \"STATE,BIT\" -> \"NEWSTATE\" for every state and BIT in {0,1},\n  \"output\": an object mapping each STATE -> 1 (predicate holds) or 0.\nThe automaton must be EXACTLY correct for all inputs 0..4095.",
+   "raw_response": "Since we read MSB first, the last bit read is the LSB (bit 0), which determines x mod 2. The remainder is 1 iff the last bit is 1.\n\nI'll track the last bit seen. State represents the current parity based on the most recent bit.\n\n{\"start\":\"S\",\"transition\":{\"S,0\":\"E\",\"S,1\":\"O\",\"E,0\":\"E\",\"E,1\":\"O\",\"O,0\":\"E\",\"O,1\":\"O\"},\"output\":{\"S\":0,\"E\":0,\"O\":1}}",
    "status": "correct",
    "states": 3,
    "rules": 9,
+   "dfa": {
+    "start": "S",
+    "transition": {
+     "S,0": "E",
+     "S,1": "O",
+     "E,0": "E",
+     "E,1": "O",
+     "O,0": "E",
+     "O,1": "O"
+    },
+    "output": {
+     "S": 0,
+     "E": 0,
+     "O": 1
+    }
+   },
    "exec": {
     "dict": [
      1.0,
@@ -59,9 +95,27 @@
   {
    "id": "div3",
    "nl": "x is divisible by 3",
+   "prompt": "You are compiling a decision procedure into a deterministic finite automaton (DFA) that reads the bits of a 12-bit unsigned integer x MOST-SIGNIFICANT-BIT FIRST (bit 11 down to bit 0). The DFA must decide: x is divisible by 3.\nReturn ONLY a JSON object (no prose, no code fence) with keys:\n  \"start\": the start state (a string),\n  \"transition\": an object mapping \"STATE,BIT\" -> \"NEWSTATE\" for every state and BIT in {0,1},\n  \"output\": an object mapping each STATE -> 1 (predicate holds) or 0.\nThe automaton must be EXACTLY correct for all inputs 0..4095.",
+   "raw_response": "Reading MSB first, state = value mod 3. Transition: new = (2*state + bit) mod 3.\n\nFrom state 0: bit0 -> 0, bit1 -> 1\nFrom state 1: bit0 -> 2, bit1 -> 0\nFrom state 2: bit0 -> 1, bit1 -> 2\n\nStart state 0 (empty prefix = 0). Accept when final state is 0.\n\n{\"start\":\"S0\",\"transition\":{\"S0,0\":\"S0\",\"S0,1\":\"S1\",\"S1,0\":\"S2\",\"S1,1\":\"S0\",\"S2,0\":\"S1\",\"S2,1\":\"S2\"},\"output\":{\"S0\":1,\"S1\":0,\"S2\":0}}",
    "status": "correct",
    "states": 3,
    "rules": 9,
+   "dfa": {
+    "start": "S0",
+    "transition": {
+     "S0,0": "S0",
+     "S0,1": "S1",
+     "S1,0": "S2",
+     "S1,1": "S0",
+     "S2,0": "S1",
+     "S2,1": "S2"
+    },
+    "output": {
+     "S0": 1,
+     "S1": 0,
+     "S2": 0
+    }
+   },
    "exec": {
     "dict": [
      1.0,
@@ -76,9 +130,27 @@
   {
    "id": "rem3_1",
    "nl": "x leaves remainder 1 when divided by 3",
+   "prompt": "You are compiling a decision procedure into a deterministic finite automaton (DFA) that reads the bits of a 12-bit unsigned integer x MOST-SIGNIFICANT-BIT FIRST (bit 11 down to bit 0). The DFA must decide: x leaves remainder 1 when divided by 3.\nReturn ONLY a JSON object (no prose, no code fence) with keys:\n  \"start\": the start state (a string),\n  \"transition\": an object mapping \"STATE,BIT\" -> \"NEWSTATE\" for every state and BIT in {0,1},\n  \"output\": an object mapping each STATE -> 1 (predicate holds) or 0.\nThe automaton must be EXACTLY correct for all inputs 0..4095.",
+   "raw_response": "Reading MSB first, each bit: new_remainder = (2*old + bit) mod 3.\n\nStates r0, r1, r2 tracking remainder. Start at r0 (value 0 so far).\n\nTransitions:\n- r0,0: (0+0)=0 \u2192 r0\n- r0,1: (0+1)=1 \u2192 r1\n- r1,0: (2+0)=2 \u2192 r2\n- r1,1: (2+1)=3%3=0 \u2192 r0\n- r2,0: (4+0)=4%3=1 \u2192 r1\n- r2,1: (4+1)=5%3=2 \u2192 r2\n\nOutput 1 for r1.\n\n{\"start\":\"r0\",\"transition\":{\"r0,0\":\"r0\",\"r0,1\":\"r1\",\"r1,0\":\"r2\",\"r1,1\":\"r0\",\"r2,0\":\"r1\",\"r2,1\":\"r2\"},\"output\":{\"r0\":0,\"r1\":1,\"r2\":0}}",
    "status": "correct",
    "states": 3,
    "rules": 9,
+   "dfa": {
+    "start": "r0",
+    "transition": {
+     "r0,0": "r0",
+     "r0,1": "r1",
+     "r1,0": "r2",
+     "r1,1": "r0",
+     "r2,0": "r1",
+     "r2,1": "r2"
+    },
+    "output": {
+     "r0": 0,
+     "r1": 1,
+     "r2": 0
+    }
+   },
    "exec": {
     "dict": [
      1.0,
@@ -93,9 +165,39 @@
   {
    "id": "div4",
    "nl": "x is divisible by 4",
+   "prompt": "You are compiling a decision procedure into a deterministic finite automaton (DFA) that reads the bits of a 12-bit unsigned integer x MOST-SIGNIFICANT-BIT FIRST (bit 11 down to bit 0). The DFA must decide: x is divisible by 4.\nReturn ONLY a JSON object (no prose, no code fence) with keys:\n  \"start\": the start state (a string),\n  \"transition\": an object mapping \"STATE,BIT\" -> \"NEWSTATE\" for every state and BIT in {0,1},\n  \"output\": an object mapping each STATE -> 1 (predicate holds) or 0.\nThe automaton must be EXACTLY correct for all inputs 0..4095.",
+   "raw_response": "Divisibility by 4 depends only on the last two bits. Reading MSB first, I need to track the last two bits seen.\n\nSince x is divisible by 4 iff the final two bits (bit 1, bit 0) are both 0, I track the last two bits processed.\n\n{\"start\":\"S\",\"transition\":{\"S,0\":\"A0\",\"S,1\":\"A1\",\"A0,0\":\"B00\",\"A0,1\":\"B01\",\"A1,0\":\"B10\",\"A1,1\":\"B11\",\"B00,0\":\"B00\",\"B00,1\":\"B01\",\"B01,0\":\"B10\",\"B01,1\":\"B11\",\"B10,0\":\"B00\",\"B10,1\":\"B01\",\"B11,0\":\"B10\",\"B11,1\":\"B11\"},\"output\":{\"S\":1,\"A0\":1,\"A1\":0,\"B00\":1,\"B01\":0,\"B10\":0,\"B11\":0}}",
    "status": "correct",
-   "states": 4,
-   "rules": 12,
+   "states": 7,
+   "rules": 21,
+   "dfa": {
+    "start": "S",
+    "transition": {
+     "S,0": "A0",
+     "S,1": "A1",
+     "A0,0": "B00",
+     "A0,1": "B01",
+     "A1,0": "B10",
+     "A1,1": "B11",
+     "B00,0": "B00",
+     "B00,1": "B01",
+     "B01,0": "B10",
+     "B01,1": "B11",
+     "B10,0": "B00",
+     "B10,1": "B01",
+     "B11,0": "B10",
+     "B11,1": "B11"
+    },
+    "output": {
+     "S": 1,
+     "A0": 1,
+     "A1": 0,
+     "B00": 1,
+     "B01": 0,
+     "B10": 0,
+     "B11": 0
+    }
+   },
    "exec": {
     "dict": [
      1.0,
@@ -110,9 +212,30 @@
   {
    "id": "rem4_1",
    "nl": "x leaves remainder 1 when divided by 4",
+   "prompt": "You are compiling a decision procedure into a deterministic finite automaton (DFA) that reads the bits of a 12-bit unsigned integer x MOST-SIGNIFICANT-BIT FIRST (bit 11 down to bit 0). The DFA must decide: x leaves remainder 1 when divided by 4.\nReturn ONLY a JSON object (no prose, no code fence) with keys:\n  \"start\": the start state (a string),\n  \"transition\": an object mapping \"STATE,BIT\" -> \"NEWSTATE\" for every state and BIT in {0,1},\n  \"output\": an object mapping each STATE -> 1 (predicate holds) or 0.\nThe automaton must be EXACTLY correct for all inputs 0..4095.",
+   "raw_response": "{\"start\": \"s0\", \"transition\": {\"s0,0\": \"s0\", \"s0,1\": \"s1\", \"s1,0\": \"s2\", \"s1,1\": \"s3\", \"s2,0\": \"s0\", \"s2,1\": \"s1\", \"s3,0\": \"s2\", \"s3,1\": \"s3\"}, \"output\": {\"s0\": 0, \"s1\": 1, \"s2\": 0, \"s3\": 0}}",
    "status": "correct",
-   "states": 7,
-   "rules": 21,
+   "states": 4,
+   "rules": 12,
+   "dfa": {
+    "start": "s0",
+    "transition": {
+     "s0,0": "s0",
+     "s0,1": "s1",
+     "s1,0": "s2",
+     "s1,1": "s3",
+     "s2,0": "s0",
+     "s2,1": "s1",
+     "s3,0": "s2",
+     "s3,1": "s3"
+    },
+    "output": {
+     "s0": 0,
+     "s1": 1,
+     "s2": 0,
+     "s3": 0
+    }
+   },
    "exec": {
     "dict": [
      1.0,
@@ -127,9 +250,39 @@
   {
    "id": "rem4_3",
    "nl": "x leaves remainder 3 when divided by 4",
+   "prompt": "You are compiling a decision procedure into a deterministic finite automaton (DFA) that reads the bits of a 12-bit unsigned integer x MOST-SIGNIFICANT-BIT FIRST (bit 11 down to bit 0). The DFA must decide: x leaves remainder 3 when divided by 4.\nReturn ONLY a JSON object (no prose, no code fence) with keys:\n  \"start\": the start state (a string),\n  \"transition\": an object mapping \"STATE,BIT\" -> \"NEWSTATE\" for every state and BIT in {0,1},\n  \"output\": an object mapping each STATE -> 1 (predicate holds) or 0.\nThe automaton must be EXACTLY correct for all inputs 0..4095.",
+   "raw_response": "x mod 4 depends only on the last two bits. Reading MSB first, I track the last two bits seen.\n\nThe final two bits must be \"11\" for remainder 3.\n\nStates: start (S), then track last one bit (A0, A1), then track last two bits (B00, B01, B10, B11).\n\nActually, since we read exactly 12 bits, I just need to track the last two bits. Let me use states representing recent bits.\n\n{\"start\":\"S\",\"transition\":{\"S,0\":\"s0\",\"S,1\":\"s1\",\"s0,0\":\"q00\",\"s0,1\":\"q01\",\"s1,0\":\"q10\",\"s1,1\":\"q11\",\"q00,0\":\"q00\",\"q00,1\":\"q01\",\"q01,0\":\"q10\",\"q01,1\":\"q11\",\"q10,0\":\"q00\",\"q10,1\":\"q01\",\"q11,0\":\"q10\",\"q11,1\":\"q11\"},\"output\":{\"S\":0,\"s0\":0,\"s1\":0,\"q00\":0,\"q01\":0,\"q10\":0,\"q11\":1}}",
    "status": "correct",
-   "states": 4,
-   "rules": 12,
+   "states": 7,
+   "rules": 21,
+   "dfa": {
+    "start": "S",
+    "transition": {
+     "S,0": "s0",
+     "S,1": "s1",
+     "s0,0": "q00",
+     "s0,1": "q01",
+     "s1,0": "q10",
+     "s1,1": "q11",
+     "q00,0": "q00",
+     "q00,1": "q01",
+     "q01,0": "q10",
+     "q01,1": "q11",
+     "q10,0": "q00",
+     "q10,1": "q01",
+     "q11,0": "q10",
+     "q11,1": "q11"
+    },
+    "output": {
+     "S": 0,
+     "s0": 0,
+     "s1": 0,
+     "q00": 0,
+     "q01": 0,
+     "q10": 0,
+     "q11": 1
+    }
+   },
    "exec": {
     "dict": [
      1.0,
@@ -144,9 +297,33 @@
   {
    "id": "div5",
    "nl": "x is divisible by 5",
+   "prompt": "You are compiling a decision procedure into a deterministic finite automaton (DFA) that reads the bits of a 12-bit unsigned integer x MOST-SIGNIFICANT-BIT FIRST (bit 11 down to bit 0). The DFA must decide: x is divisible by 5.\nReturn ONLY a JSON object (no prose, no code fence) with keys:\n  \"start\": the start state (a string),\n  \"transition\": an object mapping \"STATE,BIT\" -> \"NEWSTATE\" for every state and BIT in {0,1},\n  \"output\": an object mapping each STATE -> 1 (predicate holds) or 0.\nThe automaton must be EXACTLY correct for all inputs 0..4095.",
+   "raw_response": "{\"start\":\"0\",\"transition\":{\"0,0\":\"0\",\"0,1\":\"1\",\"1,0\":\"2\",\"1,1\":\"3\",\"2,0\":\"4\",\"2,1\":\"0\",\"3,0\":\"1\",\"3,1\":\"2\",\"4,0\":\"3\",\"4,1\":\"4\"},\"output\":{\"0\":1,\"1\":0,\"2\":0,\"3\":0,\"4\":0}}",
    "status": "correct",
    "states": 5,
    "rules": 15,
+   "dfa": {
+    "start": "0",
+    "transition": {
+     "0,0": "0",
+     "0,1": "1",
+     "1,0": "2",
+     "1,1": "3",
+     "2,0": "4",
+     "2,1": "0",
+     "3,0": "1",
+     "3,1": "2",
+     "4,0": "3",
+     "4,1": "4"
+    },
+    "output": {
+     "0": 1,
+     "1": 0,
+     "2": 0,
+     "3": 0,
+     "4": 0
+    }
+   },
    "exec": {
     "dict": [
      1.0,
@@ -161,9 +338,33 @@
   {
    "id": "rem5_1",
    "nl": "x leaves remainder 1 when divided by 5",
+   "prompt": "You are compiling a decision procedure into a deterministic finite automaton (DFA) that reads the bits of a 12-bit unsigned integer x MOST-SIGNIFICANT-BIT FIRST (bit 11 down to bit 0). The DFA must decide: x leaves remainder 1 when divided by 5.\nReturn ONLY a JSON object (no prose, no code fence) with keys:\n  \"start\": the start state (a string),\n  \"transition\": an object mapping \"STATE,BIT\" -> \"NEWSTATE\" for every state and BIT in {0,1},\n  \"output\": an object mapping each STATE -> 1 (predicate holds) or 0.\nThe automaton must be EXACTLY correct for all inputs 0..4095.",
+   "raw_response": "{\"start\":\"s0\",\"transition\":{\"s0,0\":\"s0\",\"s0,1\":\"s1\",\"s1,0\":\"s2\",\"s1,1\":\"s3\",\"s2,0\":\"s4\",\"s2,1\":\"s0\",\"s3,0\":\"s1\",\"s3,1\":\"s2\",\"s4,0\":\"s3\",\"s4,1\":\"s4\"},\"output\":{\"s0\":0,\"s1\":1,\"s2\":0,\"s3\":0,\"s4\":0}}",
    "status": "correct",
    "states": 5,
    "rules": 15,
+   "dfa": {
+    "start": "s0",
+    "transition": {
+     "s0,0": "s0",
+     "s0,1": "s1",
+     "s1,0": "s2",
+     "s1,1": "s3",
+     "s2,0": "s4",
+     "s2,1": "s0",
+     "s3,0": "s1",
+     "s3,1": "s2",
+     "s4,0": "s3",
+     "s4,1": "s4"
+    },
+    "output": {
+     "s0": 0,
+     "s1": 1,
+     "s2": 0,
+     "s3": 0,
+     "s4": 0
+    }
+   },
    "exec": {
     "dict": [
      1.0,
@@ -178,9 +379,33 @@
   {
    "id": "rem5_4",
    "nl": "x leaves remainder 4 when divided by 5",
+   "prompt": "You are compiling a decision procedure into a deterministic finite automaton (DFA) that reads the bits of a 12-bit unsigned integer x MOST-SIGNIFICANT-BIT FIRST (bit 11 down to bit 0). The DFA must decide: x leaves remainder 4 when divided by 5.\nReturn ONLY a JSON object (no prose, no code fence) with keys:\n  \"start\": the start state (a string),\n  \"transition\": an object mapping \"STATE,BIT\" -> \"NEWSTATE\" for every state and BIT in {0,1},\n  \"output\": an object mapping each STATE -> 1 (predicate holds) or 0.\nThe automaton must be EXACTLY correct for all inputs 0..4095.",
+   "raw_response": "Reading MSB first, each bit updates remainder: new = (2*r + bit) % 5.\n\nStates are remainders 0-4. Start at 0. Accept state r4.\n\nLet me compute transitions:\n- r0: bit0 -> 0, bit1 -> 1\n- r1: bit0 -> 2, bit1 -> 3\n- r2: bit0 -> 4, bit1 -> 0\n- r3: bit0 -> 1, bit1 -> 2\n- r4: bit0 -> 3, bit1 -> 4\n\n{\"start\":\"r0\",\"transition\":{\"r0,0\":\"r0\",\"r0,1\":\"r1\",\"r1,0\":\"r2\",\"r1,1\":\"r3\",\"r2,0\":\"r4\",\"r2,1\":\"r0\",\"r3,0\":\"r1\",\"r3,1\":\"r2\",\"r4,0\":\"r3\",\"r4,1\":\"r4\"},\"output\":{\"r0\":0,\"r1\":0,\"r2\":0,\"r3\":0,\"r4\":1}}",
    "status": "correct",
    "states": 5,
    "rules": 15,
+   "dfa": {
+    "start": "r0",
+    "transition": {
+     "r0,0": "r0",
+     "r0,1": "r1",
+     "r1,0": "r2",
+     "r1,1": "r3",
+     "r2,0": "r4",
+     "r2,1": "r0",
+     "r3,0": "r1",
+     "r3,1": "r2",
+     "r4,0": "r3",
+     "r4,1": "r4"
+    },
+    "output": {
+     "r0": 0,
+     "r1": 0,
+     "r2": 0,
+     "r3": 0,
+     "r4": 1
+    }
+   },
    "exec": {
     "dict": [
      1.0,
@@ -195,9 +420,36 @@
   {
    "id": "div6",
    "nl": "x is divisible by 6",
+   "prompt": "You are compiling a decision procedure into a deterministic finite automaton (DFA) that reads the bits of a 12-bit unsigned integer x MOST-SIGNIFICANT-BIT FIRST (bit 11 down to bit 0). The DFA must decide: x is divisible by 6.\nReturn ONLY a JSON object (no prose, no code fence) with keys:\n  \"start\": the start state (a string),\n  \"transition\": an object mapping \"STATE,BIT\" -> \"NEWSTATE\" for every state and BIT in {0,1},\n  \"output\": an object mapping each STATE -> 1 (predicate holds) or 0.\nThe automaton must be EXACTLY correct for all inputs 0..4095.",
+   "raw_response": "I'll track x mod 6. Reading MSB first, each bit: new_remainder = (2*r + bit) mod 6.\n\nLet me compute transitions for states r0-r5:\n- r0: bit0\u21920, bit1\u21921\n- r1: bit0\u21922, bit1\u21923\n- r2: bit0\u21924, bit1\u21925\n- r3: bit0\u21920, bit1\u21921\n- r4: bit0\u21922, bit1\u21923\n- r5: bit0\u21924, bit1\u21925\n\nStart at r0 (before reading, value=0). Output 1 only for r0.\n\n{\"start\":\"r0\",\"transition\":{\"r0,0\":\"r0\",\"r0,1\":\"r1\",\"r1,0\":\"r2\",\"r1,1\":\"r3\",\"r2,0\":\"r4\",\"r2,1\":\"r5\",\"r3,0\":\"r0\",\"r3,1\":\"r1\",\"r4,0\":\"r2\",\"r4,1\":\"r3\",\"r5,0\":\"r4\",\"r5,1\":\"r5\"},\"output\":{\"r0\":1,\"r1\":0,\"r2\":0,\"r3\":0,\"r4\":0,\"r5\":0}}",
    "status": "correct",
    "states": 6,
    "rules": 18,
+   "dfa": {
+    "start": "r0",
+    "transition": {
+     "r0,0": "r0",
+     "r0,1": "r1",
+     "r1,0": "r2",
+     "r1,1": "r3",
+     "r2,0": "r4",
+     "r2,1": "r5",
+     "r3,0": "r0",
+     "r3,1": "r1",
+     "r4,0": "r2",
+     "r4,1": "r3",
+     "r5,0": "r4",
+     "r5,1": "r5"
+    },
+    "output": {
+     "r0": 1,
+     "r1": 0,
+     "r2": 0,
+     "r3": 0,
+     "r4": 0,
+     "r5": 0
+    }
+   },
    "exec": {
     "dict": [
      1.0,
@@ -212,9 +464,36 @@
   {
    "id": "rem6_1",
    "nl": "x leaves remainder 1 when divided by 6",
+   "prompt": "You are compiling a decision procedure into a deterministic finite automaton (DFA) that reads the bits of a 12-bit unsigned integer x MOST-SIGNIFICANT-BIT FIRST (bit 11 down to bit 0). The DFA must decide: x leaves remainder 1 when divided by 6.\nReturn ONLY a JSON object (no prose, no code fence) with keys:\n  \"start\": the start state (a string),\n  \"transition\": an object mapping \"STATE,BIT\" -> \"NEWSTATE\" for every state and BIT in {0,1},\n  \"output\": an object mapping each STATE -> 1 (predicate holds) or 0.\nThe automaton must be EXACTLY correct for all inputs 0..4095.",
+   "raw_response": "Reading MSB first, each bit updates remainder: r' = (2r + bit) mod 6.\n\nStates are remainders 0-5. Start at 0. Accept state = remainder 1.\n\nLet me compute transitions:\n- r=0: bit0\u21920, bit1\u21921\n- r=1: bit0\u21922, bit1\u21923\n- r=2: bit0\u21924, bit1\u21925\n- r=3: bit0\u21920, bit1\u21921\n- r=4: bit0\u21922, bit1\u21923\n- r=5: bit0\u21924, bit1\u21925\n\n{\"start\":\"0\",\"transition\":{\"0,0\":\"0\",\"0,1\":\"1\",\"1,0\":\"2\",\"1,1\":\"3\",\"2,0\":\"4\",\"2,1\":\"5\",\"3,0\":\"0\",\"3,1\":\"1\",\"4,0\":\"2\",\"4,1\":\"3\",\"5,0\":\"4\",\"5,1\":\"5\"},\"output\":{\"0\":0,\"1\":1,\"2\":0,\"3\":0,\"4\":0,\"5\":0}}",
    "status": "correct",
    "states": 6,
    "rules": 18,
+   "dfa": {
+    "start": "0",
+    "transition": {
+     "0,0": "0",
+     "0,1": "1",
+     "1,0": "2",
+     "1,1": "3",
+     "2,0": "4",
+     "2,1": "5",
+     "3,0": "0",
+     "3,1": "1",
+     "4,0": "2",
+     "4,1": "3",
+     "5,0": "4",
+     "5,1": "5"
+    },
+    "output": {
+     "0": 0,
+     "1": 1,
+     "2": 0,
+     "3": 0,
+     "4": 0,
+     "5": 0
+    }
+   },
    "exec": {
     "dict": [
      1.0,
@@ -229,9 +508,36 @@
   {
    "id": "rem6_5",
    "nl": "x leaves remainder 5 when divided by 6",
+   "prompt": "You are compiling a decision procedure into a deterministic finite automaton (DFA) that reads the bits of a 12-bit unsigned integer x MOST-SIGNIFICANT-BIT FIRST (bit 11 down to bit 0). The DFA must decide: x leaves remainder 5 when divided by 6.\nReturn ONLY a JSON object (no prose, no code fence) with keys:\n  \"start\": the start state (a string),\n  \"transition\": an object mapping \"STATE,BIT\" -> \"NEWSTATE\" for every state and BIT in {0,1},\n  \"output\": an object mapping each STATE -> 1 (predicate holds) or 0.\nThe automaton must be EXACTLY correct for all inputs 0..4095.",
+   "raw_response": "I'll track the remainder mod 6 as I read bits MSB-first. Starting from remainder 0, each bit does: new_remainder = (2*current + bit) mod 6.\n\nStates are remainders 0-5. After reading all 12 bits, accept if remainder == 5.\n\nLet me compute transitions:\n- r0: bit0\u21920, bit1\u21921\n- r1: bit0\u21922, bit1\u21923\n- r2: bit0\u21924, bit1\u21925\n- r3: bit0\u21920 (6mod6), bit1\u21921 (7mod6)\n- r4: bit0\u21922 (8mod6), bit1\u21923 (9mod6)\n- r5: bit0\u21924 (10mod6), bit1\u21925 (11mod6)\n\n{\"start\":\"r0\",\"transition\":{\"r0,0\":\"r0\",\"r0,1\":\"r1\",\"r1,0\":\"r2\",\"r1,1\":\"r3\",\"r2,0\":\"r4\",\"r2,1\":\"r5\",\"r3,0\":\"r0\",\"r3,1\":\"r1\",\"r4,0\":\"r2\",\"r4,1\":\"r3\",\"r5,0\":\"r4\",\"r5,1\":\"r5\"},\"output\":{\"r0\":0,\"r1\":0,\"r2\":0,\"r3\":0,\"r4\":0,\"r5\":1}}",
    "status": "correct",
    "states": 6,
    "rules": 18,
+   "dfa": {
+    "start": "r0",
+    "transition": {
+     "r0,0": "r0",
+     "r0,1": "r1",
+     "r1,0": "r2",
+     "r1,1": "r3",
+     "r2,0": "r4",
+     "r2,1": "r5",
+     "r3,0": "r0",
+     "r3,1": "r1",
+     "r4,0": "r2",
+     "r4,1": "r3",
+     "r5,0": "r4",
+     "r5,1": "r5"
+    },
+    "output": {
+     "r0": 0,
+     "r1": 0,
+     "r2": 0,
+     "r3": 0,
+     "r4": 0,
+     "r5": 1
+    }
+   },
    "exec": {
     "dict": [
      1.0,
@@ -246,9 +552,39 @@
   {
    "id": "div7",
    "nl": "x is divisible by 7",
+   "prompt": "You are compiling a decision procedure into a deterministic finite automaton (DFA) that reads the bits of a 12-bit unsigned integer x MOST-SIGNIFICANT-BIT FIRST (bit 11 down to bit 0). The DFA must decide: x is divisible by 7.\nReturn ONLY a JSON object (no prose, no code fence) with keys:\n  \"start\": the start state (a string),\n  \"transition\": an object mapping \"STATE,BIT\" -> \"NEWSTATE\" for every state and BIT in {0,1},\n  \"output\": an object mapping each STATE -> 1 (predicate holds) or 0.\nThe automaton must be EXACTLY correct for all inputs 0..4095.",
+   "raw_response": "{\"start\":\"0\",\"transition\":{\"0,0\":\"0\",\"0,1\":\"1\",\"1,0\":\"2\",\"1,1\":\"3\",\"2,0\":\"4\",\"2,1\":\"5\",\"3,0\":\"6\",\"3,1\":\"0\",\"4,0\":\"1\",\"4,1\":\"2\",\"5,0\":\"3\",\"5,1\":\"4\",\"6,0\":\"5\",\"6,1\":\"6\"},\"output\":{\"0\":1,\"1\":0,\"2\":0,\"3\":0,\"4\":0,\"5\":0,\"6\":0}}",
    "status": "correct",
    "states": 7,
    "rules": 21,
+   "dfa": {
+    "start": "0",
+    "transition": {
+     "0,0": "0",
+     "0,1": "1",
+     "1,0": "2",
+     "1,1": "3",
+     "2,0": "4",
+     "2,1": "5",
+     "3,0": "6",
+     "3,1": "0",
+     "4,0": "1",
+     "4,1": "2",
+     "5,0": "3",
+     "5,1": "4",
+     "6,0": "5",
+     "6,1": "6"
+    },
+    "output": {
+     "0": 1,
+     "1": 0,
+     "2": 0,
+     "3": 0,
+     "4": 0,
+     "5": 0,
+     "6": 0
+    }
+   },
    "exec": {
     "dict": [
      1.0,
@@ -263,9 +599,39 @@
   {
    "id": "rem7_1",
    "nl": "x leaves remainder 1 when divided by 7",
+   "prompt": "You are compiling a decision procedure into a deterministic finite automaton (DFA) that reads the bits of a 12-bit unsigned integer x MOST-SIGNIFICANT-BIT FIRST (bit 11 down to bit 0). The DFA must decide: x leaves remainder 1 when divided by 7.\nReturn ONLY a JSON object (no prose, no code fence) with keys:\n  \"start\": the start state (a string),\n  \"transition\": an object mapping \"STATE,BIT\" -> \"NEWSTATE\" for every state and BIT in {0,1},\n  \"output\": an object mapping each STATE -> 1 (predicate holds) or 0.\nThe automaton must be EXACTLY correct for all inputs 0..4095.",
+   "raw_response": "Reading MSB first, the standard construction tracks remainder mod 7. State transition: on bit b, new_remainder = (2*r + b) % 7. Start state is remainder 0. Accept if final remainder == 1.\n\n{\"start\":\"S0\",\"transition\":{\"S0,0\":\"S0\",\"S0,1\":\"S1\",\"S1,0\":\"S2\",\"S1,1\":\"S3\",\"S2,0\":\"S4\",\"S2,1\":\"S5\",\"S3,0\":\"S6\",\"S3,1\":\"S0\",\"S4,0\":\"S1\",\"S4,1\":\"S2\",\"S5,0\":\"S3\",\"S5,1\":\"S4\",\"S6,0\":\"S5\",\"S6,1\":\"S6\"},\"output\":{\"S0\":0,\"S1\":1,\"S2\":0,\"S3\":0,\"S4\":0,\"S5\":0,\"S6\":0}}",
    "status": "correct",
    "states": 7,
    "rules": 21,
+   "dfa": {
+    "start": "S0",
+    "transition": {
+     "S0,0": "S0",
+     "S0,1": "S1",
+     "S1,0": "S2",
+     "S1,1": "S3",
+     "S2,0": "S4",
+     "S2,1": "S5",
+     "S3,0": "S6",
+     "S3,1": "S0",
+     "S4,0": "S1",
+     "S4,1": "S2",
+     "S5,0": "S3",
+     "S5,1": "S4",
+     "S6,0": "S5",
+     "S6,1": "S6"
+    },
+    "output": {
+     "S0": 0,
+     "S1": 1,
+     "S2": 0,
+     "S3": 0,
+     "S4": 0,
+     "S5": 0,
+     "S6": 0
+    }
+   },
    "exec": {
     "dict": [
      1.0,
@@ -280,9 +646,39 @@
   {
    "id": "rem7_6",
    "nl": "x leaves remainder 6 when divided by 7",
+   "prompt": "You are compiling a decision procedure into a deterministic finite automaton (DFA) that reads the bits of a 12-bit unsigned integer x MOST-SIGNIFICANT-BIT FIRST (bit 11 down to bit 0). The DFA must decide: x leaves remainder 6 when divided by 7.\nReturn ONLY a JSON object (no prose, no code fence) with keys:\n  \"start\": the start state (a string),\n  \"transition\": an object mapping \"STATE,BIT\" -> \"NEWSTATE\" for every state and BIT in {0,1},\n  \"output\": an object mapping each STATE -> 1 (predicate holds) or 0.\nThe automaton must be EXACTLY correct for all inputs 0..4095.",
+   "raw_response": "{\"start\":\"r0\",\"transition\":{\"r0,0\":\"r0\",\"r0,1\":\"r1\",\"r1,0\":\"r2\",\"r1,1\":\"r3\",\"r2,0\":\"r4\",\"r2,1\":\"r5\",\"r3,0\":\"r6\",\"r3,1\":\"r0\",\"r4,0\":\"r1\",\"r4,1\":\"r2\",\"r5,0\":\"r3\",\"r5,1\":\"r4\",\"r6,0\":\"r5\",\"r6,1\":\"r6\"},\"output\":{\"r0\":0,\"r1\":0,\"r2\":0,\"r3\":0,\"r4\":0,\"r5\":0,\"r6\":1}}",
    "status": "correct",
    "states": 7,
    "rules": 21,
+   "dfa": {
+    "start": "r0",
+    "transition": {
+     "r0,0": "r0",
+     "r0,1": "r1",
+     "r1,0": "r2",
+     "r1,1": "r3",
+     "r2,0": "r4",
+     "r2,1": "r5",
+     "r3,0": "r6",
+     "r3,1": "r0",
+     "r4,0": "r1",
+     "r4,1": "r2",
+     "r5,0": "r3",
+     "r5,1": "r4",
+     "r6,0": "r5",
+     "r6,1": "r6"
+    },
+    "output": {
+     "r0": 0,
+     "r1": 0,
+     "r2": 0,
+     "r3": 0,
+     "r4": 0,
+     "r5": 0,
+     "r6": 1
+    }
+   },
    "exec": {
     "dict": [
      1.0,
@@ -297,9 +693,42 @@
   {
    "id": "div8",
    "nl": "x is divisible by 8",
+   "prompt": "You are compiling a decision procedure into a deterministic finite automaton (DFA) that reads the bits of a 12-bit unsigned integer x MOST-SIGNIFICANT-BIT FIRST (bit 11 down to bit 0). The DFA must decide: x is divisible by 8.\nReturn ONLY a JSON object (no prose, no code fence) with keys:\n  \"start\": the start state (a string),\n  \"transition\": an object mapping \"STATE,BIT\" -> \"NEWSTATE\" for every state and BIT in {0,1},\n  \"output\": an object mapping each STATE -> 1 (predicate holds) or 0.\nThe automaton must be EXACTLY correct for all inputs 0..4095.",
+   "raw_response": "Divisibility by 8 means the last 3 bits are 000. Reading MSB first, I only need to track the last 3 bits, but actually I need to track state as remainder mod 8.\n\nReading MSB first, remainder mod 8: new_r = (2*r + bit) mod 8. After all 12 bits, x mod 8 = final remainder. Accept if remainder is 0.\n\n{\"start\":\"0\",\"transition\":{\"0,0\":\"0\",\"0,1\":\"1\",\"1,0\":\"2\",\"1,1\":\"3\",\"2,0\":\"4\",\"2,1\":\"5\",\"3,0\":\"6\",\"3,1\":\"7\",\"4,0\":\"0\",\"4,1\":\"1\",\"5,0\":\"2\",\"5,1\":\"3\",\"6,0\":\"4\",\"6,1\":\"5\",\"7,0\":\"6\",\"7,1\":\"7\"},\"output\":{\"0\":1,\"1\":0,\"2\":0,\"3\":0,\"4\":0,\"5\":0,\"6\":0,\"7\":0}}",
    "status": "correct",
    "states": 8,
    "rules": 24,
+   "dfa": {
+    "start": "0",
+    "transition": {
+     "0,0": "0",
+     "0,1": "1",
+     "1,0": "2",
+     "1,1": "3",
+     "2,0": "4",
+     "2,1": "5",
+     "3,0": "6",
+     "3,1": "7",
+     "4,0": "0",
+     "4,1": "1",
+     "5,0": "2",
+     "5,1": "3",
+     "6,0": "4",
+     "6,1": "5",
+     "7,0": "6",
+     "7,1": "7"
+    },
+    "output": {
+     "0": 1,
+     "1": 0,
+     "2": 0,
+     "3": 0,
+     "4": 0,
+     "5": 0,
+     "6": 0,
+     "7": 0
+    }
+   },
    "exec": {
     "dict": [
      1.0,
@@ -314,9 +743,42 @@
   {
    "id": "rem8_1",
    "nl": "x leaves remainder 1 when divided by 8",
+   "prompt": "You are compiling a decision procedure into a deterministic finite automaton (DFA) that reads the bits of a 12-bit unsigned integer x MOST-SIGNIFICANT-BIT FIRST (bit 11 down to bit 0). The DFA must decide: x leaves remainder 1 when divided by 8.\nReturn ONLY a JSON object (no prose, no code fence) with keys:\n  \"start\": the start state (a string),\n  \"transition\": an object mapping \"STATE,BIT\" -> \"NEWSTATE\" for every state and BIT in {0,1},\n  \"output\": an object mapping each STATE -> 1 (predicate holds) or 0.\nThe automaton must be EXACTLY correct for all inputs 0..4095.",
+   "raw_response": "x mod 8 depends only on the last 3 bits. Reading MSB first, I track the value mod 8 of the bits seen so far. Since only the last 3 bits matter, tracking remainder mod 8 works: appending bit b gives (2*state + b) mod 8.\n\nx \u2261 1 mod 8 means the final state is 1.\n\n{\"start\":\"S0\",\"transition\":{\"S0,0\":\"S0\",\"S0,1\":\"S1\",\"S1,0\":\"S2\",\"S1,1\":\"S3\",\"S2,0\":\"S4\",\"S2,1\":\"S5\",\"S3,0\":\"S6\",\"S3,1\":\"S7\",\"S4,0\":\"S0\",\"S4,1\":\"S1\",\"S5,0\":\"S2\",\"S5,1\":\"S3\",\"S6,0\":\"S4\",\"S6,1\":\"S5\",\"S7,0\":\"S6\",\"S7,1\":\"S7\"},\"output\":{\"S0\":0,\"S1\":1,\"S2\":0,\"S3\":0,\"S4\":0,\"S5\":0,\"S6\":0,\"S7\":0}}",
    "status": "correct",
    "states": 8,
    "rules": 24,
+   "dfa": {
+    "start": "S0",
+    "transition": {
+     "S0,0": "S0",
+     "S0,1": "S1",
+     "S1,0": "S2",
+     "S1,1": "S3",
+     "S2,0": "S4",
+     "S2,1": "S5",
+     "S3,0": "S6",
+     "S3,1": "S7",
+     "S4,0": "S0",
+     "S4,1": "S1",
+     "S5,0": "S2",
+     "S5,1": "S3",
+     "S6,0": "S4",
+     "S6,1": "S5",
+     "S7,0": "S6",
+     "S7,1": "S7"
+    },
+    "output": {
+     "S0": 0,
+     "S1": 1,
+     "S2": 0,
+     "S3": 0,
+     "S4": 0,
+     "S5": 0,
+     "S6": 0,
+     "S7": 0
+    }
+   },
    "exec": {
     "dict": [
      1.0,
@@ -331,9 +793,42 @@
   {
    "id": "rem8_7",
    "nl": "x leaves remainder 7 when divided by 8",
+   "prompt": "You are compiling a decision procedure into a deterministic finite automaton (DFA) that reads the bits of a 12-bit unsigned integer x MOST-SIGNIFICANT-BIT FIRST (bit 11 down to bit 0). The DFA must decide: x leaves remainder 7 when divided by 8.\nReturn ONLY a JSON object (no prose, no code fence) with keys:\n  \"start\": the start state (a string),\n  \"transition\": an object mapping \"STATE,BIT\" -> \"NEWSTATE\" for every state and BIT in {0,1},\n  \"output\": an object mapping each STATE -> 1 (predicate holds) or 0.\nThe automaton must be EXACTLY correct for all inputs 0..4095.",
+   "raw_response": "x mod 8 depends only on the last 3 bits. Reading MSB first, only the last 3 bits matter, so I track the last 3 bits seen (equivalently the running value mod 8).\n\nSince we process MSB first, x mod 8 = (running value) mod 8 after all bits, and each new bit does: state = (state*2 + bit) mod 8. This correctly gives x mod 8 at the end.\n\nx \u2261 7 mod 8 means final state = 7.\n\n{\"start\":\"0\",\"transition\":{\"0,0\":\"0\",\"0,1\":\"1\",\"1,0\":\"2\",\"1,1\":\"3\",\"2,0\":\"4\",\"2,1\":\"5\",\"3,0\":\"6\",\"3,1\":\"7\",\"4,0\":\"0\",\"4,1\":\"1\",\"5,0\":\"2\",\"5,1\":\"3\",\"6,0\":\"4\",\"6,1\":\"5\",\"7,0\":\"6\",\"7,1\":\"7\"},\"output\":{\"0\":0,\"1\":0,\"2\":0,\"3\":0,\"4\":0,\"5\":0,\"6\":0,\"7\":1}}",
    "status": "correct",
    "states": 8,
    "rules": 24,
+   "dfa": {
+    "start": "0",
+    "transition": {
+     "0,0": "0",
+     "0,1": "1",
+     "1,0": "2",
+     "1,1": "3",
+     "2,0": "4",
+     "2,1": "5",
+     "3,0": "6",
+     "3,1": "7",
+     "4,0": "0",
+     "4,1": "1",
+     "5,0": "2",
+     "5,1": "3",
+     "6,0": "4",
+     "6,1": "5",
+     "7,0": "6",
+     "7,1": "7"
+    },
+    "output": {
+     "0": 0,
+     "1": 0,
+     "2": 0,
+     "3": 0,
+     "4": 0,
+     "5": 0,
+     "6": 0,
+     "7": 1
+    }
+   },
    "exec": {
     "dict": [
      1.0,
@@ -348,9 +843,45 @@
   {
    "id": "div9",
    "nl": "x is divisible by 9",
+   "prompt": "You are compiling a decision procedure into a deterministic finite automaton (DFA) that reads the bits of a 12-bit unsigned integer x MOST-SIGNIFICANT-BIT FIRST (bit 11 down to bit 0). The DFA must decide: x is divisible by 9.\nReturn ONLY a JSON object (no prose, no code fence) with keys:\n  \"start\": the start state (a string),\n  \"transition\": an object mapping \"STATE,BIT\" -> \"NEWSTATE\" for every state and BIT in {0,1},\n  \"output\": an object mapping each STATE -> 1 (predicate holds) or 0.\nThe automaton must be EXACTLY correct for all inputs 0..4095.",
+   "raw_response": "{\"start\":\"0\",\"transition\":{\"0,0\":\"0\",\"0,1\":\"1\",\"1,0\":\"2\",\"1,1\":\"3\",\"2,0\":\"4\",\"2,1\":\"5\",\"3,0\":\"6\",\"3,1\":\"7\",\"4,0\":\"8\",\"4,1\":\"0\",\"5,0\":\"1\",\"5,1\":\"2\",\"6,0\":\"3\",\"6,1\":\"4\",\"7,0\":\"5\",\"7,1\":\"6\",\"8,0\":\"7\",\"8,1\":\"8\"},\"output\":{\"0\":1,\"1\":0,\"2\":0,\"3\":0,\"4\":0,\"5\":0,\"6\":0,\"7\":0,\"8\":0}}",
    "status": "correct",
    "states": 9,
    "rules": 27,
+   "dfa": {
+    "start": "0",
+    "transition": {
+     "0,0": "0",
+     "0,1": "1",
+     "1,0": "2",
+     "1,1": "3",
+     "2,0": "4",
+     "2,1": "5",
+     "3,0": "6",
+     "3,1": "7",
+     "4,0": "8",
+     "4,1": "0",
+     "5,0": "1",
+     "5,1": "2",
+     "6,0": "3",
+     "6,1": "4",
+     "7,0": "5",
+     "7,1": "6",
+     "8,0": "7",
+     "8,1": "8"
+    },
+    "output": {
+     "0": 1,
+     "1": 0,
+     "2": 0,
+     "3": 0,
+     "4": 0,
+     "5": 0,
+     "6": 0,
+     "7": 0,
+     "8": 0
+    }
+   },
    "exec": {
     "dict": [
      1.0,
@@ -365,9 +896,45 @@
   {
    "id": "rem9_1",
    "nl": "x leaves remainder 1 when divided by 9",
+   "prompt": "You are compiling a decision procedure into a deterministic finite automaton (DFA) that reads the bits of a 12-bit unsigned integer x MOST-SIGNIFICANT-BIT FIRST (bit 11 down to bit 0). The DFA must decide: x leaves remainder 1 when divided by 9.\nReturn ONLY a JSON object (no prose, no code fence) with keys:\n  \"start\": the start state (a string),\n  \"transition\": an object mapping \"STATE,BIT\" -> \"NEWSTATE\" for every state and BIT in {0,1},\n  \"output\": an object mapping each STATE -> 1 (predicate holds) or 0.\nThe automaton must be EXACTLY correct for all inputs 0..4095.",
+   "raw_response": "{\"start\":\"0\",\"transition\":{\"0,0\":\"0\",\"0,1\":\"1\",\"1,0\":\"2\",\"1,1\":\"3\",\"2,0\":\"4\",\"2,1\":\"5\",\"3,0\":\"6\",\"3,1\":\"7\",\"4,0\":\"8\",\"4,1\":\"0\",\"5,0\":\"1\",\"5,1\":\"2\",\"6,0\":\"3\",\"6,1\":\"4\",\"7,0\":\"5\",\"7,1\":\"6\",\"8,0\":\"7\",\"8,1\":\"8\"},\"output\":{\"0\":0,\"1\":1,\"2\":0,\"3\":0,\"4\":0,\"5\":0,\"6\":0,\"7\":0,\"8\":0}}",
    "status": "correct",
    "states": 9,
    "rules": 27,
+   "dfa": {
+    "start": "0",
+    "transition": {
+     "0,0": "0",
+     "0,1": "1",
+     "1,0": "2",
+     "1,1": "3",
+     "2,0": "4",
+     "2,1": "5",
+     "3,0": "6",
+     "3,1": "7",
+     "4,0": "8",
+     "4,1": "0",
+     "5,0": "1",
+     "5,1": "2",
+     "6,0": "3",
+     "6,1": "4",
+     "7,0": "5",
+     "7,1": "6",
+     "8,0": "7",
+     "8,1": "8"
+    },
+    "output": {
+     "0": 0,
+     "1": 1,
+     "2": 0,
+     "3": 0,
+     "4": 0,
+     "5": 0,
+     "6": 0,
+     "7": 0,
+     "8": 0
+    }
+   },
    "exec": {
     "dict": [
      1.0,
@@ -382,9 +949,45 @@
   {
    "id": "rem9_8",
    "nl": "x leaves remainder 8 when divided by 9",
+   "prompt": "You are compiling a decision procedure into a deterministic finite automaton (DFA) that reads the bits of a 12-bit unsigned integer x MOST-SIGNIFICANT-BIT FIRST (bit 11 down to bit 0). The DFA must decide: x leaves remainder 8 when divided by 9.\nReturn ONLY a JSON object (no prose, no code fence) with keys:\n  \"start\": the start state (a string),\n  \"transition\": an object mapping \"STATE,BIT\" -> \"NEWSTATE\" for every state and BIT in {0,1},\n  \"output\": an object mapping each STATE -> 1 (predicate holds) or 0.\nThe automaton must be EXACTLY correct for all inputs 0..4095.",
+   "raw_response": "Reading MSB first, each bit updates remainder: new = (2*r + bit) mod 9.\n\nStates are remainders 0-8. Start at 0. Accept state where final remainder = 8.\n\nLet me compute transitions: for state r, bit b: (2r+b) mod 9.\n\n- r0: b0\u21920, b1\u21921\n- r1: b0\u21922, b1\u21923\n- r2: b0\u21924, b1\u21925\n- r3: b0\u21926, b1\u21927\n- r4: b0\u21928, b1\u21920 (9mod9=0)\n- r5: b0\u21921(10),b1\u21922(11)\n- r6: b0\u21923(12),b1\u21924(13)\n- r7: b0\u21925(14),b1\u21926(15)\n- r8: b0\u21927(16),b1\u21928(17)\n\n{\"start\":\"r0\",\"transition\":{\"r0,0\":\"r0\",\"r0,1\":\"r1\",\"r1,0\":\"r2\",\"r1,1\":\"r3\",\"r2,0\":\"r4\",\"r2,1\":\"r5\",\"r3,0\":\"r6\",\"r3,1\":\"r7\",\"r4,0\":\"r8\",\"r4,1\":\"r0\",\"r5,0\":\"r1\",\"r5,1\":\"r2\",\"r6,0\":\"r3\",\"r6,1\":\"r4\",\"r7,0\":\"r5\",\"r7,1\":\"r6\",\"r8,0\":\"r7\",\"r8,1\":\"r8\"},\"output\":{\"r0\":0,\"r1\":0,\"r2\":0,\"r3\":0,\"r4\":0,\"r5\":0,\"r6\":0,\"r7\":0,\"r8\":1}}",
    "status": "correct",
    "states": 9,
    "rules": 27,
+   "dfa": {
+    "start": "r0",
+    "transition": {
+     "r0,0": "r0",
+     "r0,1": "r1",
+     "r1,0": "r2",
+     "r1,1": "r3",
+     "r2,0": "r4",
+     "r2,1": "r5",
+     "r3,0": "r6",
+     "r3,1": "r7",
+     "r4,0": "r8",
+     "r4,1": "r0",
+     "r5,0": "r1",
+     "r5,1": "r2",
+     "r6,0": "r3",
+     "r6,1": "r4",
+     "r7,0": "r5",
+     "r7,1": "r6",
+     "r8,0": "r7",
+     "r8,1": "r8"
+    },
+    "output": {
+     "r0": 0,
+     "r1": 0,
+     "r2": 0,
+     "r3": 0,
+     "r4": 0,
+     "r5": 0,
+     "r6": 0,
+     "r7": 0,
+     "r8": 1
+    }
+   },
    "exec": {
     "dict": [
      1.0,
@@ -399,9 +1002,48 @@
   {
    "id": "div10",
    "nl": "x is divisible by 10",
+   "prompt": "You are compiling a decision procedure into a deterministic finite automaton (DFA) that reads the bits of a 12-bit unsigned integer x MOST-SIGNIFICANT-BIT FIRST (bit 11 down to bit 0). The DFA must decide: x is divisible by 10.\nReturn ONLY a JSON object (no prose, no code fence) with keys:\n  \"start\": the start state (a string),\n  \"transition\": an object mapping \"STATE,BIT\" -> \"NEWSTATE\" for every state and BIT in {0,1},\n  \"output\": an object mapping each STATE -> 1 (predicate holds) or 0.\nThe automaton must be EXACTLY correct for all inputs 0..4095.",
+   "raw_response": "Using states = remainder mod 10. Reading MSB first: new_remainder = (2*old + bit) mod 10.\n\nStart state is \"0\". Accept when final remainder is 0.\n\nLet me compute transitions: state s, bit b \u2192 (2s+b) mod 10.\n\n{\"start\":\"0\",\"transition\":{\"0,0\":\"0\",\"0,1\":\"1\",\"1,0\":\"2\",\"1,1\":\"3\",\"2,0\":\"4\",\"2,1\":\"5\",\"3,0\":\"6\",\"3,1\":\"7\",\"4,0\":\"8\",\"4,1\":\"9\",\"5,0\":\"0\",\"5,1\":\"1\",\"6,0\":\"2\",\"6,1\":\"3\",\"7,0\":\"4\",\"7,1\":\"5\",\"8,0\":\"6\",\"8,1\":\"7\",\"9,0\":\"8\",\"9,1\":\"9\"},\"output\":{\"0\":1,\"1\":0,\"2\":0,\"3\":0,\"4\":0,\"5\":0,\"6\":0,\"7\":0,\"8\":0,\"9\":0}}",
    "status": "correct",
    "states": 10,
    "rules": 30,
+   "dfa": {
+    "start": "0",
+    "transition": {
+     "0,0": "0",
+     "0,1": "1",
+     "1,0": "2",
+     "1,1": "3",
+     "2,0": "4",
+     "2,1": "5",
+     "3,0": "6",
+     "3,1": "7",
+     "4,0": "8",
+     "4,1": "9",
+     "5,0": "0",
+     "5,1": "1",
+     "6,0": "2",
+     "6,1": "3",
+     "7,0": "4",
+     "7,1": "5",
+     "8,0": "6",
+     "8,1": "7",
+     "9,0": "8",
+     "9,1": "9"
+    },
+    "output": {
+     "0": 1,
+     "1": 0,
+     "2": 0,
+     "3": 0,
+     "4": 0,
+     "5": 0,
+     "6": 0,
+     "7": 0,
+     "8": 0,
+     "9": 0
+    }
+   },
    "exec": {
     "dict": [
      1.0,
@@ -416,9 +1058,48 @@
   {
    "id": "rem10_1",
    "nl": "x leaves remainder 1 when divided by 10",
+   "prompt": "You are compiling a decision procedure into a deterministic finite automaton (DFA) that reads the bits of a 12-bit unsigned integer x MOST-SIGNIFICANT-BIT FIRST (bit 11 down to bit 0). The DFA must decide: x leaves remainder 1 when divided by 10.\nReturn ONLY a JSON object (no prose, no code fence) with keys:\n  \"start\": the start state (a string),\n  \"transition\": an object mapping \"STATE,BIT\" -> \"NEWSTATE\" for every state and BIT in {0,1},\n  \"output\": an object mapping each STATE -> 1 (predicate holds) or 0.\nThe automaton must be EXACTLY correct for all inputs 0..4095.",
+   "raw_response": "{\"start\":\"0\",\"transition\":{\"0,0\":\"0\",\"0,1\":\"1\",\"1,0\":\"2\",\"1,1\":\"3\",\"2,0\":\"4\",\"2,1\":\"5\",\"3,0\":\"6\",\"3,1\":\"7\",\"4,0\":\"8\",\"4,1\":\"9\",\"5,0\":\"0\",\"5,1\":\"1\",\"6,0\":\"2\",\"6,1\":\"3\",\"7,0\":\"4\",\"7,1\":\"5\",\"8,0\":\"6\",\"8,1\":\"7\",\"9,0\":\"8\",\"9,1\":\"9\"},\"output\":{\"0\":0,\"1\":1,\"2\":0,\"3\":0,\"4\":0,\"5\":0,\"6\":0,\"7\":0,\"8\":0,\"9\":0}}",
    "status": "correct",
    "states": 10,
    "rules": 30,
+   "dfa": {
+    "start": "0",
+    "transition": {
+     "0,0": "0",
+     "0,1": "1",
+     "1,0": "2",
+     "1,1": "3",
+     "2,0": "4",
+     "2,1": "5",
+     "3,0": "6",
+     "3,1": "7",
+     "4,0": "8",
+     "4,1": "9",
+     "5,0": "0",
+     "5,1": "1",
+     "6,0": "2",
+     "6,1": "3",
+     "7,0": "4",
+     "7,1": "5",
+     "8,0": "6",
+     "8,1": "7",
+     "9,0": "8",
+     "9,1": "9"
+    },
+    "output": {
+     "0": 0,
+     "1": 1,
+     "2": 0,
+     "3": 0,
+     "4": 0,
+     "5": 0,
+     "6": 0,
+     "7": 0,
+     "8": 0,
+     "9": 0
+    }
+   },
    "exec": {
     "dict": [
      1.0,
@@ -433,9 +1114,48 @@
   {
    "id": "rem10_9",
    "nl": "x leaves remainder 9 when divided by 10",
+   "prompt": "You are compiling a decision procedure into a deterministic finite automaton (DFA) that reads the bits of a 12-bit unsigned integer x MOST-SIGNIFICANT-BIT FIRST (bit 11 down to bit 0). The DFA must decide: x leaves remainder 9 when divided by 10.\nReturn ONLY a JSON object (no prose, no code fence) with keys:\n  \"start\": the start state (a string),\n  \"transition\": an object mapping \"STATE,BIT\" -> \"NEWSTATE\" for every state and BIT in {0,1},\n  \"output\": an object mapping each STATE -> 1 (predicate holds) or 0.\nThe automaton must be EXACTLY correct for all inputs 0..4095.",
+   "raw_response": "I need to build a DFA tracking remainder mod 10, reading MSB first.\n\nStarting from remainder 0, each bit: new_remainder = (2*r + bit) % 10.\n\nStates: r0 through r9. Start at r0. After reading all 12 bits, the state equals x mod 10. Accept state is r9.\n\nLet me compute transitions: for state ri, bit b \u2192 (2*i+b)%10.\n\n- r0: 0\u21920, 1\u21921\n- r1: 0\u21922, 1\u21923\n- r2: 0\u21924, 1\u21925\n- r3: 0\u21926, 1\u21927\n- r4: 0\u21928, 1\u21929\n- r5: 0\u21920, 1\u21921\n- r6: 0\u21922, 1\u21923\n- r7: 0\u21924, 1\u21925\n- r8: 0\u21926, 1\u21927\n- r9: 0\u21928, 1\u21929\n\n{\"start\":\"r0\",\"transition\":{\"r0,0\":\"r0\",\"r0,1\":\"r1\",\"r1,0\":\"r2\",\"r1,1\":\"r3\",\"r2,0\":\"r4\",\"r2,1\":\"r5\",\"r3,0\":\"r6\",\"r3,1\":\"r7\",\"r4,0\":\"r8\",\"r4,1\":\"r9\",\"r5,0\":\"r0\",\"r5,1\":\"r1\",\"r6,0\":\"r2\",\"r6,1\":\"r3\",\"r7,0\":\"r4\",\"r7,1\":\"r5\",\"r8,0\":\"r6\",\"r8,1\":\"r7\",\"r9,0\":\"r8\",\"r9,1\":\"r9\"},\"output\":{\"r0\":0,\"r1\":0,\"r2\":0,\"r3\":0,\"r4\":0,\"r5\":0,\"r6\":0,\"r7\":0,\"r8\":0,\"r9\":1}}",
    "status": "correct",
    "states": 10,
    "rules": 30,
+   "dfa": {
+    "start": "r0",
+    "transition": {
+     "r0,0": "r0",
+     "r0,1": "r1",
+     "r1,0": "r2",
+     "r1,1": "r3",
+     "r2,0": "r4",
+     "r2,1": "r5",
+     "r3,0": "r6",
+     "r3,1": "r7",
+     "r4,0": "r8",
+     "r4,1": "r9",
+     "r5,0": "r0",
+     "r5,1": "r1",
+     "r6,0": "r2",
+     "r6,1": "r3",
+     "r7,0": "r4",
+     "r7,1": "r5",
+     "r8,0": "r6",
+     "r8,1": "r7",
+     "r9,0": "r8",
+     "r9,1": "r9"
+    },
+    "output": {
+     "r0": 0,
+     "r1": 0,
+     "r2": 0,
+     "r3": 0,
+     "r4": 0,
+     "r5": 0,
+     "r6": 0,
+     "r7": 0,
+     "r8": 0,
+     "r9": 1
+    }
+   },
    "exec": {
     "dict": [
      1.0,
@@ -450,9 +1170,51 @@
   {
    "id": "div11",
    "nl": "x is divisible by 11",
+   "prompt": "You are compiling a decision procedure into a deterministic finite automaton (DFA) that reads the bits of a 12-bit unsigned integer x MOST-SIGNIFICANT-BIT FIRST (bit 11 down to bit 0). The DFA must decide: x is divisible by 11.\nReturn ONLY a JSON object (no prose, no code fence) with keys:\n  \"start\": the start state (a string),\n  \"transition\": an object mapping \"STATE,BIT\" -> \"NEWSTATE\" for every state and BIT in {0,1},\n  \"output\": an object mapping each STATE -> 1 (predicate holds) or 0.\nThe automaton must be EXACTLY correct for all inputs 0..4095.",
+   "raw_response": "I'll build a DFA tracking remainder mod 11. Reading MSB first, each bit updates: new_remainder = (2*remainder + bit) mod 11.\n\nStates are remainders 0-10. Start at 0. Accept state 0.\n\nLet me compute transitions: for state r, bit b: (2r+b) mod 11.\n\n- r=0: b=0\u21920, b=1\u21921\n- r=1: b=0\u21922, b=1\u21923\n- r=2: b=0\u21924, b=1\u21925\n- r=3: b=0\u21926, b=1\u21927\n- r=4: b=0\u21928, b=1\u21929\n- r=5: b=0\u219210, b=1\u21920\n- r=6: b=0\u21921, b=1\u21922\n- r=7: b=0\u21923, b=1\u21924\n- r=8: b=0\u21925, b=1\u21926\n- r=9: b=0\u21927, b=1\u21928\n- r=10: b=0\u21929, b=1\u219210\n\n{\"start\":\"0\",\"transition\":{\"0,0\":\"0\",\"0,1\":\"1\",\"1,0\":\"2\",\"1,1\":\"3\",\"2,0\":\"4\",\"2,1\":\"5\",\"3,0\":\"6\",\"3,1\":\"7\",\"4,0\":\"8\",\"4,1\":\"9\",\"5,0\":\"10\",\"5,1\":\"0\",\"6,0\":\"1\",\"6,1\":\"2\",\"7,0\":\"3\",\"7,1\":\"4\",\"8,0\":\"5\",\"8,1\":\"6\",\"9,0\":\"7\",\"9,1\":\"8\",\"10,0\":\"9\",\"10,1\":\"10\"},\"output\":{\"0\":1,\"1\":0,\"2\":0,\"3\":0,\"4\":0,\"5\":0,\"6\":0,\"7\":0,\"8\":0,\"9\":0,\"10\":0}}",
    "status": "correct",
    "states": 11,
    "rules": 33,
+   "dfa": {
+    "start": "0",
+    "transition": {
+     "0,0": "0",
+     "0,1": "1",
+     "1,0": "2",
+     "1,1": "3",
+     "2,0": "4",
+     "2,1": "5",
+     "3,0": "6",
+     "3,1": "7",
+     "4,0": "8",
+     "4,1": "9",
+     "5,0": "10",
+     "5,1": "0",
+     "6,0": "1",
+     "6,1": "2",
+     "7,0": "3",
+     "7,1": "4",
+     "8,0": "5",
+     "8,1": "6",
+     "9,0": "7",
+     "9,1": "8",
+     "10,0": "9",
+     "10,1": "10"
+    },
+    "output": {
+     "0": 1,
+     "1": 0,
+     "2": 0,
+     "3": 0,
+     "4": 0,
+     "5": 0,
+     "6": 0,
+     "7": 0,
+     "8": 0,
+     "9": 0,
+     "10": 0
+    }
+   },
    "exec": {
     "dict": [
      1.0,
@@ -467,9 +1229,51 @@
   {
    "id": "rem11_1",
    "nl": "x leaves remainder 1 when divided by 11",
+   "prompt": "You are compiling a decision procedure into a deterministic finite automaton (DFA) that reads the bits of a 12-bit unsigned integer x MOST-SIGNIFICANT-BIT FIRST (bit 11 down to bit 0). The DFA must decide: x leaves remainder 1 when divided by 11.\nReturn ONLY a JSON object (no prose, no code fence) with keys:\n  \"start\": the start state (a string),\n  \"transition\": an object mapping \"STATE,BIT\" -> \"NEWSTATE\" for every state and BIT in {0,1},\n  \"output\": an object mapping each STATE -> 1 (predicate holds) or 0.\nThe automaton must be EXACTLY correct for all inputs 0..4095.",
+   "raw_response": "{\"start\":\"0\",\"transition\":{\"0,0\":\"0\",\"0,1\":\"1\",\"1,0\":\"2\",\"1,1\":\"3\",\"2,0\":\"4\",\"2,1\":\"5\",\"3,0\":\"6\",\"3,1\":\"7\",\"4,0\":\"8\",\"4,1\":\"9\",\"5,0\":\"10\",\"5,1\":\"0\",\"6,0\":\"1\",\"6,1\":\"2\",\"7,0\":\"3\",\"7,1\":\"4\",\"8,0\":\"5\",\"8,1\":\"6\",\"9,0\":\"7\",\"9,1\":\"8\",\"10,0\":\"9\",\"10,1\":\"10\"},\"output\":{\"0\":0,\"1\":1,\"2\":0,\"3\":0,\"4\":0,\"5\":0,\"6\":0,\"7\":0,\"8\":0,\"9\":0,\"10\":0}}",
    "status": "correct",
    "states": 11,
    "rules": 33,
+   "dfa": {
+    "start": "0",
+    "transition": {
+     "0,0": "0",
+     "0,1": "1",
+     "1,0": "2",
+     "1,1": "3",
+     "2,0": "4",
+     "2,1": "5",
+     "3,0": "6",
+     "3,1": "7",
+     "4,0": "8",
+     "4,1": "9",
+     "5,0": "10",
+     "5,1": "0",
+     "6,0": "1",
+     "6,1": "2",
+     "7,0": "3",
+     "7,1": "4",
+     "8,0": "5",
+     "8,1": "6",
+     "9,0": "7",
+     "9,1": "8",
+     "10,0": "9",
+     "10,1": "10"
+    },
+    "output": {
+     "0": 0,
+     "1": 1,
+     "2": 0,
+     "3": 0,
+     "4": 0,
+     "5": 0,
+     "6": 0,
+     "7": 0,
+     "8": 0,
+     "9": 0,
+     "10": 0
+    }
+   },
    "exec": {
     "dict": [
      1.0,
@@ -484,9 +1288,51 @@
   {
    "id": "rem11_10",
    "nl": "x leaves remainder 10 when divided by 11",
+   "prompt": "You are compiling a decision procedure into a deterministic finite automaton (DFA) that reads the bits of a 12-bit unsigned integer x MOST-SIGNIFICANT-BIT FIRST (bit 11 down to bit 0). The DFA must decide: x leaves remainder 10 when divided by 11.\nReturn ONLY a JSON object (no prose, no code fence) with keys:\n  \"start\": the start state (a string),\n  \"transition\": an object mapping \"STATE,BIT\" -> \"NEWSTATE\" for every state and BIT in {0,1},\n  \"output\": an object mapping each STATE -> 1 (predicate holds) or 0.\nThe automaton must be EXACTLY correct for all inputs 0..4095.",
+   "raw_response": "{\"start\":\"S0\",\"transition\":{\"S0,0\":\"S0\",\"S0,1\":\"S1\",\"S1,0\":\"S2\",\"S1,1\":\"S3\",\"S2,0\":\"S4\",\"S2,1\":\"S5\",\"S3,0\":\"S6\",\"S3,1\":\"S7\",\"S4,0\":\"S8\",\"S4,1\":\"S9\",\"S5,0\":\"S10\",\"S5,1\":\"S0\",\"S6,0\":\"S1\",\"S6,1\":\"S2\",\"S7,0\":\"S3\",\"S7,1\":\"S4\",\"S8,0\":\"S5\",\"S8,1\":\"S6\",\"S9,0\":\"S7\",\"S9,1\":\"S8\",\"S10,0\":\"S9\",\"S10,1\":\"S10\"},\"output\":{\"S0\":0,\"S1\":0,\"S2\":0,\"S3\":0,\"S4\":0,\"S5\":0,\"S6\":0,\"S7\":0,\"S8\":0,\"S9\":0,\"S10\":1}}",
    "status": "correct",
    "states": 11,
    "rules": 33,
+   "dfa": {
+    "start": "S0",
+    "transition": {
+     "S0,0": "S0",
+     "S0,1": "S1",
+     "S1,0": "S2",
+     "S1,1": "S3",
+     "S2,0": "S4",
+     "S2,1": "S5",
+     "S3,0": "S6",
+     "S3,1": "S7",
+     "S4,0": "S8",
+     "S4,1": "S9",
+     "S5,0": "S10",
+     "S5,1": "S0",
+     "S6,0": "S1",
+     "S6,1": "S2",
+     "S7,0": "S3",
+     "S7,1": "S4",
+     "S8,0": "S5",
+     "S8,1": "S6",
+     "S9,0": "S7",
+     "S9,1": "S8",
+     "S10,0": "S9",
+     "S10,1": "S10"
+    },
+    "output": {
+     "S0": 0,
+     "S1": 0,
+     "S2": 0,
+     "S3": 0,
+     "S4": 0,
+     "S5": 0,
+     "S6": 0,
+     "S7": 0,
+     "S8": 0,
+     "S9": 0,
+     "S10": 1
+    }
+   },
    "exec": {
     "dict": [
      1.0,
@@ -501,9 +1347,54 @@
   {
    "id": "div12",
    "nl": "x is divisible by 12",
+   "prompt": "You are compiling a decision procedure into a deterministic finite automaton (DFA) that reads the bits of a 12-bit unsigned integer x MOST-SIGNIFICANT-BIT FIRST (bit 11 down to bit 0). The DFA must decide: x is divisible by 12.\nReturn ONLY a JSON object (no prose, no code fence) with keys:\n  \"start\": the start state (a string),\n  \"transition\": an object mapping \"STATE,BIT\" -> \"NEWSTATE\" for every state and BIT in {0,1},\n  \"output\": an object mapping each STATE -> 1 (predicate holds) or 0.\nThe automaton must be EXACTLY correct for all inputs 0..4095.",
+   "raw_response": "I need to build a DFA tracking x mod 12. Reading MSB first, each bit updates state as: new = (2*state + bit) mod 12.\n\nStates are \"s0\" through \"s11\", representing remainder. Start at s0. Accept s0.\n\nLet me compute transitions: for state r, bit b \u2192 (2r+b) mod 12.\n\n- s0: 0\u21920, 1\u21921\n- s1: 0\u21922, 1\u21923\n- s2: 0\u21924, 1\u21925\n- s3: 0\u21926, 1\u21927\n- s4: 0\u21928, 1\u21929\n- s5: 0\u219210, 1\u219211\n- s6: 0\u219212mod12=0, 1\u219213mod12=1\n- s7: 0\u219214mod12=2, 1\u219215mod12=3\n- s8: 0\u219216mod12=4, 1\u219217mod12=5\n- s9: 0\u219218mod12=6, 1\u219219mod12=7\n- s10: 0\u219220mod12=8, 1\u219221mod12=9\n- s11: 0\u219222mod12=10, 1\u219223mod12=11\n\n{\"start\":\"s0\",\"transition\":{\"s0,0\":\"s0\",\"s0,1\":\"s1\",\"s1,0\":\"s2\",\"s1,1\":\"s3\",\"s2,0\":\"s4\",\"s2,1\":\"s5\",\"s3,0\":\"s6\",\"s3,1\":\"s7\",\"s4,0\":\"s8\",\"s4,1\":\"s9\",\"s5,0\":\"s10\",\"s5,1\":\"s11\",\"s6,0\":\"s0\",\"s6,1\":\"s1\",\"s7,0\":\"s2\",\"s7,1\":\"s3\",\"s8,0\":\"s4\",\"s8,1\":\"s5\",\"s9,0\":\"s6\",\"s9,1\":\"s7\",\"s10,0\":\"s8\",\"s10,1\":\"s9\",\"s11,0\":\"s10\",\"s11,1\":\"s11\"},\"output\":{\"s0\":1,\"s1\":0,\"s2\":0,\"s3\":0,\"s4\":0,\"s5\":0,\"s6\":0,\"s7\":0,\"s8\":0,\"s9\":0,\"s10\":0,\"s11\":0}}",
    "status": "correct",
    "states": 12,
    "rules": 36,
+   "dfa": {
+    "start": "s0",
+    "transition": {
+     "s0,0": "s0",
+     "s0,1": "s1",
+     "s1,0": "s2",
+     "s1,1": "s3",
+     "s2,0": "s4",
+     "s2,1": "s5",
+     "s3,0": "s6",
+     "s3,1": "s7",
+     "s4,0": "s8",
+     "s4,1": "s9",
+     "s5,0": "s10",
+     "s5,1": "s11",
+     "s6,0": "s0",
+     "s6,1": "s1",
+     "s7,0": "s2",
+     "s7,1": "s3",
+     "s8,0": "s4",
+     "s8,1": "s5",
+     "s9,0": "s6",
+     "s9,1": "s7",
+     "s10,0": "s8",
+     "s10,1": "s9",
+     "s11,0": "s10",
+     "s11,1": "s11"
+    },
+    "output": {
+     "s0": 1,
+     "s1": 0,
+     "s2": 0,
+     "s3": 0,
+     "s4": 0,
+     "s5": 0,
+     "s6": 0,
+     "s7": 0,
+     "s8": 0,
+     "s9": 0,
+     "s10": 0,
+     "s11": 0
+    }
+   },
    "exec": {
     "dict": [
      1.0,
@@ -518,9 +1409,54 @@
   {
    "id": "rem12_1",
    "nl": "x leaves remainder 1 when divided by 12",
+   "prompt": "You are compiling a decision procedure into a deterministic finite automaton (DFA) that reads the bits of a 12-bit unsigned integer x MOST-SIGNIFICANT-BIT FIRST (bit 11 down to bit 0). The DFA must decide: x leaves remainder 1 when divided by 12.\nReturn ONLY a JSON object (no prose, no code fence) with keys:\n  \"start\": the start state (a string),\n  \"transition\": an object mapping \"STATE,BIT\" -> \"NEWSTATE\" for every state and BIT in {0,1},\n  \"output\": an object mapping each STATE -> 1 (predicate holds) or 0.\nThe automaton must be EXACTLY correct for all inputs 0..4095.",
+   "raw_response": "I need to build a DFA that tracks x mod 12 as bits come in MSB first.\n\nWhen reading a bit b, the new remainder is (2*current + b) mod 12.\n\nStates: r0 through r11, representing the current value mod 12. Start state is r0 (empty prefix = 0). After reading all 12 bits, accept if remainder == 1.\n\nLet me compute transitions: from state r, bit b \u2192 (2r + b) mod 12.\n\n- r0: 0\u21920, 1\u21921\n- r1: 2\u2192r2, 3\u2192r3\n- r2: 4\u2192r4, 5\u2192r5\n- r3: 6\u2192r6, 7\u2192r7\n- r4: 8\u2192r8, 9\u2192r9\n- r5: 10\u2192r10, 11\u2192r11\n- r6: 12mod12=0\u2192r0, 13mod12=1\u2192r1\n- r7: 14mod12=2\u2192r2, 15mod12=3\u2192r3\n- r8: 16mod12=4\u2192r4, 17mod12=5\u2192r5\n- r9: 18mod12=6\u2192r6, 19mod12=7\u2192r7\n- r10: 20mod12=8\u2192r8, 21mod12=9\u2192r9\n- r11: 22mod12=10\u2192r10, 23mod12=11\u2192r11\n\nSince 12 is a valid count and 2^12 mod 12 handling is automatically correct via mod tracking, this is exact.\n\n{\"start\":\"r0\",\"transition\":{\"r0,0\":\"r0\",\"r0,1\":\"r1\",\"r1,0\":\"r2\",\"r1,1\":\"r3\",\"r2,0\":\"r4\",\"r2,1\":\"r5\",\"r3,0\":\"r6\",\"r3,1\":\"r7\",\"r4,0\":\"r8\",\"r4,1\":\"r9\",\"r5,0\":\"r10\",\"r5,1\":\"r11\",\"r6,0\":\"r0\",\"r6,1\":\"r1\",\"r7,0\":\"r2\",\"r7,1\":\"r3\",\"r8,0\":\"r4\",\"r8,1\":\"r5\",\"r9,0\":\"r6\",\"r9,1\":\"r7\",\"r10,0\":\"r8\",\"r10,1\":\"r9\",\"r11,0\":\"r10\",\"r11,1\":\"r11\"},\"output\":{\"r0\":0,\"r1\":1,\"r2\":0,\"r3\":0,\"r4\":0,\"r5\":0,\"r6\":0,\"r7\":0,\"r8\":0,\"r9\":0,\"r10\":0,\"r11\":0}}",
    "status": "correct",
    "states": 12,
    "rules": 36,
+   "dfa": {
+    "start": "r0",
+    "transition": {
+     "r0,0": "r0",
+     "r0,1": "r1",
+     "r1,0": "r2",
+     "r1,1": "r3",
+     "r2,0": "r4",
+     "r2,1": "r5",
+     "r3,0": "r6",
+     "r3,1": "r7",
+     "r4,0": "r8",
+     "r4,1": "r9",
+     "r5,0": "r10",
+     "r5,1": "r11",
+     "r6,0": "r0",
+     "r6,1": "r1",
+     "r7,0": "r2",
+     "r7,1": "r3",
+     "r8,0": "r4",
+     "r8,1": "r5",
+     "r9,0": "r6",
+     "r9,1": "r7",
+     "r10,0": "r8",
+     "r10,1": "r9",
+     "r11,0": "r10",
+     "r11,1": "r11"
+    },
+    "output": {
+     "r0": 0,
+     "r1": 1,
+     "r2": 0,
+     "r3": 0,
+     "r4": 0,
+     "r5": 0,
+     "r6": 0,
+     "r7": 0,
+     "r8": 0,
+     "r9": 0,
+     "r10": 0,
+     "r11": 0
+    }
+   },
    "exec": {
     "dict": [
      1.0,
@@ -535,9 +1471,54 @@
   {
    "id": "rem12_11",
    "nl": "x leaves remainder 11 when divided by 12",
+   "prompt": "You are compiling a decision procedure into a deterministic finite automaton (DFA) that reads the bits of a 12-bit unsigned integer x MOST-SIGNIFICANT-BIT FIRST (bit 11 down to bit 0). The DFA must decide: x leaves remainder 11 when divided by 12.\nReturn ONLY a JSON object (no prose, no code fence) with keys:\n  \"start\": the start state (a string),\n  \"transition\": an object mapping \"STATE,BIT\" -> \"NEWSTATE\" for every state and BIT in {0,1},\n  \"output\": an object mapping each STATE -> 1 (predicate holds) or 0.\nThe automaton must be EXACTLY correct for all inputs 0..4095.",
+   "raw_response": "I need to build a DFA tracking x mod 12, reading bits MSB first.\n\nState = current value mod 12. Reading bit b: new_state = (2*state + b) mod 12.\n\nStart state = 0 (before reading any bits).\n\nAfter reading all 12 bits, accept if state == 11.\n\nLet me compute transitions for each state 0-11:\n- state s, bit b \u2192 (2s+b) mod 12\n\n- 0: 0\u21920, 1\u21921\n- 1: 2\u21922, 3\u21923\n- 2: 4\u21924, 5\u21925\n- 3: 6\u21926, 7\u21927\n- 4: 8\u21928, 9\u21929\n- 5: 10\u219210, 11\u219211\n- 6: 12mod12=0, 13mod12=1\n- 7: 14mod12=2, 15mod12=3\n- 8: 16mod12=4, 17mod12=5\n- 9: 18mod12=6, 19mod12=7\n- 10: 20mod12=8, 21mod12=9\n- 11: 22mod12=10, 23mod12=11\n\nOutput: state 11 \u2192 1, else 0.\n\n{\"start\":\"0\",\"transition\":{\"0,0\":\"0\",\"0,1\":\"1\",\"1,0\":\"2\",\"1,1\":\"3\",\"2,0\":\"4\",\"2,1\":\"5\",\"3,0\":\"6\",\"3,1\":\"7\",\"4,0\":\"8\",\"4,1\":\"9\",\"5,0\":\"10\",\"5,1\":\"11\",\"6,0\":\"0\",\"6,1\":\"1\",\"7,0\":\"2\",\"7,1\":\"3\",\"8,0\":\"4\",\"8,1\":\"5\",\"9,0\":\"6\",\"9,1\":\"7\",\"10,0\":\"8\",\"10,1\":\"9\",\"11,0\":\"10\",\"11,1\":\"11\"},\"output\":{\"0\":0,\"1\":0,\"2\":0,\"3\":0,\"4\":0,\"5\":0,\"6\":0,\"7\":0,\"8\":0,\"9\":0,\"10\":0,\"11\":1}}",
    "status": "correct",
    "states": 12,
    "rules": 36,
+   "dfa": {
+    "start": "0",
+    "transition": {
+     "0,0": "0",
+     "0,1": "1",
+     "1,0": "2",
+     "1,1": "3",
+     "2,0": "4",
+     "2,1": "5",
+     "3,0": "6",
+     "3,1": "7",
+     "4,0": "8",
+     "4,1": "9",
+     "5,0": "10",
+     "5,1": "11",
+     "6,0": "0",
+     "6,1": "1",
+     "7,0": "2",
+     "7,1": "3",
+     "8,0": "4",
+     "8,1": "5",
+     "9,0": "6",
+     "9,1": "7",
+     "10,0": "8",
+     "10,1": "9",
+     "11,0": "10",
+     "11,1": "11"
+    },
+    "output": {
+     "0": 0,
+     "1": 0,
+     "2": 0,
+     "3": 0,
+     "4": 0,
+     "5": 0,
+     "6": 0,
+     "7": 0,
+     "8": 0,
+     "9": 0,
+     "10": 0,
+     "11": 1
+    }
+   },
    "exec": {
     "dict": [
      1.0,
@@ -552,9 +1533,57 @@
   {
    "id": "div13",
    "nl": "x is divisible by 13",
+   "prompt": "You are compiling a decision procedure into a deterministic finite automaton (DFA) that reads the bits of a 12-bit unsigned integer x MOST-SIGNIFICANT-BIT FIRST (bit 11 down to bit 0). The DFA must decide: x is divisible by 13.\nReturn ONLY a JSON object (no prose, no code fence) with keys:\n  \"start\": the start state (a string),\n  \"transition\": an object mapping \"STATE,BIT\" -> \"NEWSTATE\" for every state and BIT in {0,1},\n  \"output\": an object mapping each STATE -> 1 (predicate holds) or 0.\nThe automaton must be EXACTLY correct for all inputs 0..4095.",
+   "raw_response": "Reading MSB first, each state represents the remainder mod 13. Transition: new = (2*r + bit) mod 13.\n\n{\"start\":\"s0\",\"transition\":{\"s0,0\":\"s0\",\"s0,1\":\"s1\",\"s1,0\":\"s2\",\"s1,1\":\"s3\",\"s2,0\":\"s4\",\"s2,1\":\"s5\",\"s3,0\":\"s6\",\"s3,1\":\"s7\",\"s4,0\":\"s8\",\"s4,1\":\"s9\",\"s5,0\":\"s10\",\"s5,1\":\"s11\",\"s6,0\":\"s12\",\"s6,1\":\"s0\",\"s7,0\":\"s1\",\"s7,1\":\"s2\",\"s8,0\":\"s3\",\"s8,1\":\"s4\",\"s9,0\":\"s5\",\"s9,1\":\"s6\",\"s10,0\":\"s7\",\"s10,1\":\"s8\",\"s11,0\":\"s9\",\"s11,1\":\"s10\",\"s12,0\":\"s11\",\"s12,1\":\"s12\"},\"output\":{\"s0\":1,\"s1\":0,\"s2\":0,\"s3\":0,\"s4\":0,\"s5\":0,\"s6\":0,\"s7\":0,\"s8\":0,\"s9\":0,\"s10\":0,\"s11\":0,\"s12\":0}}",
    "status": "correct",
    "states": 13,
    "rules": 39,
+   "dfa": {
+    "start": "s0",
+    "transition": {
+     "s0,0": "s0",
+     "s0,1": "s1",
+     "s1,0": "s2",
+     "s1,1": "s3",
+     "s2,0": "s4",
+     "s2,1": "s5",
+     "s3,0": "s6",
+     "s3,1": "s7",
+     "s4,0": "s8",
+     "s4,1": "s9",
+     "s5,0": "s10",
+     "s5,1": "s11",
+     "s6,0": "s12",
+     "s6,1": "s0",
+     "s7,0": "s1",
+     "s7,1": "s2",
+     "s8,0": "s3",
+     "s8,1": "s4",
+     "s9,0": "s5",
+     "s9,1": "s6",
+     "s10,0": "s7",
+     "s10,1": "s8",
+     "s11,0": "s9",
+     "s11,1": "s10",
+     "s12,0": "s11",
+     "s12,1": "s12"
+    },
+    "output": {
+     "s0": 1,
+     "s1": 0,
+     "s2": 0,
+     "s3": 0,
+     "s4": 0,
+     "s5": 0,
+     "s6": 0,
+     "s7": 0,
+     "s8": 0,
+     "s9": 0,
+     "s10": 0,
+     "s11": 0,
+     "s12": 0
+    }
+   },
    "exec": {
     "dict": [
      1.0,
@@ -569,9 +1598,57 @@
   {
    "id": "rem13_1",
    "nl": "x leaves remainder 1 when divided by 13",
+   "prompt": "You are compiling a decision procedure into a deterministic finite automaton (DFA) that reads the bits of a 12-bit unsigned integer x MOST-SIGNIFICANT-BIT FIRST (bit 11 down to bit 0). The DFA must decide: x leaves remainder 1 when divided by 13.\nReturn ONLY a JSON object (no prose, no code fence) with keys:\n  \"start\": the start state (a string),\n  \"transition\": an object mapping \"STATE,BIT\" -> \"NEWSTATE\" for every state and BIT in {0,1},\n  \"output\": an object mapping each STATE -> 1 (predicate holds) or 0.\nThe automaton must be EXACTLY correct for all inputs 0..4095.",
+   "raw_response": "I need to build a DFA that tracks x mod 13 as bits are read MSB first.\n\nProcessing MSB first: state = current value mod 13. On reading bit b: new_state = (2*state + b) mod 13.\n\nStart state: 0 (before reading any bits). After 12 bits, we've accumulated x mod 13.\n\nAccept if final state == 1.\n\nSince 12 bits with MSB-first, the state (0..12) always represents the value mod 13 of bits read so far. This works for all inputs 0..4095.\n\nLet me name states \"0\" through \"12\". Transitions: from state s, bit b \u2192 (2*s + b) mod 13.\n\nLet me compute:\n- s=0: 0\u21920, 1\u21921\n- s=1: 0\u21922, 1\u21923\n- s=2: 0\u21924, 1\u21925\n- s=3: 0\u21926, 1\u21927\n- s=4: 0\u21928, 1\u21929\n- s=5: 0\u219210, 1\u219211\n- s=6: 0\u219212, 1\u21920 (13 mod13=0)\n- s=7: 14mod13=1\u21921, 15mod13=2\u21922\n- s=8: 16mod13=3, 17mod13=4\n- s=9: 18mod13=5, 19mod13=6\n- s=10: 20mod13=7, 21mod13=8\n- s=11: 22mod13=9, 23mod13=10\n- s=12: 24mod13=11, 25mod13=12\n\n{\"start\":\"0\",\"transition\":{\"0,0\":\"0\",\"0,1\":\"1\",\"1,0\":\"2\",\"1,1\":\"3\",\"2,0\":\"4\",\"2,1\":\"5\",\"3,0\":\"6\",\"3,1\":\"7\",\"4,0\":\"8\",\"4,1\":\"9\",\"5,0\":\"10\",\"5,1\":\"11\",\"6,0\":\"12\",\"6,1\":\"0\",\"7,0\":\"1\",\"7,1\":\"2\",\"8,0\":\"3\",\"8,1\":\"4\",\"9,0\":\"5\",\"9,1\":\"6\",\"10,0\":\"7\",\"10,1\":\"8\",\"11,0\":\"9\",\"11,1\":\"10\",\"12,0\":\"11\",\"12,1\":\"12\"},\"output\":{\"0\":0,\"1\":1,\"2\":0,\"3\":0,\"4\":0,\"5\":0,\"6\":0,\"7\":0,\"8\":0,\"9\":0,\"10\":0,\"11\":0,\"12\":0}}",
    "status": "correct",
    "states": 13,
    "rules": 39,
+   "dfa": {
+    "start": "0",
+    "transition": {
+     "0,0": "0",
+     "0,1": "1",
+     "1,0": "2",
+     "1,1": "3",
+     "2,0": "4",
+     "2,1": "5",
+     "3,0": "6",
+     "3,1": "7",
+     "4,0": "8",
+     "4,1": "9",
+     "5,0": "10",
+     "5,1": "11",
+     "6,0": "12",
+     "6,1": "0",
+     "7,0": "1",
+     "7,1": "2",
+     "8,0": "3",
+     "8,1": "4",
+     "9,0": "5",
+     "9,1": "6",
+     "10,0": "7",
+     "10,1": "8",
+     "11,0": "9",
+     "11,1": "10",
+     "12,0": "11",
+     "12,1": "12"
+    },
+    "output": {
+     "0": 0,
+     "1": 1,
+     "2": 0,
+     "3": 0,
+     "4": 0,
+     "5": 0,
+     "6": 0,
+     "7": 0,
+     "8": 0,
+     "9": 0,
+     "10": 0,
+     "11": 0,
+     "12": 0
+    }
+   },
    "exec": {
     "dict": [
      1.0,
@@ -586,9 +1663,57 @@
   {
    "id": "rem13_12",
    "nl": "x leaves remainder 12 when divided by 13",
+   "prompt": "You are compiling a decision procedure into a deterministic finite automaton (DFA) that reads the bits of a 12-bit unsigned integer x MOST-SIGNIFICANT-BIT FIRST (bit 11 down to bit 0). The DFA must decide: x leaves remainder 12 when divided by 13.\nReturn ONLY a JSON object (no prose, no code fence) with keys:\n  \"start\": the start state (a string),\n  \"transition\": an object mapping \"STATE,BIT\" -> \"NEWSTATE\" for every state and BIT in {0,1},\n  \"output\": an object mapping each STATE -> 1 (predicate holds) or 0.\nThe automaton must be EXACTLY correct for all inputs 0..4095.",
+   "raw_response": "I need to build a DFA that tracks x mod 13 as bits are read MSB-first.\n\nWhen reading MSB-first, each new bit b updates the remainder: new_state = (2*state + b) mod 13.\n\nStart state is 0. After reading all 12 bits, accept if remainder == 12.\n\nLet me name states s0..s12 representing the remainder mod 13.\n\nFor each state r and bit b: new = (2*r + b) mod 13.\n\nLet me compute transitions:\n- s0: b0\u21920, b1\u21921\n- s1: b0\u21922, b1\u21923\n- s2: b0\u21924, b1\u21925\n- s3: b0\u21926, b1\u21927\n- s4: b0\u21928, b1\u21929\n- s5: b0\u219210, b1\u219211\n- s6: b0\u219212, b1\u21920 (13mod13=0)\n- s7: 14mod13=1\u2192b0=1, b1=2\n- s8: 16mod13=3\u2192b0=3, b1=4\n- s9: 18mod13=5\u2192b0=5, b1=6\n- s10: 20mod13=7\u2192b0=7, b1=8\n- s11: 22mod13=9\u2192b0=9, b1=10\n- s12: 24mod13=11\u2192b0=11, b1=12\n\nOutput: s12\u21921, all others\u21920.\n\n{\"start\":\"s0\",\"transition\":{\"s0,0\":\"s0\",\"s0,1\":\"s1\",\"s1,0\":\"s2\",\"s1,1\":\"s3\",\"s2,0\":\"s4\",\"s2,1\":\"s5\",\"s3,0\":\"s6\",\"s3,1\":\"s7\",\"s4,0\":\"s8\",\"s4,1\":\"s9\",\"s5,0\":\"s10\",\"s5,1\":\"s11\",\"s6,0\":\"s12\",\"s6,1\":\"s0\",\"s7,0\":\"s1\",\"s7,1\":\"s2\",\"s8,0\":\"s3\",\"s8,1\":\"s4\",\"s9,0\":\"s5\",\"s9,1\":\"s6\",\"s10,0\":\"s7\",\"s10,1\":\"s8\",\"s11,0\":\"s9\",\"s11,1\":\"s10\",\"s12,0\":\"s11\",\"s12,1\":\"s12\"},\"output\":{\"s0\":0,\"s1\":0,\"s2\":0,\"s3\":0,\"s4\":0,\"s5\":0,\"s6\":0,\"s7\":0,\"s8\":0,\"s9\":0,\"s10\":0,\"s11\":0,\"s12\":1}}",
    "status": "correct",
    "states": 13,
    "rules": 39,
+   "dfa": {
+    "start": "s0",
+    "transition": {
+     "s0,0": "s0",
+     "s0,1": "s1",
+     "s1,0": "s2",
+     "s1,1": "s3",
+     "s2,0": "s4",
+     "s2,1": "s5",
+     "s3,0": "s6",
+     "s3,1": "s7",
+     "s4,0": "s8",
+     "s4,1": "s9",
+     "s5,0": "s10",
+     "s5,1": "s11",
+     "s6,0": "s12",
+     "s6,1": "s0",
+     "s7,0": "s1",
+     "s7,1": "s2",
+     "s8,0": "s3",
+     "s8,1": "s4",
+     "s9,0": "s5",
+     "s9,1": "s6",
+     "s10,0": "s7",
+     "s10,1": "s8",
+     "s11,0": "s9",
+     "s11,1": "s10",
+     "s12,0": "s11",
+     "s12,1": "s12"
+    },
+    "output": {
+     "s0": 0,
+     "s1": 0,
+     "s2": 0,
+     "s3": 0,
+     "s4": 0,
+     "s5": 0,
+     "s6": 0,
+     "s7": 0,
+     "s8": 0,
+     "s9": 0,
+     "s10": 0,
+     "s11": 0,
+     "s12": 1
+    }
+   },
    "exec": {
     "dict": [
      1.0,
@@ -603,9 +1728,24 @@
   {
    "id": "pop2_0",
    "nl": "the number of 1-bits in x is congruent to 0 modulo 2",
+   "prompt": "You are compiling a decision procedure into a deterministic finite automaton (DFA) that reads the bits of a 12-bit unsigned integer x MOST-SIGNIFICANT-BIT FIRST (bit 11 down to bit 0). The DFA must decide: the number of 1-bits in x is congruent to 0 modulo 2.\nReturn ONLY a JSON object (no prose, no code fence) with keys:\n  \"start\": the start state (a string),\n  \"transition\": an object mapping \"STATE,BIT\" -> \"NEWSTATE\" for every state and BIT in {0,1},\n  \"output\": an object mapping each STATE -> 1 (predicate holds) or 0.\nThe automaton must be EXACTLY correct for all inputs 0..4095.",
+   "raw_response": "{\"start\":\"E\",\"transition\":{\"E,0\":\"E\",\"E,1\":\"O\",\"O,0\":\"O\",\"O,1\":\"E\"},\"output\":{\"E\":1,\"O\":0}}",
    "status": "correct",
    "states": 2,
    "rules": 6,
+   "dfa": {
+    "start": "E",
+    "transition": {
+     "E,0": "E",
+     "E,1": "O",
+     "O,0": "O",
+     "O,1": "E"
+    },
+    "output": {
+     "E": 1,
+     "O": 0
+    }
+   },
    "exec": {
     "dict": [
      1.0,
@@ -620,9 +1760,24 @@
   {
    "id": "pop2_1",
    "nl": "the number of 1-bits in x is congruent to 1 modulo 2",
+   "prompt": "You are compiling a decision procedure into a deterministic finite automaton (DFA) that reads the bits of a 12-bit unsigned integer x MOST-SIGNIFICANT-BIT FIRST (bit 11 down to bit 0). The DFA must decide: the number of 1-bits in x is congruent to 1 modulo 2.\nReturn ONLY a JSON object (no prose, no code fence) with keys:\n  \"start\": the start state (a string),\n  \"transition\": an object mapping \"STATE,BIT\" -> \"NEWSTATE\" for every state and BIT in {0,1},\n  \"output\": an object mapping each STATE -> 1 (predicate holds) or 0.\nThe automaton must be EXACTLY correct for all inputs 0..4095.",
+   "raw_response": "{\"start\":\"S0\",\"transition\":{\"S0,0\":\"S0\",\"S0,1\":\"S1\",\"S1,0\":\"S1\",\"S1,1\":\"S0\"},\"output\":{\"S0\":0,\"S1\":1}}",
    "status": "correct",
    "states": 2,
    "rules": 6,
+   "dfa": {
+    "start": "S0",
+    "transition": {
+     "S0,0": "S0",
+     "S0,1": "S1",
+     "S1,0": "S1",
+     "S1,1": "S0"
+    },
+    "output": {
+     "S0": 0,
+     "S1": 1
+    }
+   },
    "exec": {
     "dict": [
      1.0,
@@ -637,9 +1792,27 @@
   {
    "id": "pop3_0",
    "nl": "the number of 1-bits in x is congruent to 0 modulo 3",
+   "prompt": "You are compiling a decision procedure into a deterministic finite automaton (DFA) that reads the bits of a 12-bit unsigned integer x MOST-SIGNIFICANT-BIT FIRST (bit 11 down to bit 0). The DFA must decide: the number of 1-bits in x is congruent to 0 modulo 3.\nReturn ONLY a JSON object (no prose, no code fence) with keys:\n  \"start\": the start state (a string),\n  \"transition\": an object mapping \"STATE,BIT\" -> \"NEWSTATE\" for every state and BIT in {0,1},\n  \"output\": an object mapping each STATE -> 1 (predicate holds) or 0.\nThe automaton must be EXACTLY correct for all inputs 0..4095.",
+   "raw_response": "{\"start\":\"s0\",\"transition\":{\"s0,0\":\"s0\",\"s0,1\":\"s1\",\"s1,0\":\"s1\",\"s1,1\":\"s2\",\"s2,0\":\"s2\",\"s2,1\":\"s0\"},\"output\":{\"s0\":1,\"s1\":0,\"s2\":0}}",
    "status": "correct",
    "states": 3,
    "rules": 9,
+   "dfa": {
+    "start": "s0",
+    "transition": {
+     "s0,0": "s0",
+     "s0,1": "s1",
+     "s1,0": "s1",
+     "s1,1": "s2",
+     "s2,0": "s2",
+     "s2,1": "s0"
+    },
+    "output": {
+     "s0": 1,
+     "s1": 0,
+     "s2": 0
+    }
+   },
    "exec": {
     "dict": [
      1.0,
@@ -654,9 +1827,27 @@
   {
    "id": "pop3_1",
    "nl": "the number of 1-bits in x is congruent to 1 modulo 3",
+   "prompt": "You are compiling a decision procedure into a deterministic finite automaton (DFA) that reads the bits of a 12-bit unsigned integer x MOST-SIGNIFICANT-BIT FIRST (bit 11 down to bit 0). The DFA must decide: the number of 1-bits in x is congruent to 1 modulo 3.\nReturn ONLY a JSON object (no prose, no code fence) with keys:\n  \"start\": the start state (a string),\n  \"transition\": an object mapping \"STATE,BIT\" -> \"NEWSTATE\" for every state and BIT in {0,1},\n  \"output\": an object mapping each STATE -> 1 (predicate holds) or 0.\nThe automaton must be EXACTLY correct for all inputs 0..4095.",
+   "raw_response": "{\"start\": \"s0\", \"transition\": {\"s0,0\": \"s0\", \"s0,1\": \"s1\", \"s1,0\": \"s1\", \"s1,1\": \"s2\", \"s2,0\": \"s2\", \"s2,1\": \"s0\"}, \"output\": {\"s0\": 0, \"s1\": 1, \"s2\": 0}}",
    "status": "correct",
    "states": 3,
    "rules": 9,
+   "dfa": {
+    "start": "s0",
+    "transition": {
+     "s0,0": "s0",
+     "s0,1": "s1",
+     "s1,0": "s1",
+     "s1,1": "s2",
+     "s2,0": "s2",
+     "s2,1": "s0"
+    },
+    "output": {
+     "s0": 0,
+     "s1": 1,
+     "s2": 0
+    }
+   },
    "exec": {
     "dict": [
      1.0,
@@ -671,9 +1862,27 @@
   {
    "id": "pop3_2",
    "nl": "the number of 1-bits in x is congruent to 2 modulo 3",
+   "prompt": "You are compiling a decision procedure into a deterministic finite automaton (DFA) that reads the bits of a 12-bit unsigned integer x MOST-SIGNIFICANT-BIT FIRST (bit 11 down to bit 0). The DFA must decide: the number of 1-bits in x is congruent to 2 modulo 3.\nReturn ONLY a JSON object (no prose, no code fence) with keys:\n  \"start\": the start state (a string),\n  \"transition\": an object mapping \"STATE,BIT\" -> \"NEWSTATE\" for every state and BIT in {0,1},\n  \"output\": an object mapping each STATE -> 1 (predicate holds) or 0.\nThe automaton must be EXACTLY correct for all inputs 0..4095.",
+   "raw_response": "{\"start\": \"s0\", \"transition\": {\"s0,0\": \"s0\", \"s0,1\": \"s1\", \"s1,0\": \"s1\", \"s1,1\": \"s2\", \"s2,0\": \"s2\", \"s2,1\": \"s0\"}, \"output\": {\"s0\": 0, \"s1\": 0, \"s2\": 1}}",
    "status": "correct",
    "states": 3,
    "rules": 9,
+   "dfa": {
+    "start": "s0",
+    "transition": {
+     "s0,0": "s0",
+     "s0,1": "s1",
+     "s1,0": "s1",
+     "s1,1": "s2",
+     "s2,0": "s2",
+     "s2,1": "s0"
+    },
+    "output": {
+     "s0": 0,
+     "s1": 0,
+     "s2": 1
+    }
+   },
    "exec": {
     "dict": [
      1.0,
@@ -688,9 +1897,30 @@
   {
    "id": "pop4_0",
    "nl": "the number of 1-bits in x is congruent to 0 modulo 4",
+   "prompt": "You are compiling a decision procedure into a deterministic finite automaton (DFA) that reads the bits of a 12-bit unsigned integer x MOST-SIGNIFICANT-BIT FIRST (bit 11 down to bit 0). The DFA must decide: the number of 1-bits in x is congruent to 0 modulo 4.\nReturn ONLY a JSON object (no prose, no code fence) with keys:\n  \"start\": the start state (a string),\n  \"transition\": an object mapping \"STATE,BIT\" -> \"NEWSTATE\" for every state and BIT in {0,1},\n  \"output\": an object mapping each STATE -> 1 (predicate holds) or 0.\nThe automaton must be EXACTLY correct for all inputs 0..4095.",
+   "raw_response": "{\"start\":\"s0\",\"transition\":{\"s0,0\":\"s0\",\"s0,1\":\"s1\",\"s1,0\":\"s1\",\"s1,1\":\"s2\",\"s2,0\":\"s2\",\"s2,1\":\"s3\",\"s3,0\":\"s3\",\"s3,1\":\"s0\"},\"output\":{\"s0\":1,\"s1\":0,\"s2\":0,\"s3\":0}}",
    "status": "correct",
    "states": 4,
    "rules": 12,
+   "dfa": {
+    "start": "s0",
+    "transition": {
+     "s0,0": "s0",
+     "s0,1": "s1",
+     "s1,0": "s1",
+     "s1,1": "s2",
+     "s2,0": "s2",
+     "s2,1": "s3",
+     "s3,0": "s3",
+     "s3,1": "s0"
+    },
+    "output": {
+     "s0": 1,
+     "s1": 0,
+     "s2": 0,
+     "s3": 0
+    }
+   },
    "exec": {
     "dict": [
      1.0,
@@ -705,9 +1935,30 @@
   {
    "id": "pop4_1",
    "nl": "the number of 1-bits in x is congruent to 1 modulo 4",
+   "prompt": "You are compiling a decision procedure into a deterministic finite automaton (DFA) that reads the bits of a 12-bit unsigned integer x MOST-SIGNIFICANT-BIT FIRST (bit 11 down to bit 0). The DFA must decide: the number of 1-bits in x is congruent to 1 modulo 4.\nReturn ONLY a JSON object (no prose, no code fence) with keys:\n  \"start\": the start state (a string),\n  \"transition\": an object mapping \"STATE,BIT\" -> \"NEWSTATE\" for every state and BIT in {0,1},\n  \"output\": an object mapping each STATE -> 1 (predicate holds) or 0.\nThe automaton must be EXACTLY correct for all inputs 0..4095.",
+   "raw_response": "{\"start\":\"S0\",\"transition\":{\"S0,0\":\"S0\",\"S0,1\":\"S1\",\"S1,0\":\"S1\",\"S1,1\":\"S2\",\"S2,0\":\"S2\",\"S2,1\":\"S3\",\"S3,0\":\"S3\",\"S3,1\":\"S0\"},\"output\":{\"S0\":0,\"S1\":1,\"S2\":0,\"S3\":0}}",
    "status": "correct",
    "states": 4,
    "rules": 12,
+   "dfa": {
+    "start": "S0",
+    "transition": {
+     "S0,0": "S0",
+     "S0,1": "S1",
+     "S1,0": "S1",
+     "S1,1": "S2",
+     "S2,0": "S2",
+     "S2,1": "S3",
+     "S3,0": "S3",
+     "S3,1": "S0"
+    },
+    "output": {
+     "S0": 0,
+     "S1": 1,
+     "S2": 0,
+     "S3": 0
+    }
+   },
    "exec": {
     "dict": [
      1.0,
@@ -722,9 +1973,30 @@
   {
    "id": "pop4_2",
    "nl": "the number of 1-bits in x is congruent to 2 modulo 4",
+   "prompt": "You are compiling a decision procedure into a deterministic finite automaton (DFA) that reads the bits of a 12-bit unsigned integer x MOST-SIGNIFICANT-BIT FIRST (bit 11 down to bit 0). The DFA must decide: the number of 1-bits in x is congruent to 2 modulo 4.\nReturn ONLY a JSON object (no prose, no code fence) with keys:\n  \"start\": the start state (a string),\n  \"transition\": an object mapping \"STATE,BIT\" -> \"NEWSTATE\" for every state and BIT in {0,1},\n  \"output\": an object mapping each STATE -> 1 (predicate holds) or 0.\nThe automaton must be EXACTLY correct for all inputs 0..4095.",
+   "raw_response": "{\"start\":\"s0\",\"transition\":{\"s0,0\":\"s0\",\"s0,1\":\"s1\",\"s1,0\":\"s1\",\"s1,1\":\"s2\",\"s2,0\":\"s2\",\"s2,1\":\"s3\",\"s3,0\":\"s3\",\"s3,1\":\"s0\"},\"output\":{\"s0\":0,\"s1\":0,\"s2\":1,\"s3\":0}}",
    "status": "correct",
    "states": 4,
    "rules": 12,
+   "dfa": {
+    "start": "s0",
+    "transition": {
+     "s0,0": "s0",
+     "s0,1": "s1",
+     "s1,0": "s1",
+     "s1,1": "s2",
+     "s2,0": "s2",
+     "s2,1": "s3",
+     "s3,0": "s3",
+     "s3,1": "s0"
+    },
+    "output": {
+     "s0": 0,
+     "s1": 0,
+     "s2": 1,
+     "s3": 0
+    }
+   },
    "exec": {
     "dict": [
      1.0,
@@ -739,9 +2011,30 @@
   {
    "id": "pop4_3",
    "nl": "the number of 1-bits in x is congruent to 3 modulo 4",
+   "prompt": "You are compiling a decision procedure into a deterministic finite automaton (DFA) that reads the bits of a 12-bit unsigned integer x MOST-SIGNIFICANT-BIT FIRST (bit 11 down to bit 0). The DFA must decide: the number of 1-bits in x is congruent to 3 modulo 4.\nReturn ONLY a JSON object (no prose, no code fence) with keys:\n  \"start\": the start state (a string),\n  \"transition\": an object mapping \"STATE,BIT\" -> \"NEWSTATE\" for every state and BIT in {0,1},\n  \"output\": an object mapping each STATE -> 1 (predicate holds) or 0.\nThe automaton must be EXACTLY correct for all inputs 0..4095.",
+   "raw_response": "{\"start\":\"s0\",\"transition\":{\"s0,0\":\"s0\",\"s0,1\":\"s1\",\"s1,0\":\"s1\",\"s1,1\":\"s2\",\"s2,0\":\"s2\",\"s2,1\":\"s3\",\"s3,0\":\"s3\",\"s3,1\":\"s0\"},\"output\":{\"s0\":0,\"s1\":0,\"s2\":0,\"s3\":1}}",
    "status": "correct",
    "states": 4,
    "rules": 12,
+   "dfa": {
+    "start": "s0",
+    "transition": {
+     "s0,0": "s0",
+     "s0,1": "s1",
+     "s1,0": "s1",
+     "s1,1": "s2",
+     "s2,0": "s2",
+     "s2,1": "s3",
+     "s3,0": "s3",
+     "s3,1": "s0"
+    },
+    "output": {
+     "s0": 0,
+     "s1": 0,
+     "s2": 0,
+     "s3": 1
+    }
+   },
    "exec": {
     "dict": [
      1.0,
@@ -756,9 +2049,33 @@
   {
    "id": "pop5_0",
    "nl": "the number of 1-bits in x is congruent to 0 modulo 5",
+   "prompt": "You are compiling a decision procedure into a deterministic finite automaton (DFA) that reads the bits of a 12-bit unsigned integer x MOST-SIGNIFICANT-BIT FIRST (bit 11 down to bit 0). The DFA must decide: the number of 1-bits in x is congruent to 0 modulo 5.\nReturn ONLY a JSON object (no prose, no code fence) with keys:\n  \"start\": the start state (a string),\n  \"transition\": an object mapping \"STATE,BIT\" -> \"NEWSTATE\" for every state and BIT in {0,1},\n  \"output\": an object mapping each STATE -> 1 (predicate holds) or 0.\nThe automaton must be EXACTLY correct for all inputs 0..4095.",
+   "raw_response": "{\"start\":\"s0\",\"transition\":{\"s0,0\":\"s0\",\"s0,1\":\"s1\",\"s1,0\":\"s1\",\"s1,1\":\"s2\",\"s2,0\":\"s2\",\"s2,1\":\"s3\",\"s3,0\":\"s3\",\"s3,1\":\"s4\",\"s4,0\":\"s4\",\"s4,1\":\"s0\"},\"output\":{\"s0\":1,\"s1\":0,\"s2\":0,\"s3\":0,\"s4\":0}}",
    "status": "correct",
    "states": 5,
    "rules": 15,
+   "dfa": {
+    "start": "s0",
+    "transition": {
+     "s0,0": "s0",
+     "s0,1": "s1",
+     "s1,0": "s1",
+     "s1,1": "s2",
+     "s2,0": "s2",
+     "s2,1": "s3",
+     "s3,0": "s3",
+     "s3,1": "s4",
+     "s4,0": "s4",
+     "s4,1": "s0"
+    },
+    "output": {
+     "s0": 1,
+     "s1": 0,
+     "s2": 0,
+     "s3": 0,
+     "s4": 0
+    }
+   },
    "exec": {
     "dict": [
      1.0,
@@ -773,9 +2090,33 @@
   {
    "id": "pop5_1",
    "nl": "the number of 1-bits in x is congruent to 1 modulo 5",
+   "prompt": "You are compiling a decision procedure into a deterministic finite automaton (DFA) that reads the bits of a 12-bit unsigned integer x MOST-SIGNIFICANT-BIT FIRST (bit 11 down to bit 0). The DFA must decide: the number of 1-bits in x is congruent to 1 modulo 5.\nReturn ONLY a JSON object (no prose, no code fence) with keys:\n  \"start\": the start state (a string),\n  \"transition\": an object mapping \"STATE,BIT\" -> \"NEWSTATE\" for every state and BIT in {0,1},\n  \"output\": an object mapping each STATE -> 1 (predicate holds) or 0.\nThe automaton must be EXACTLY correct for all inputs 0..4095.",
+   "raw_response": "{\"start\":\"S0\",\"transition\":{\"S0,0\":\"S0\",\"S0,1\":\"S1\",\"S1,0\":\"S1\",\"S1,1\":\"S2\",\"S2,0\":\"S2\",\"S2,1\":\"S3\",\"S3,0\":\"S3\",\"S3,1\":\"S4\",\"S4,0\":\"S4\",\"S4,1\":\"S0\"},\"output\":{\"S0\":0,\"S1\":1,\"S2\":0,\"S3\":0,\"S4\":0}}",
    "status": "correct",
    "states": 5,
    "rules": 15,
+   "dfa": {
+    "start": "S0",
+    "transition": {
+     "S0,0": "S0",
+     "S0,1": "S1",
+     "S1,0": "S1",
+     "S1,1": "S2",
+     "S2,0": "S2",
+     "S2,1": "S3",
+     "S3,0": "S3",
+     "S3,1": "S4",
+     "S4,0": "S4",
+     "S4,1": "S0"
+    },
+    "output": {
+     "S0": 0,
+     "S1": 1,
+     "S2": 0,
+     "S3": 0,
+     "S4": 0
+    }
+   },
    "exec": {
     "dict": [
      1.0,
@@ -790,9 +2131,33 @@
   {
    "id": "pop5_2",
    "nl": "the number of 1-bits in x is congruent to 2 modulo 5",
+   "prompt": "You are compiling a decision procedure into a deterministic finite automaton (DFA) that reads the bits of a 12-bit unsigned integer x MOST-SIGNIFICANT-BIT FIRST (bit 11 down to bit 0). The DFA must decide: the number of 1-bits in x is congruent to 2 modulo 5.\nReturn ONLY a JSON object (no prose, no code fence) with keys:\n  \"start\": the start state (a string),\n  \"transition\": an object mapping \"STATE,BIT\" -> \"NEWSTATE\" for every state and BIT in {0,1},\n  \"output\": an object mapping each STATE -> 1 (predicate holds) or 0.\nThe automaton must be EXACTLY correct for all inputs 0..4095.",
+   "raw_response": "{\"start\":\"s0\",\"transition\":{\"s0,0\":\"s0\",\"s0,1\":\"s1\",\"s1,0\":\"s1\",\"s1,1\":\"s2\",\"s2,0\":\"s2\",\"s2,1\":\"s3\",\"s3,0\":\"s3\",\"s3,1\":\"s4\",\"s4,0\":\"s4\",\"s4,1\":\"s0\"},\"output\":{\"s0\":0,\"s1\":0,\"s2\":1,\"s3\":0,\"s4\":0}}",
    "status": "correct",
    "states": 5,
    "rules": 15,
+   "dfa": {
+    "start": "s0",
+    "transition": {
+     "s0,0": "s0",
+     "s0,1": "s1",
+     "s1,0": "s1",
+     "s1,1": "s2",
+     "s2,0": "s2",
+     "s2,1": "s3",
+     "s3,0": "s3",
+     "s3,1": "s4",
+     "s4,0": "s4",
+     "s4,1": "s0"
+    },
+    "output": {
+     "s0": 0,
+     "s1": 0,
+     "s2": 1,
+     "s3": 0,
+     "s4": 0
+    }
+   },
    "exec": {
     "dict": [
      1.0,
@@ -807,9 +2172,33 @@
   {
    "id": "pop5_3",
    "nl": "the number of 1-bits in x is congruent to 3 modulo 5",
+   "prompt": "You are compiling a decision procedure into a deterministic finite automaton (DFA) that reads the bits of a 12-bit unsigned integer x MOST-SIGNIFICANT-BIT FIRST (bit 11 down to bit 0). The DFA must decide: the number of 1-bits in x is congruent to 3 modulo 5.\nReturn ONLY a JSON object (no prose, no code fence) with keys:\n  \"start\": the start state (a string),\n  \"transition\": an object mapping \"STATE,BIT\" -> \"NEWSTATE\" for every state and BIT in {0,1},\n  \"output\": an object mapping each STATE -> 1 (predicate holds) or 0.\nThe automaton must be EXACTLY correct for all inputs 0..4095.",
+   "raw_response": "{\"start\": \"s0\", \"transition\": {\"s0,0\": \"s0\", \"s0,1\": \"s1\", \"s1,0\": \"s1\", \"s1,1\": \"s2\", \"s2,0\": \"s2\", \"s2,1\": \"s3\", \"s3,0\": \"s3\", \"s3,1\": \"s4\", \"s4,0\": \"s4\", \"s4,1\": \"s0\"}, \"output\": {\"s0\": 0, \"s1\": 0, \"s2\": 0, \"s3\": 1, \"s4\": 0}}",
    "status": "correct",
    "states": 5,
    "rules": 15,
+   "dfa": {
+    "start": "s0",
+    "transition": {
+     "s0,0": "s0",
+     "s0,1": "s1",
+     "s1,0": "s1",
+     "s1,1": "s2",
+     "s2,0": "s2",
+     "s2,1": "s3",
+     "s3,0": "s3",
+     "s3,1": "s4",
+     "s4,0": "s4",
+     "s4,1": "s0"
+    },
+    "output": {
+     "s0": 0,
+     "s1": 0,
+     "s2": 0,
+     "s3": 1,
+     "s4": 0
+    }
+   },
    "exec": {
     "dict": [
      1.0,
@@ -824,9 +2213,33 @@
   {
    "id": "pop5_4",
    "nl": "the number of 1-bits in x is congruent to 4 modulo 5",
+   "prompt": "You are compiling a decision procedure into a deterministic finite automaton (DFA) that reads the bits of a 12-bit unsigned integer x MOST-SIGNIFICANT-BIT FIRST (bit 11 down to bit 0). The DFA must decide: the number of 1-bits in x is congruent to 4 modulo 5.\nReturn ONLY a JSON object (no prose, no code fence) with keys:\n  \"start\": the start state (a string),\n  \"transition\": an object mapping \"STATE,BIT\" -> \"NEWSTATE\" for every state and BIT in {0,1},\n  \"output\": an object mapping each STATE -> 1 (predicate holds) or 0.\nThe automaton must be EXACTLY correct for all inputs 0..4095.",
+   "raw_response": "{\"start\": \"s0\", \"transition\": {\"s0,0\": \"s0\", \"s0,1\": \"s1\", \"s1,0\": \"s1\", \"s1,1\": \"s2\", \"s2,0\": \"s2\", \"s2,1\": \"s3\", \"s3,0\": \"s3\", \"s3,1\": \"s4\", \"s4,0\": \"s4\", \"s4,1\": \"s0\"}, \"output\": {\"s0\": 0, \"s1\": 0, \"s2\": 0, \"s3\": 0, \"s4\": 1}}",
    "status": "correct",
    "states": 5,
    "rules": 15,
+   "dfa": {
+    "start": "s0",
+    "transition": {
+     "s0,0": "s0",
+     "s0,1": "s1",
+     "s1,0": "s1",
+     "s1,1": "s2",
+     "s2,0": "s2",
+     "s2,1": "s3",
+     "s3,0": "s3",
+     "s3,1": "s4",
+     "s4,0": "s4",
+     "s4,1": "s0"
+    },
+    "output": {
+     "s0": 0,
+     "s1": 0,
+     "s2": 0,
+     "s3": 0,
+     "s4": 1
+    }
+   },
    "exec": {
     "dict": [
      1.0,
