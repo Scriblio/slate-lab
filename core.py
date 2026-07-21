@@ -11,6 +11,10 @@ the error-correction that lets a novel input snap to a known symbol — then rea
 the payload bound to the winner. The `value` field on each entry is the
 in-substrate value channel: it rides inside the pattern's metadata and is what
 TD credit-assignment writes to.
+
+recall() also returns an `accepted` flag: when the pre-settle familiarity (best
+overlap) is below settle_floor, no basin has captured the probe, so the winner
+is a best-guess an out-of-distribution caller should treat as an abstention.
 """
 import numpy as np
 
@@ -22,7 +26,8 @@ class Slate:
         self.n = n_cells
         self.beta = float(beta)
         self.settle_floor = float(settle_floor)
-        self.keys = None            # (K, n_cells) bipolar +1/-1
+        self._buf = []              # committed bipolar patterns (n_cells,)
+        self.keys = None            # cached (K, n_cells) stack; built lazily
         self.meta = []              # parallel: [{"id","payload","value"}]
 
     # ── encoding ─────────────────────────────────────────────────────────
@@ -31,12 +36,16 @@ class Slate:
         v = np.asarray(v, np.float32)
         return np.where(self.R @ v >= 0.0, 1.0, -1.0).astype(np.float32)
 
-    # ── write ────────────────────────────────────────────────────────────
+    # ── write (O(1) amortised: the stack is built lazily, not re-vstacked) ─
     def commit(self, key, payload=None, value=0.0, id=None):
-        p = self._proj(key)[None, :]
-        self.keys = p.copy() if self.keys is None else np.vstack([self.keys, p])
+        self._buf.append(self._proj(key))
         self.meta.append({"id": id, "payload": payload, "value": float(value)})
+        self.keys = None            # invalidate cached stack
         return len(self.meta) - 1
+
+    def _ensure(self):
+        if self.keys is None and self._buf:
+            self.keys = np.stack(self._buf)             # (K, n_cells)
 
     # ── read ─────────────────────────────────────────────────────────────
     def _overlaps(self, s):
@@ -55,13 +64,14 @@ class Slate:
         return s, cyc
 
     def recall(self, key, max_cycles=4, topk=4):
-        """Return winner meta + confidence + margin + top-k candidates.
+        """Return winner meta + confidence + margin + `accepted` + top-k.
 
         margin (top1-top2 pre-settle overlap gap) is the calibrated quality
-        signal, mirroring the production engine. Below settle_floor no basin
-        has captured the probe, so we report honestly-low confidence and skip
-        the settle (a random walk would only manufacture false certainty).
+        signal, mirroring the production engine. Below settle_floor no basin has
+        captured the probe, so we report accepted=False and skip the settle (a
+        random walk would only manufacture false certainty).
         """
+        self._ensure()
         if self.keys is None:
             return None
         s = self._proj(key)
@@ -71,14 +81,15 @@ class Slate:
             two = np.partition(o0, -2)[-2:]; margin = float(two[-1] - two[-2])
         else:
             margin = fam
-        if fam < self.settle_floor:
-            return self._pack(int(np.argmax(o0)), o0, fam, margin, 0, topk)
+        accepted = fam >= self.settle_floor
+        if not accepted:
+            return self._pack(int(np.argmax(o0)), o0, fam, margin, 0, topk, accepted)
         s, cyc = self._settle(s, max_cycles)
         of = self._overlaps(s)
         w = int(np.argmax(of))
-        return self._pack(w, of, float(of[w]), margin, cyc, topk)
+        return self._pack(w, of, float(of[w]), margin, cyc, topk, accepted)
 
-    def _pack(self, w, o, conf, margin, cyc, topk):
+    def _pack(self, w, o, conf, margin, cyc, topk, accepted):
         order = [int(i) for i in np.argsort(-o)[:topk]]
         return {
             "winner": self.meta[w],
@@ -86,6 +97,7 @@ class Slate:
             "confidence": conf,
             "margin": margin,
             "cycles": cyc,
+            "accepted": bool(accepted),
             "topk": [(i, float(o[i]), self.meta[i]) for i in order],
         }
 

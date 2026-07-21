@@ -24,6 +24,8 @@ examples) on the same held-out inputs.
 
 Standalone lab cube. Never reads/writes/imports the live production substrate.
 """
+import hashlib
+
 import numpy as np
 from core import Slate
 
@@ -40,7 +42,8 @@ def sep(t): print("\n" + "=" * 72 + f"\n{t}\n" + "=" * 72)
 _sym = {}
 def sym(name):
     if name not in _sym:
-        h = abs(hash(("sym", name))) % (2 ** 32)
+        h = int.from_bytes(hashlib.blake2b(f"sym:{name}".encode(),
+                                           digest_size=8).digest(), "big")
         _sym[name] = np.random.default_rng(h).standard_normal(D).astype(np.float32)
     return _sym[name]
 

@@ -54,7 +54,7 @@ def main():
                    f"{vb['task_acc'][k][hi][0]:.0%} | {vb['bytes_per_rule'][k]} |")
 
     A, cap = pf["aggregate"], pf["capacity_one_slate"]
-    out += [f"\n## Universal interpreter - {pf['n_programs']} finite-state "
+    out += [f"\n## Shared DFA interpreter -{pf['n_programs']} finite-state "
             f"programs (`bench_program_family.py`)",
             f"\nOne task-agnostic interpreter, {pf['config']['seeds']} seeds:\n",
             f"| store | clean | noisy (sigma={pf['config']['sigma']}) |",

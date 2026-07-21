@@ -64,6 +64,12 @@ Precisely, this project is:
 - Not that Slate beats a vector index on accuracy. Under noise it *ties* a
   kNN / vector store; its differentiators are one-shot write, a unified value
   channel, and (in the production engine) bit-packed compactness - not accuracy.
+- Not that the **attractor settle** provides the robustness. An ablation
+  (`bench_ablation.py`) shows settle-on and settle-off are identical to
+  sigma=2.5 (within +/-1%), and raw kNN edges both at extreme noise: the
+  tolerance is the random projection + binary representation, not the recurrent
+  dynamics. The settle's hypothesised regime (confusable stored patterns) is
+  untested.
 - The router learns **per task**, not zero-shot; goal-conditioning is future work.
 
 ## Does it beat the simplest alternative?
@@ -79,9 +85,12 @@ clean and under noisy state-reads, over 30 seeds (`bench_vs_baselines.py`):
 | **Slate** | 100% | **98-100%** | 8192* | 0.21 ms |
 
 \* the *lab* substrate stores unpacked float32 cells; the production engine
-bit-packs 32x (-> 256 B/rule).
+bit-packs 32x (-> 256 B/rule) - a PROJECTED figure, not implemented or measured
+here. This counts the stored bipolar pattern only, excluding the shared random
+projection matrix, payloads, and Python object overhead; report total resident
+memory as rule count grows (a to-do).
 
-Across a family of **48 finite-state programs run by one universal interpreter**
+Across **48 finite-state program instances** (two generator schemas - residue/divisibility and popcount-mod-k, not 48 independent families) run by one shared DFA interpreter
 (`bench_program_family.py`), 5 seeds:
 
 | interpreter store | clean (48 progs) | noisy (sigma=0.75) | capacity |
@@ -94,15 +103,36 @@ there). Its specific, isolable contribution is **error-tolerant procedural
 execution** - matching a vector index, and beating a brittle exact table when
 the cue is imperfect - shown across a program family, not one cherry-picked case.
 
+## Does the attractor settle earn its keep? (`bench_ablation.py`)
+
+The honest follow-up to the baselines. The same div-7 table executed three ways
+over 30 seeds - raw-vector kNN, sign-projected nearest pattern with the settle
+**off** (`max_cycles=0`), and full Slate with the settle **on** - identical
+rules, queries, seeds, and noise:
+
+| method | sigma=1.0 | 1.5 | 2.0 | 2.5 |
+|---|---|---|---|---|
+| kNN (raw vector) | 100% | 99% | 90% | 76% |
+| Slate, settle OFF | 100% | 97% | 86% | 70% |
+| Slate, settle ON | 100% | 97% | 86% | 71% |
+
+**Settle-on minus settle-off is within +/-1% at every noise level** - the
+recurrent attractor dynamics add nothing here, and raw kNN is in fact slightly
+better at extreme noise (binarisation costs a little). So the error tolerance is
+the random projection + distributed binary code, *not* the settle. This is the
+ablation the earlier version lacked; it points the interesting question at the
+representation, and leaves the settle's hypothesised win (confusable stored
+patterns) as the honest next test.
+
 ## Anatomy - what lives in the substrate vs in Python
 
 | demo | stored in Slate | external machinery (Python) | baseline | seeds | result |
 |---|---|---|---|---|---|
 | addition (`procedure.py`) | 8 full-adder rules | bit loop + carry register | flashcards n/a (unbounded output) | 1 (deterministic) | 100% exact on unseen |
 | div-7 (`transplant.py`) | 21-rule remainder DFA | MSB bit loop | flashcards 48% / haiku 57% | 1 (det.) | 100% |
-| program family (`bench_program_family.py`) | 48 tables, 957 rules | ONE universal interpreter | identical dict-backed interpreter | 5 | Slate 100% clean+noisy; dict 0% noisy |
+| program family (`bench_program_family.py`) | 48 tables, 957 rules | ONE shared DFA interpreter | identical dict-backed interpreter | 5 | Slate 100% clean+noisy; dict 0% noisy |
 | store baseline (`bench_vs_baselines.py`) | div-7 table | the interpreter | dict, kNN | 30 | ties clean; beats dict under noise; ~= kNN |
-| model synthesis (`bench_synthesis.py`) | 48 model-authored DFAs | the universal interpreter | true gold (all 4096) + dict | 3 | opus 48/48 exact; Slate runs them 100% clean+noisy, dict 0% noisy; ~$1 |
+| model synthesis (`bench_synthesis.py`) | 48 model-authored DFAs | the shared DFA interpreter | true gold (all 4096) + dict | 3 | opus 48/48 exact; Slate runs them 100% clean+noisy, dict 0% noisy; ~$1 |
 
 Deterministic demos have variance 0 by construction (a DFA is exact); the seeds
 matter for the stochastic store / noise comparisons.
@@ -122,8 +152,11 @@ flowchart LR
 
 The substrate does content-addressable, error-correcting **retrieval**; the
 generic interpreter supplies the **control loop** (which cue to build next, when
-to stop). Reproduce the no-API results table with one command:
-`python make_results.py`.
+to stop). Feedback here is **discrete payload feedback with vector re-encoding**:
+each step reads a discrete payload, updates the symbolic state, and builds a
+fresh clean cue that noise is then applied to - not a continuous analog state
+circulating in the substrate. Reproduce the no-API results table with one
+command: `python make_results.py`.
 
 ## The primitive (`core.py`)
 `Slate` = sign-projection onto bipolar cells + softmax-attention settle.
@@ -150,6 +183,7 @@ the nearest stored basin (error-correction) and reads the bound payload. The
 | `bench_vs_baselines.py` | Slate vs dict vs kNN, 30 seeds | clean all 100%; under noisy cues dict -> 0%, kNN ~100%, Slate 98-100% |
 | `bench_program_family.py` | one interpreter, 48 finite-state programs, 5 seeds | Slate 100% clean+noisy vs identical dict-backed interpreter 0% noisy; 957 rules coexist in one store |
 | `bench_synthesis.py` (needs API key) | a frontier model compiles the 48 specs, not CC | claude-opus-4-8 authored **48/48 provably-correct DFAs** (exact vs gold on all 4096 inputs), ~$1; Slate runs the model's own tables 100% clean+noisy vs dict 0% noisy |
+| `bench_ablation.py` | does the SETTLE add anything? (settle-on vs settle-off vs kNN) | end-to-end acc identical with the settle on/off to sigma=2.5 (+/-1%); raw kNN slightly better at extreme noise -> the robustness is the projection + binary rep, not the attractor dynamics |
 
 ## Interpretation — hypotheses, NOT established by the tests above
 
@@ -181,4 +215,5 @@ python bench_program_family.py  # one interpreter, 48 finite-state programs
 python make_results.py          # one command -> RESULTS.md (all no-API results)
 pytest -q                       # unit tests for the primitive
 python bench_synthesis.py       # a frontier model compiles all 48 (needs ANTHROPIC_API_KEY)
+python bench_ablation.py        # does the attractor settle add anything? (ablation)
 ```

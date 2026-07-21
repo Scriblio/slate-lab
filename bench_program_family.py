@@ -35,7 +35,7 @@ DIMK = 3 * D           # every cue is exactly 3 symbol slots
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-# THE UNIVERSAL INTERPRETER — identical for every program, zero task logic
+# THE SHARED DFA INTERPRETER — identical for every program, zero task logic
 # ═════════════════════════════════════════════════════════════════════════════
 def interpret(store, start, x, sigma=0.0, rng=None):
     state = start
@@ -119,7 +119,7 @@ def main():
     ap.add_argument("--out", default="results_program_family.json")
     args = ap.parse_args()
     progs = family()
-    print(f"universal interpreter: 1 function, {len(progs)} finite-state programs, "
+    print(f"shared DFA interpreter: 1 function, {len(progs)} finite-state instances, "
           f"{args.seeds} seeds, {args.m} unseen inputs each\n")
 
     agg = {"dict": {"clean": [], "noisy": []}, "slate": {"clean": [], "noisy": []}}

@@ -10,9 +10,9 @@ The *same* transition table executed three ways, 30 seeds; end-to-end accuracy u
 |---|---|---|---|
 | dict | 100% | 0% | 512 |
 | knn | 100% | 99% | 512 |
-| slate | 100% | 97% | 8192 |
+| slate | 100% | 98% | 8192 |
 
-## Universal interpreter - 48 finite-state programs (`bench_program_family.py`)
+## Shared DFA interpreter -48 finite-state programs (`bench_program_family.py`)
 
 One task-agnostic interpreter, 5 seeds:
 

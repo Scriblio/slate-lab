@@ -133,19 +133,25 @@ def main():
 
     from distill_llm import ask_many, LARGE, _stats     # loads .env key at import
     print(f"synthesising {len(sp)} DFAs with {LARGE} (parallel)...", flush=True)
-    raws = ask_many(LARGE, [PROMPT.format(nl=nl) for nl, _, _ in sp], max_tokens=1600)
+    prompts = [PROMPT.format(nl=nl) for nl, _, _ in sp]
+    raws = ask_many(LARGE, prompts, max_tokens=1600)
 
     rows, correct, malformed = [], 0, 0
-    for (nl, gold, pid), raw in zip(sp, raws):
+    for (nl, gold, pid), prompt, raw in zip(sp, prompts, raws):
+        # full evidence per spec so a reviewer can replay verification, no API call
+        base = {"id": pid, "nl": nl, "prompt": prompt, "raw_response": raw}
         parsed = parse_dfa(raw)
         if parsed is None:
-            rows.append({"id": pid, "nl": nl, "status": "malformed"})
+            rows.append({**base, "status": "malformed"})
             malformed += 1
             continue
         start, trans, out = parsed
         ok = verify_all(start, trans, out, gold)
-        row = {"id": pid, "nl": nl, "status": "correct" if ok else "wrong",
-               "states": len(out), "rules": len(trans) + len(out)}
+        dfa = {"start": start,
+               "transition": {f"{s},{b}": nx for (s, b), nx in trans.items()},
+               "output": out}
+        row = {**base, "status": "correct" if ok else "wrong",
+               "states": len(out), "rules": len(trans) + len(out), "dfa": dfa}
         if ok:
             correct += 1
             row["exec"] = slate_vs_dict(start, trans, out, gold, seeds=a.exec_seeds)

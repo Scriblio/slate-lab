@@ -30,6 +30,7 @@ Real models cost money: N is a PILOT by default and every call is capped +
 counted. Run:  python distill_llm.py            (pilot)
                python distill_llm.py --full      (tighter error bars)
 """
+import hashlib
 import os
 import re
 import sys
@@ -160,7 +161,8 @@ def entity_vec(name, cache={}):
     """Deterministic random vector per entity string — the knowledge bank needs
     exact content-addressed identity, not semantics (same as distill.py's vec)."""
     if name not in cache:
-        h = abs(hash(name)) % (2 ** 32)
+        h = int.from_bytes(hashlib.blake2b(name.encode(),
+                                           digest_size=8).digest(), "big")
         cache[name] = np.random.default_rng(h).standard_normal(DIM).astype(np.float32)
     return cache[name]
 
