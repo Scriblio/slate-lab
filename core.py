@@ -20,12 +20,18 @@ import numpy as np
 
 
 class Slate:
-    def __init__(self, dim, n_cells=2048, beta=35.0, seed=0, settle_floor=0.12):
+    def __init__(self, dim, n_cells=2048, beta=35.0, seed=0, settle_floor=0.12,
+                 margin_floor=None):
         rng = np.random.default_rng(seed)
         self.R = rng.standard_normal((n_cells, dim)).astype(np.float32)
         self.n = n_cells
         self.beta = float(beta)
         self.settle_floor = float(settle_floor)
+        # Optional second gate. bench_escalation.py measured that familiarity
+        # alone does NOT separate near-OOD cues (it accepts ~100% of them) while
+        # the top1-top2 margin does. Default None keeps the original behaviour so
+        # earlier results stand; set it to gate on margin as well.
+        self.margin_floor = None if margin_floor is None else float(margin_floor)
         self._buf = []              # committed bipolar patterns (n_cells,)
         self.keys = None            # cached (K, n_cells) stack; built lazily
         self.meta = []              # parallel: [{"id","payload","value"}]
@@ -82,19 +88,25 @@ class Slate:
         else:
             margin = fam
         accepted = fam >= self.settle_floor
+        if accepted and self.margin_floor is not None:
+            accepted = margin >= self.margin_floor
         if not accepted:
-            return self._pack(int(np.argmax(o0)), o0, fam, margin, 0, topk, accepted)
+            return self._pack(int(np.argmax(o0)), o0, fam, margin, 0, topk,
+                              accepted, fam)
         s, cyc = self._settle(s, max_cycles)
         of = self._overlaps(s)
         w = int(np.argmax(of))
-        return self._pack(w, of, float(of[w]), margin, cyc, topk, accepted)
+        return self._pack(w, of, float(of[w]), margin, cyc, topk, accepted, fam)
 
-    def _pack(self, w, o, conf, margin, cyc, topk, accepted):
+    def _pack(self, w, o, conf, margin, cyc, topk, accepted, familiarity):
         order = [int(i) for i in np.argsort(-o)[:topk]]
         return {
             "winner": self.meta[w],
             "winner_idx": w,
             "confidence": conf,
+            # pre-settle best overlap — the quantity `accepted` thresholds.
+            # `confidence` is post-settle once accepted, so the two differ.
+            "familiarity": familiarity,
             "margin": margin,
             "cycles": cyc,
             "accepted": bool(accepted),

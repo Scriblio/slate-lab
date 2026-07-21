@@ -53,7 +53,31 @@ Precisely, this project is:
    right rule from a noisy cue where an exact lookup table collapses
    (`bench_vs_baselines.py`).
 
+4. Put together as an **agent skill compiler** on a real workflow — a model
+   compiles a prose policy into a program, a verifier checks it on every one of
+   7,776 possible inputs, and 100,000 decisions then run with no model in the
+   loop while unfamiliar records escalate — the escalation gate catches **100%**
+   of records carrying values the program never saw, with **0** silent wrong
+   answers and **0%** false alarms. Getting there required finding that the
+   shipped `accepted` flag did *not* work. See **[SKILL_COMPILER.md](SKILL_COMPILER.md)**
+   for the full measurement, including where Slate loses.
+
 **What we do NOT claim:**
+- Not that the shipped abstain flag was ever a working escalation gate. It
+  accepted 100% of near-OOD cues and answered 100% of OOD *requests*
+  (`bench_escalation.py`); familiarity rises along an out-of-distribution
+  trajectory (0.30 -> 0.59) because each step settles into a stored basin. A
+  min-margin gate calibrated on held-out in-distribution traffic fixes it; the
+  optional `margin_floor` on `core.Slate` is that fix, off by default.
+- Not that Slate beats deterministic code, a rules engine, or a memoised dict at
+  executing a policy over clean structured input - it is ~1,400x slower than all
+  three and ties them on accuracy, and the dict matches its OOD detection too.
+- Not that the "cut model calls 85%" figure is a property of Slate. It tracks
+  `1 - unfamiliar share` exactly across a 25x sweep: it is a property of the
+  workload.
+- Not that skill selection is safe. Mis-routing (right library, wrong skill) is
+  undetectable by the substrate - AUC 0.50 - because those cues are perfectly
+  familiar. That is a router problem and it is unsolved here.
 - Not that "memory thinks." The generalisation is done by a fixed interpreter
   *plus* the stored table - a content-addressable transition table inside a
   conventional controller, closer to microcode than to emergent reasoning.
@@ -184,6 +208,10 @@ the nearest stored basin (error-correction) and reads the bound payload. The
 | `bench_program_family.py` | one interpreter, 48 finite-state programs, 5 seeds | Slate 100% clean+noisy vs identical dict-backed interpreter 0% noisy; 957 rules coexist in one store |
 | `bench_synthesis.py` (needs API key) | a frontier model compiles the 48 specs, not CC | claude-opus-4-8 authored **48/48 provably-correct DFAs** (exact vs gold on all 4096 inputs), ~$1; Slate runs the model's own tables 100% clean+noisy vs dict 0% noisy |
 | `bench_ablation.py` | does the SETTLE add anything? (settle-on vs settle-off vs kNN) | end-to-end acc identical with the settle on/off to sigma=2.5 (+/-1%); raw kNN slightly better at extreme noise -> the robustness is the projection + binary rep, not the attractor dynamics |
+| `bench_escalation.py` | **is the abstain flag a safe escalation gate?** (asked FIRST, before building on it) | **no.** The shipped familiarity flag accepts 100% of every near-OOD population and answers 100% of OOD *requests*; near-OOD AUC 0.62-0.66 reproduces slate-bench's text-domain prior (0.611/0.656) in a completely different representation. Cause measured: familiarity RISES along an OOD trajectory (0.30 -> 0.59) as each step settles into a stored basin. Fix measured: min-margin over the trajectory, threshold calibrated on held-out in-dist traffic -> in-dist 98.8-100% answered, unfamiliar 0-2.7%, 99.84% accuracy on answered at 15.9% escalation. Hard limit: mis-routing is invisible (AUC 0.50) |
+| `preflight.py` | a real workflow that is EXHAUSTIVELY verifiable | publishing preflight: 8 fields, 7,776 enumerable records, 9 verdicts, priority-ordered. Minimal automaton 52 states / 142 rules; Slate executes it 100% clean and 100% at sigma=0.75; in-dist min-margin 0.400 vs unseen-enum 0.021 |
+| `bench_compiler.py` (needs API key) | the whole compiler, end to end, multi-model | authoring reliability: opus **4/5**, haiku **1/5**, llama3.2:1b **0/5** — and opus's one failure was **98.61%** exhaustively correct (wrong on 108/7,776), which no sampled test would catch. At 100k decisions w/ 15% unfamiliar: 85,000 calls avoided, **100%** of unfamiliar escalated, **0** silent wrong answers, 100.00% accuracy on answered, 1.45 ms median vs 1,101 ms all-model, $4.91 vs $32.70. Call reduction = `1 - unfamiliar share` across a 25x sweep — a property of the workload |
+| `bench_rivals.py` | vs the simplest COMPETENT alternatives, not a dict | Slate loses on speed: code 1.2 us and dict 1.0 us vs Slate 1,742 us, all at 100%; the dict also matches its OOD detection. Slate's measured edges: 0 labels (vs 1,000-7,776), 166 rules vs 7,776 entries, amendment = 4 one-shot writes changing **0/7,776** old decisions vs a retrain changing **11**, and OOD caught at matched cost **100% vs the trained classifier's 16.5%**. A small local LM (llama3.2:1b) scores 25% — below the 33% majority baseline |
 
 ## Interpretation — hypotheses, NOT established by the tests above
 
@@ -216,4 +244,11 @@ python make_results.py          # one command -> RESULTS.md (all no-API results)
 pytest -q                       # unit tests for the primitive
 python bench_synthesis.py       # a frontier model compiles all 48 (needs ANTHROPIC_API_KEY)
 python bench_ablation.py        # does the attractor settle add anything? (ablation)
+
+# the agent skill compiler (SKILL_COMPILER.md)
+python bench_escalation.py      # does the abstain flag gate escalation? (no key)
+python preflight.py             # the real workflow: schema, gold, verifier (no key)
+python bench_compiler.py --smoke        # the whole pipeline, no key
+python bench_compiler.py        # every available model authors it, then 100k decisions
+python bench_rivals.py --no-llm # vs code / rules engine / dict / kNN / trained model
 ```
