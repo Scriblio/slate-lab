@@ -13,8 +13,12 @@ one I set out to make:
 That is one finding recurring, not three: **the sophisticated thing only earns its
 place in the case where the simple thing is wrong, and I only found that case
 because I went looking each time.** The rungs below `cube_cause` were written
-without anybody going looking. `deflate.py` does that, for the two with the most
-suspicious numbers. Three claims, three different outcomes.
+without anybody going looking, and neither was the commercial claim the whole
+product thread rests on. `deflate.py` does that.
+
+**Five claims attacked. Two deflated, one reframed, two came out stronger than
+their own write-ups had claimed.** None was fabricated; every one was reported
+without the single measurement that would have located its limit.
 
 ---
 
