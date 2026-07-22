@@ -99,6 +99,16 @@ Precisely, this project is:
   tolerance is the random projection + binary representation, not the recurrent
   dynamics. The settle's hypothesised regime (confusable stored patterns) is
   untested.
+- Not that the **knowledge-distillation** result is a property of Slate. A plain
+  dict scores the same 100/100/100% at 1/2/3 hops (`deflate.py`, audit 4), and it
+  could not be otherwise: `build_bank` commits `entity_vec(src)` and `cube_chain`
+  recalls `entity_vec(cur)`, so every cue is byte-identical to its stored key and
+  the settle has nothing to correct. Nor can the tolerance fire in principle here
+  - `entity_vec` is a blake2b hash, so `cosine(name, name+typo) = +0.010` and a
+  misspelled entity recovers 5% of the time. The gap that closes is closed by
+  **chaining** the lookup, which is a three-line Python loop, not by the store.
+  That is still a real result about retrieval strategy - naive single-shot RAG is
+  what struggles on multi-hop - but it is not a result about the substrate.
 - The router learns **per task**, not zero-shot; goal-conditioning is future work.
 
 ## Does it beat the simplest alternative?
@@ -205,7 +215,7 @@ the nearest stored basin (error-correction) and reads the bound payload. The
 | `router.py` | RL over which relation to fire | learns, per task, to pick `SIBLING→LIVES` over the 1-hop `LIVES` trap from reward alone. Per-task, no goal-conditioning; measured against the task optimum, not against A*/tabular-Q |
 | `pet.py` | assemble the parts into a maze-learner | a maze-learner built only from substrate + in-substrate value + routing: 200 steps (blind) -> 11 steps (optimal) over training. 1 maze, single run |
 | `distill.py` | distil a LARGE model's knowledge into the cube so a SMALL model performs like it | the KNOWLEDGE gap collapses (LARGE−SMALL +89% → **+0%** with cube); the CAPABILITY gap does NOT transfer — it persists for non-smooth functions (parity +54% → +85%, *below chance*: memorising misleads) and only closes for locally-smooth ones (majority interpolates). Memory absorbs the smooth part of reasoning; the non-smooth part stays LARGE's job |
-| `distill_llm.py` (**layer B**) | the same experiment with REAL models — SMALL=`claude-haiku-4-5`, LARGE=`claude-opus-4-8` | thesis reproduced on real questions. KNOWLEDGE (opus authors an obscure composer-lineage KB → distilled to 3 cube banks): haiku bare 17/33/8% at 1/2/3 hops → **cube 100/100/100%** = matches opus; gap −85% → **+0%**. CAPABILITY (opus labels, cube memorises, *balanced-acc* on unseen, chance=50%): PRIMALITY (non-smooth) cube seen 98% → **unseen 50% (chance)**; THRESHOLD (smooth) seen 100% → **unseen 82%**. Balanced-acc also exposed haiku's real primality skill = 48%≈chance (its 87% raw was pure base-rate) vs opus 96% — a genuine capability gap the cube provably cannot hand over. Whole run < $1 |
+| `distill_llm.py` (**layer B**) | the same experiment with REAL models — SMALL=`claude-haiku-4-5`, LARGE=`claude-opus-4-8` | thesis reproduced on real questions. KNOWLEDGE (opus authors an obscure composer-lineage KB → distilled to 3 cube banks): haiku bare 17/33/8% at 1/2/3 hops → **cube 100/100/100%** = matches opus; gap −85% → **+0%** — but a plain dict also scores 100/100/100 here (`deflate.py` audit 4): the cue is byte-identical to the stored key, so this measures CHAINED RETRIEVAL, not the substrate. CAPABILITY (opus labels, cube memorises, *balanced-acc* on unseen, chance=50%): PRIMALITY (non-smooth) cube seen 98% → **unseen 50% (chance)**; THRESHOLD (smooth) seen 100% → **unseen 82%**. Balanced-acc also exposed haiku's real primality skill = 48%≈chance (its 87% raw was pure base-rate) vs opus 96% — a genuine capability gap the cube provably cannot hand over. Whole run < $1 |
 | `procedure.py` | teach the cube the METHOD, not the answers (Matthew's question, 2026-07-15) | **the distill wall falls.** Parity — the function flashcards fail at (400 memorised answers → 32% on unseen, ≈chance) — hits **100% on unseen inputs from a 4-rule lesson** ((state,bit)→state, looped over bits via the C1 feedback machinery). And an **8-rule full-adder lesson gives 100% exact ADDITION** on 400 never-seen pairs (e.g. 2779+2534=5313). The capability rides in compact rules run by a generic loop (loop control in Python, task rules in the substrate) — when distilled as composable steps + feedback, not examples. The distill.py boundary was about the lesson's FORMAT, not the substrate |
 | `transplant.py` | the first AUTOMATIC skill transplant — opus authors the recipe, no human writes a rule | opus emits a skill as a step-table (DFA over bits), every rule — transitions AND outputs — poured into substrate, feedback loop executes it, verified vs TRUE gold on balanced unseen sets. **div-3: flashcards 35% / haiku 92% / cube 100%. div-7: flashcards 48% / haiku 57% (can't do it) / cube 100%.** 2 opus calls + 80 haiku calls ≈ **$0.03**. Layer B (facts) + procedure.py (methods) fused: automatic distillation of both substances of knowledge. the large model writes the lesson once; the substrate reuses the compiled procedure with no further model calls |
 
