@@ -131,7 +131,7 @@ def main():
         print("pipeline OK" if good else "pipeline PROBLEM")
         return
 
-    from distill_llm import ask_many, LARGE, _stats     # loads .env key at import
+    from distill_llm import ask_many, LARGE, _stats     # key loads on first call
     print(f"synthesising {len(sp)} DFAs with {LARGE} (parallel)...", flush=True)
     prompts = [PROMPT.format(nl=nl) for nl, _, _ in sp]
     raws = ask_many(LARGE, prompts, max_tokens=1600)

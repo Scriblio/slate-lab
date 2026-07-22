@@ -87,9 +87,25 @@ def _load_key():
         "(run.py, depth_test.py, procedure.py, ...) need no key.")
 
 
-_load_key()
-import anthropic  # noqa: E402
-client = anthropic.Anthropic()
+_client = None
+
+
+def client_():
+    """Load the key and build the client on FIRST USE, not on import.
+
+    This used to run at module scope, which meant `import distill_llm` raised
+    without an API key -- so a pure helper like `entity_vec` could not be reached
+    from a machine that has no key, and `anthropic` (which lives in
+    requirements-llm.txt, not requirements.txt) had to be installed just to
+    import the file. deflate.py imports entity_vec to audit this module's own
+    knowledge claim, and CI has neither the key nor the package.
+    """
+    global _client
+    if _client is None:
+        _load_key()
+        import anthropic
+        _client = anthropic.Anthropic()
+    return _client
 
 _lock = threading.Lock()
 _stats = {"calls": 0, "cost": 0.0, LARGE: 0, SMALL: 0}
@@ -107,7 +123,7 @@ def ask(model, prompt, system=None, max_tokens=800):
         kwargs["system"] = system
     for attempt in range(4):
         try:
-            r = client.messages.create(**kwargs)
+            r = client_().messages.create(**kwargs)
             pin, pout = PRICE[model]
             with _lock:
                 _stats["cost"] += (r.usage.input_tokens * pin
