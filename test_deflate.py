@@ -132,6 +132,48 @@ def test_the_recursion_rule_rejects_as_well_as_generates():
         assert not any(map(accepts, half))
 
 
+def test_the_knowledge_claim_is_tied_by_a_plain_dict():
+    """distill_llm's 100/100/100 at 1/2/3 hops is chained lookup, not the substrate.
+
+    The commercially load-bearing claim. Cues are byte-identical to stored keys,
+    so the settle has nothing to correct and a dict scores the same. Written to
+    fail if anyone ever restores this as a Slate-vs-nothing comparison.
+    """
+    from core import Slate
+    from distill_llm import entity_vec, DIM
+    comp, REL = D._synth_kb(40, np.random.default_rng(0))
+    banks = {}
+    for r, m in REL.items():
+        s = Slate(DIM, n_cells=2048, beta=35.0, seed=0)
+        for a, b in m.items():
+            s.commit(entity_vec(a), payload=b, id=a)
+        banks[r] = s
+    seq = ["TEACHER", "CITY", "COUNTRY"]
+
+    def cube(start):
+        cur = start
+        for rel in seq:
+            cur = banks[rel].recall(entity_vec(cur))["winner"]["payload"]
+        return cur
+
+    def dct(start):
+        cur = start
+        for rel in seq:
+            cur = REL[rel][cur]
+        return cur
+
+    assert all(cube(c) == dct(c) for c in comp)
+    assert sum(cube(c) == dct(c) for c in comp) == len(comp)
+
+
+def test_a_hash_makes_the_substrates_one_advantage_unreachable():
+    """Near-miss NAME must be a near-miss VECTOR for error-correction to ever fire."""
+    from distill_llm import entity_vec
+    a, b = entity_vec("composer_1"), entity_vec("composer_1X")
+    cos = float(a @ b / (np.linalg.norm(a) * np.linalg.norm(b)))
+    assert abs(cos) < 0.15, "if this becomes semantic, the dict comparison changes"
+
+
 if __name__ == "__main__":
     for _n, _f in list(globals().items()):
         if _n.startswith("test_") and callable(_f):

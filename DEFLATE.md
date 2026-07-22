@@ -102,6 +102,45 @@ The last two corruption types keep every word legal and break only the
 than the one the file made** — not merely emitting unseen depths, but drawing a
 line at them.
 
+## DEFLATED — `distill_llm`: "cube 100/100/100% at 1/2/3 hops = matches opus"
+
+The commercially load-bearing claim: a small model plus a cube knowledge slate
+performing like a frontier model. The README's "what this is NOT" section is
+unusually honest and does guard the DFA benchmarks against a dict — *"~1,400×
+slower than all three and ties them on accuracy"* — but it never guards this one,
+and `distill_llm.py` contains no retrieval baseline of any kind.
+
+| hops | cube (as shipped) | a plain dict |
+|---|---|---|
+| 1 | 100% | **100%** |
+| 2 | 100% | **100%** |
+| 3 | 100% | **100%** |
+
+It could not have come out otherwise: `build_bank` commits `entity_vec(src)` and
+`cube_chain` recalls `entity_vec(cur)` — the cue is **byte-identical** to the
+stored key. Every recall is an exact lookup, so the error-correcting settle has
+nothing to correct.
+
+Could the substrate's advantage fire here even in principle? No:
+
+- a misspelled composer name → **5% recovered** (chance)
+- `cosine(name, name+typo)` under `entity_vec` → **+0.010**, essentially orthogonal
+
+`entity_vec` is a blake2b hash, so a near-miss *name* is not a near-miss *vector* —
+it is unrelated noise. The tolerance itself is real (cube holds 100% at vector
+jitter 1.0 where a dict returns 0%), but nothing upstream ever produces a perturbed
+vector, so **the one property that would beat a dict is unreachable by
+construction.**
+
+**What the result actually shows** is that a *chained* lookup closes the knowledge
+gap — and the chaining is a three-line Python loop, not the store. That is still
+genuinely useful: a small model plus chained retrieval really does match a frontier
+model on multi-hop facts, and naive single-shot RAG is precisely what struggles
+there. But the claim belongs to the retrieval *strategy*, not to the Slate, and as
+written it reads as the Slate's. To make it the Slate's you would need entity
+vectors where a near-miss name lands near-miss — semantic embeddings — and then the
+rival is a vector index, which the README already concedes ties on accuracy.
+
 ---
 
 ## What to carry forward

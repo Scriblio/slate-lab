@@ -360,6 +360,115 @@ def audit_recursion():
     print("      draws a line at them. That is a grammar.")
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+# AUDIT 4 — distill_llm.py's KNOWLEDGE result, the commercially load-bearing one
+# ══════════════════════════════════════════════════════════════════════════════
+# README: "haiku bare 17/33/8% at 1/2/3 hops -> cube 100/100/100% = matches opus;
+# gap -85% -> +0%". That is the number the agents-as-a-service thread rests on:
+# a small model plus a cube knowledge slate performing like a frontier model.
+#
+# The README carries an unusually honest "what this is NOT" section, and it does
+# guard the DFA/policy benchmarks against a dict ("~1,400x slower ... and ties
+# them on accuracy"). It does NOT guard this one, and this one is the commercial
+# claim. No API key needed here: the KB structure is three functional relations,
+# which is reproducible offline.
+import hashlib
+from distill_llm import entity_vec, DIM   # the real functions, not a copy
+
+
+def _synth_kb(n, rng):
+    comp = [f"composer_{i}" for i in range(n)]
+    teach = [f"teacher_{i}" for i in range(n)]
+    city = [f"city_{i}" for i in range(n)]
+    ctry = [f"country_{i % 7}" for i in range(n)]
+    return (comp, {"TEACHER": dict(zip(comp, teach)),
+                   "CITY": dict(zip(teach, city)),
+                   "COUNTRY": dict(zip(city, ctry))})
+
+
+def audit_knowledge():
+    sep("AUDIT 4 — distill_llm.py:  'cube 100/100/100% at 1/2/3 hops = matches opus'")
+    print("  This is the commercially load-bearing claim in the repo. The README's")
+    print("  'what this is NOT' section guards the DFA benchmarks against a dict but")
+    print("  never guards this one, and distill_llm.py contains no retrieval baseline")
+    print("  of any kind -- no dict, no RAG, no vector index.")
+
+    rng = np.random.default_rng(0)
+    comp, REL = _synth_kb(60, rng)
+    CHAIN = {1: ["TEACHER"], 2: ["TEACHER", "CITY"], 3: ["TEACHER", "CITY", "COUNTRY"]}
+    banks = {}
+    for r, m in REL.items():
+        s = Slate(DIM, n_cells=2048, beta=35.0, seed=0)
+        for a, b in m.items():
+            s.commit(entity_vec(a), payload=b, id=a)
+        banks[r] = s
+
+    def cube_chain(start, seq, jitter=0.0, r=None):
+        cur = start
+        for rel in seq:
+            v = entity_vec(cur)
+            if jitter:
+                v = v + r.normal(0, jitter, v.shape).astype(np.float32)
+            res = banks[rel].recall(v)
+            if res is None:
+                return None
+            cur = res["winner"]["payload"]
+        return cur
+
+    def dict_chain(start, seq):
+        cur = start
+        for rel in seq:
+            cur = REL[rel].get(cur)
+            if cur is None:
+                return None
+        return cur
+
+    def truth(start, seq):
+        return dict_chain(start, seq)
+
+    head("the rival that was never run: the same three relations, in a dict")
+    print(f"      {'hops':<8}{'cube (as shipped)':<22}{'a plain dict':<18}{'gap'}")
+    for h in (1, 2, 3):
+        c = sum(cube_chain(x, CHAIN[h]) == truth(x, CHAIN[h]) for x in comp)
+        d = sum(dict_chain(x, CHAIN[h]) == truth(x, CHAIN[h]) for x in comp)
+        print(f"      {h:<8}{f'{100*c//len(comp)}%':<22}{f'{100*d//len(comp)}%':<18}"
+              f"{100*c//len(comp) - 100*d//len(comp)}")
+    print("\n      Identical, and it could not have been otherwise: build_bank commits")
+    print("      entity_vec(src) and cube_chain recalls entity_vec(cur) -- the cue is")
+    print("      BYTE-IDENTICAL to the stored key. Every recall is an exact lookup, so")
+    print("      the error-correcting settle has nothing to correct.")
+
+    head("could the substrate's advantage fire here even in principle?")
+    r = np.random.default_rng(1)
+    typo = sum(cube_chain(c[:-1] + "X", CHAIN[1]) == truth(c, CHAIN[1]) for c in comp)
+    print(f"      a misspelled composer name, cube:  {100*typo//len(comp)}% recovered")
+    v1, v2 = entity_vec("composer_1"), entity_vec("composer_1X")
+    cos = float(v1 @ v2 / (np.linalg.norm(v1) * np.linalg.norm(v2)))
+    print(f"      cosine(name, name+typo) under entity_vec: {cos:+.3f}   <- a HASH, so a")
+    print(f"      near-miss NAME is not a near-miss VECTOR. It is unrelated noise.")
+    print(f"\n      {'vector jitter':<18}{'cube 1-hop':<14}{'dict'}")
+    for j in (0.0, 0.3, 0.6, 1.0):
+        c = sum(cube_chain(x, CHAIN[1], j, r) == truth(x, CHAIN[1]) for x in comp)
+        print(f"      {j:<18.1f}{f'{100*c//len(comp)}%':<14}{'0%' if j else '100%'}")
+    print("\n      The tolerance is REAL -- perturb the vector and the cube holds where a")
+    print("      dict returns nothing. But nothing upstream in this pipeline ever")
+    print("      PRODUCES a perturbed vector: entity_vec is a blake2b hash of the name,")
+    print("      so the only cue it can ever receive is exact or unrelated. The one")
+    print("      property that would beat a dict is unreachable by construction.")
+
+    head("what the knowledge result actually shows")
+    print("      Not that the substrate closes the knowledge gap. That a CHAINED lookup")
+    print("      does -- and the chaining is a three-line Python loop, not the store.")
+    print("      That is still a real and useful finding, because a small model plus")
+    print("      chained retrieval genuinely does match a frontier model on multi-hop")
+    print("      facts, and naive single-shot RAG is exactly what struggles there.")
+    print("      But the claim belongs to the retrieval strategy, not to the Slate, and")
+    print("      as written it reads as the Slate's. To make it the Slate's you would")
+    print("      need entity vectors where a near-miss NAME lands near-miss -- i.e.")
+    print("      semantic embeddings -- and then the rival is a vector index, which the")
+    print("      README already concedes ties on accuracy.")
+
+
 if __name__ == "__main__":
     try:
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -368,6 +477,7 @@ if __name__ == "__main__":
     audit_eye()
     audit_structure()
     audit_recursion()
+    audit_knowledge()
     sep("WHAT THIS PASS FOUND")
     print("  Three claims attacked, three different outcomes. None was fabricated; all")
     print("  three were reported without the one measurement that would have located")
