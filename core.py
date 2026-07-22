@@ -20,15 +20,27 @@ import numpy as np
 
 
 class Slate:
-    def __init__(self, dim, n_cells=2048, beta=35.0, seed=0, settle_floor=0.12):
+    def __init__(self, dim, n_cells=2048, beta=35.0, seed=0, settle_floor=0.12,
+                 margin_floor=None):
         rng = np.random.default_rng(seed)
         self.R = rng.standard_normal((n_cells, dim)).astype(np.float32)
         self.n = n_cells
         self.beta = float(beta)
         self.settle_floor = float(settle_floor)
+        # Optional second gate. bench_escalation.py measured that familiarity
+        # alone does NOT separate near-OOD cues (it accepts ~100% of them) while
+        # the top1-top2 margin does. Default None keeps the original behaviour so
+        # earlier results stand; set it to gate on margin as well.
+        self.margin_floor = None if margin_floor is None else float(margin_floor)
         self._buf = []              # committed bipolar patterns (n_cells,)
         self.keys = None            # cached (K, n_cells) stack; built lazily
         self.meta = []              # parallel: [{"id","payload","value"}]
+        # Every symbol name ever committed. A cue built from a symbol that is
+        # NOT in here is out of distribution as a matter of FACT, not of
+        # confidence — no threshold, no calibration, no held-out sample. This is
+        # the structural half of escalation; `margin` is the statistical half,
+        # for cues whose symbols are all known but whose COMBINATION is not.
+        self.vocab = set()
 
     # ── encoding ─────────────────────────────────────────────────────────
     def _proj(self, v):
@@ -37,11 +49,17 @@ class Slate:
         return np.where(self.R @ v >= 0.0, 1.0, -1.0).astype(np.float32)
 
     # ── write (O(1) amortised: the stack is built lazily, not re-vstacked) ─
-    def commit(self, key, payload=None, value=0.0, id=None):
+    def commit(self, key, payload=None, value=0.0, id=None, symbols=None):
         self._buf.append(self._proj(key))
         self.meta.append({"id": id, "payload": payload, "value": float(value)})
+        if symbols:
+            self.vocab.update(symbols)
         self.keys = None            # invalidate cached stack
         return len(self.meta) - 1
+
+    def knows(self, *symbols):
+        """Has every one of these symbols been committed? Exact, O(1), free."""
+        return all(s in self.vocab for s in symbols)
 
     def _ensure(self):
         if self.keys is None and self._buf:
@@ -63,6 +81,19 @@ class Slate:
             s = s_new
         return s, cyc
 
+    def overlaps_for(self, key):
+        """Pre-settle overlap of `key` against every stored pattern. Read-only.
+
+        Additive accessor: `recall` reports the top1-top2 gap, which goes to
+        ~0 whenever two stored entries are duplicates of each other. A caller
+        that stores many episodes sharing one outcome needs the gap to the best
+        *competing* outcome instead, and that needs the raw overlaps.
+        """
+        self._ensure()
+        if self.keys is None:
+            return None
+        return self._overlaps(self._proj(key))
+
     def recall(self, key, max_cycles=4, topk=4):
         """Return winner meta + confidence + margin + `accepted` + top-k.
 
@@ -82,19 +113,25 @@ class Slate:
         else:
             margin = fam
         accepted = fam >= self.settle_floor
+        if accepted and self.margin_floor is not None:
+            accepted = margin >= self.margin_floor
         if not accepted:
-            return self._pack(int(np.argmax(o0)), o0, fam, margin, 0, topk, accepted)
+            return self._pack(int(np.argmax(o0)), o0, fam, margin, 0, topk,
+                              accepted, fam)
         s, cyc = self._settle(s, max_cycles)
         of = self._overlaps(s)
         w = int(np.argmax(of))
-        return self._pack(w, of, float(of[w]), margin, cyc, topk, accepted)
+        return self._pack(w, of, float(of[w]), margin, cyc, topk, accepted, fam)
 
-    def _pack(self, w, o, conf, margin, cyc, topk, accepted):
+    def _pack(self, w, o, conf, margin, cyc, topk, accepted, familiarity):
         order = [int(i) for i in np.argsort(-o)[:topk]]
         return {
             "winner": self.meta[w],
             "winner_idx": w,
             "confidence": conf,
+            # pre-settle best overlap — the quantity `accepted` thresholds.
+            # `confidence` is post-settle once accepted, so the two differ.
+            "familiarity": familiarity,
             "margin": margin,
             "cycles": cyc,
             "accepted": bool(accepted),

@@ -1,0 +1,198 @@
+{
+ "program_source": "model-authored (claude-opus-4-8), verified",
+ "config": {
+  "no_llm": false,
+  "n_eval": 2000,
+  "n_llm": 40,
+  "seeds": 3,
+  "out": "results_rivals.json"
+ },
+ "classifier_sample_efficiency": {
+  "50": {
+   "exhaustive": [
+    0.7279,
+    0.0165
+   ],
+   "traffic": [
+    0.7648,
+    0.0077
+   ]
+  },
+  "200": {
+   "exhaustive": [
+    0.9575,
+    0.0071
+   ],
+   "traffic": [
+    0.9668,
+    0.0057
+   ]
+  },
+  "1000": {
+   "exhaustive": [
+    0.995,
+    0.0015
+   ],
+   "traffic": [
+    0.9983,
+    0.0008
+   ]
+  },
+  "5000": {
+   "exhaustive": [
+    1.0,
+    0.0
+   ],
+   "traffic": [
+    1.0,
+    0.0
+   ]
+  }
+ },
+ "amendment_new_value": {
+  "slate": {
+   "writes": 4,
+   "seconds": 0.0007,
+   "old_decisions_changed": 0,
+   "new_value_accuracy": 1.0,
+   "retraining_needed": false,
+   "labels_needed": 0
+  },
+  "trained classifier": {
+   "writes": null,
+   "seconds": 0.3893,
+   "old_decisions_changed": 11,
+   "new_value_accuracy": 1.0,
+   "retraining_needed": true,
+   "labels_needed": 1200
+  }
+ },
+ "amendment_priority_change": {
+  "note": "Reordering rule priorities changes the residual of nearly every state, so the program must be RE-AUTHORED and re-verified \u2014 Slate has no advantage here over regenerating code. Measured cost of that recompile, from results_compiler.json: one authoring call and a full 7,776-record verification.",
+  "reauthor_usd_per_attempt_opus": 0.294,
+  "reauthor_seconds_opus": 35.38,
+  "verification_records": 7776
+ },
+ "comparison": {
+  "deterministic code": {
+   "traffic_accuracy": 1.0,
+   "exhaustive_accuracy": 1.0,
+   "ood_detect_auc": 0.5,
+   "ood_caught_at_1pct_false_alarm": 0.0,
+   "hard_abstain_rate": 0.0,
+   "latency_us": 0.3,
+   "labels_needed": 0,
+   "gpu": false,
+   "inspectable": true,
+   "authored_by": "human",
+   "footprint_bytes": null
+  },
+  "rules engine": {
+   "traffic_accuracy": 1.0,
+   "exhaustive_accuracy": 1.0,
+   "ood_detect_auc": 0.5,
+   "ood_caught_at_1pct_false_alarm": 0.0,
+   "hard_abstain_rate": 0.0,
+   "latency_us": 2.0,
+   "labels_needed": 0,
+   "gpu": false,
+   "inspectable": true,
+   "authored_by": "human",
+   "footprint_bytes": null
+  },
+  "dict (memoised)": {
+   "traffic_accuracy": 1.0,
+   "exhaustive_accuracy": 1.0,
+   "ood_detect_auc": 1.0,
+   "ood_caught_at_1pct_false_alarm": 1.0,
+   "hard_abstain_rate": 1.0,
+   "latency_us": 1.0,
+   "labels_needed": 7776,
+   "gpu": false,
+   "inspectable": false,
+   "authored_by": "labels",
+   "footprint_bytes": 684288
+  },
+  "vector kNN": {
+   "traffic_accuracy": 0.8425,
+   "exhaustive_accuracy": 0.5799,
+   "ood_detect_auc": 0.7025,
+   "ood_caught_at_1pct_false_alarm": 0.0105,
+   "hard_abstain_rate": 0.0,
+   "latency_us": 10.5,
+   "labels_needed": 1000,
+   "gpu": false,
+   "inspectable": false,
+   "authored_by": "labels",
+   "footprint_bytes": 100000
+  },
+  "trained classifier (n=1000)": {
+   "traffic_accuracy": 0.998,
+   "exhaustive_accuracy": 0.9938,
+   "ood_detect_auc": 0.7093,
+   "ood_caught_at_1pct_false_alarm": 0.165,
+   "hard_abstain_rate": 0.0,
+   "latency_us": 57.0,
+   "labels_needed": 1000,
+   "gpu": false,
+   "inspectable": false,
+   "authored_by": "labels",
+   "footprint_bytes": 25636
+  },
+  "Slate (compiled program)": {
+   "traffic_accuracy": 1.0,
+   "exhaustive_accuracy": 1.0,
+   "ood_detect_auc": 1.0,
+   "ood_caught_at_1pct_false_alarm": 1.0,
+   "hard_abstain_rate": 1.0,
+   "latency_us": 1562.8,
+   "labels_needed": 0,
+   "gpu": false,
+   "inspectable": true,
+   "authored_by": "model+verifier",
+   "footprint_bytes": 1359872
+  },
+  "direct claude-haiku-4-5": {
+   "n": 40,
+   "errors": 0,
+   "traffic_accuracy": 0.85,
+   "latency_us": 1257225.0,
+   "usd_per_call": 0.000329,
+   "labels_needed": 0,
+   "gpu": false,
+   "inspectable": false,
+   "footprint_bytes": null,
+   "ood_detect_auc": null,
+   "exhaustive_accuracy": null,
+   "authored_by": "prompt"
+  },
+  "direct claude-opus-4-8": {
+   "n": 40,
+   "errors": 0,
+   "traffic_accuracy": 1.0,
+   "latency_us": 1674204.5,
+   "usd_per_call": 0.007493,
+   "labels_needed": 0,
+   "gpu": false,
+   "inspectable": false,
+   "footprint_bytes": null,
+   "ood_detect_auc": null,
+   "exhaustive_accuracy": null,
+   "authored_by": "prompt"
+  },
+  "direct llama3.2:1b": {
+   "n": 40,
+   "errors": 0,
+   "traffic_accuracy": 0.2,
+   "latency_us": 2441197.6,
+   "usd_per_call": 0.0,
+   "labels_needed": 0,
+   "gpu": true,
+   "inspectable": false,
+   "footprint_bytes": null,
+   "ood_detect_auc": null,
+   "exhaustive_accuracy": null,
+   "authored_by": "prompt"
+  }
+ }
+}

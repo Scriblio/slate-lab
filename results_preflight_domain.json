@@ -1,0 +1,30 @@
+{
+ "n_records": 7776,
+ "uniform_base_rates": {
+  "NEEDS_AI_DISCLOSURE": 702,
+  "PASS": 300,
+  "NEEDS_ART": 186,
+  "BLOCK_LENGTH": 36,
+  "NEEDS_ISBN": 288,
+  "NEEDS_AGE_GATE": 144,
+  "NEEDS_TERRITORY_MAP": 72,
+  "BLOCK_RIGHTS": 864,
+  "BLOCK_CONTRACT": 5184
+ },
+ "traffic_base_rates": {
+  "PASS": 0.329985,
+  "BLOCK_RIGHTS": 0.07088,
+  "NEEDS_AI_DISCLOSURE": 0.133215,
+  "NEEDS_ART": 0.171035,
+  "NEEDS_TERRITORY_MAP": 0.06848,
+  "NEEDS_ISBN": 0.060285,
+  "NEEDS_AGE_GATE": 0.03982,
+  "BLOCK_CONTRACT": 0.119365,
+  "BLOCK_LENGTH": 0.006935
+ },
+ "majority_uniform": 0.6666666666666666,
+ "majority_traffic": 0.329985,
+ "reference_states": 52,
+ "reference_rules": 142,
+ "reference_verified": true
+}

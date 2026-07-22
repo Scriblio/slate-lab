@@ -1,0 +1,42 @@
+{
+ "_interpretation": {
+  "cube_recipe": "THE RESULT: Opus-authored METHOD (DFA/step-table) poured into the Cube 3.0 substrate and executed by the recall-loop = 100% on unseen inputs, all 4 skills, from 4-21 rules. Capability the plain Slate cannot give.",
+  "tiny_bare": "llama3.2:1b alone: divisibility at chance (~50% on balanced sets), 4-digit addition 0%. The 1B lacks these skills.",
+  "flashcard_cube": "Memorising answers (Opus/true labels) does NOT transfer: chance on div, 15% (BELOW chance) on parity. Proves it's the method, not the examples.",
+  "tiny_cube_e2e": "CAVEAT — this is NOT a cube measurement. It measures the 1B's reliability as a TOOL-CALLER: it hands the cube the wrong operand (~half the time it echoes the divisor, not the dividend). The cube computes 100% on whatever operand it gets. Fix = constrained/JSON decoding or a stronger front-end model, not a better cube."
+ },
+ "config": {
+  "model": "llama3.2:1b",
+  "n": 40,
+  "train": 400,
+  "use_llm": true
+ },
+ "DIV-7": {
+  "rules_in_substrate": 21,
+  "cube_recipe": 1.0,
+  "flashcard_cube": 0.45,
+  "tiny_bare": 0.5,
+  "tiny_cube_e2e": 0.55
+ },
+ "DIV-3": {
+  "rules_in_substrate": 9,
+  "cube_recipe": 1.0,
+  "flashcard_cube": 0.425,
+  "tiny_bare": 0.525,
+  "tiny_cube_e2e": 0.55
+ },
+ "PARITY": {
+  "rules_in_substrate": 4,
+  "cube_recipe": 1.0,
+  "flashcard_cube": 0.15,
+  "tiny_bare": 0.45,
+  "tiny_cube_e2e": 0.475
+ },
+ "ADDITION": {
+  "rules_in_substrate": 8,
+  "cube_recipe": 1.0,
+  "flashcard_cube": null,
+  "tiny_bare": 0.0,
+  "tiny_cube_e2e": 0.575
+ }
+}

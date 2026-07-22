@@ -1,3 +1,5 @@
 __pycache__/
 *.pyc
 .env
+run_*.log
+cube_eye_view.png
