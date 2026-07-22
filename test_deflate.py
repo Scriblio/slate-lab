@@ -174,6 +174,49 @@ def test_a_hash_makes_the_substrates_one_advantage_unreachable():
     assert abs(cos) < 0.15, "if this becomes semantic, the dict comparison changes"
 
 
+def test_mutual_exclusivity_earns_its_place_in_cube_fuse():
+    """cube_fuse SURVIVES its audit -- the one rung with a real prior it would.
+
+    Ablating the child bias costs a grounded word and a produced sentence, which
+    is exactly the argument the file makes, now with the ablation behind it.
+    """
+    import cube_fuse as F
+    scenes = F.all_legal_scenes()
+    got = {}
+    for meaning in ("shipped", "intersect-only", "mode"):
+        rng = np.random.default_rng(4)
+        idx = rng.permutation(len(scenes))
+        held, train = [scenes[i] for i in idx[:8]], [scenes[i] for i in idx[8:]]
+        exposure = [(F.render(sc, "S-V-O"), sc) for sc in
+                    [train[int(rng.integers(len(train)))] for _ in range(900)]]
+        L = D.FuseVariant(meaning).learn(exposure)
+        right = sum(1 for w, r in L.refers.items() if F.WORD.get(r) == w)
+        prod = 0
+        for sc in held:
+            try:
+                prod += (L.describe(sc, rng) == F.render(sc, "S-V-O"))
+            except (KeyError, IndexError):
+                pass
+        got[meaning] = (right, prod)
+    assert got["shipped"] == (9, 8)
+    assert got["intersect-only"][0] < 9      # the bias is load-bearing
+    assert got["mode"][1] < got["shipped"][1]
+
+
+def test_cube_fuse_holds_on_both_word_orders():
+    """The guard cube_fuse already had: a learner that ASSUMED an order fails here."""
+    import cube_fuse as F
+    scenes = F.all_legal_scenes()
+    for order in ("S-V-O", "S-O-V"):
+        rng = np.random.default_rng(4)
+        idx = rng.permutation(len(scenes))
+        held, train = [scenes[i] for i in idx[:8]], [scenes[i] for i in idx[8:]]
+        exposure = [(F.render(sc, order), sc) for sc in
+                    [train[int(rng.integers(len(train)))] for _ in range(900)]]
+        L = D.FuseVariant("shipped").learn(exposure)
+        assert all(L.understand(F.render(sc, order)) == sc for sc in held)
+
+
 if __name__ == "__main__":
     for _n, _f in list(globals().items()):
         if _n.startswith("test_") and callable(_f):

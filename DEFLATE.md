@@ -141,6 +141,31 @@ written it reads as the Slate's. To make it the Slate's you would need entity
 vectors where a near-miss name lands near-miss — semantic embeddings — and then the
 rival is a vector index, which the README already concedes ties on accuracy.
 
+## SURVIVED — `cube_fuse`: "8/8 held-out, both word orders, roles flip"
+
+The parent of `cube_cause`, `cube_say` and `cube_mind` — so if it were hollow,
+everything built on top of it today would inherit a weak foundation. It also
+already carries the best guard in the repo: the whole run is repeated on a
+*second word order*, which a learner that assumed an order rather than inducing
+one would fail. What was unguarded is the meaning step. The file says mutual
+exclusivity was *needed*; nobody had measured what the cheapest rule scores
+without it.
+
+| meaning rule | words grounded | speaks | understands |
+|---|---|---|---|
+| **shipped** (intersect + mutual exclusivity) | **9/9** | **8/8** | **8/8** |
+| intersect only (child bias ablated) | 8/9 | 7/8 | 7/8 |
+| mode (count the most frequent co-occurrent) | 8/9 | 5/8 | 7/8 |
+
+Identical on both S-V-O and S-O-V. **Mutual exclusivity earns its place** — without
+it a word that never occurs apart from another thing cannot be pinned by
+co-occurrence, which is exactly the argument the file makes, now with the ablation
+behind it. The cheapest rival matches the ablation on grounding (8/9) but collapses
+on *production* (5/8 vs 8/8), because the words frequency gets wrong are the ones
+you need to build a correct sentence.
+
+This one survives, and it is the rung that most needed to.
+
 ---
 
 ## What to carry forward
@@ -155,8 +180,7 @@ wherever it stops tying.** Findings pinned in `test_deflate.py`, deliberately
 written to fail if a flattering version of any of these is ever restored.
 
 Still unaudited: `cube_language_induction` (would frequency clustering tie the
-induced categories?), `cube_hypothesis_learner` (is the hypothesis space doing the
-work, or is one dumb rule enough?), `cube_fuse` (what does a plain co-occurrence
-counter score without mutual exclusivity?).
+induced categories?) and `cube_hypothesis_learner` (is the hypothesis space doing
+the work, or is one dumb rule enough?).
 
 Standalone lab cube. Never reads, writes or imports the live production substrate.
