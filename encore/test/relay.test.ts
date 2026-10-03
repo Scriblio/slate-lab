@@ -195,6 +195,10 @@ describe('online join link, end to end', () => {
     await other.listen();
     await until(() => other.relay?.state === 'online');
     expect(other.joinUrl()).toMatch(/^http:\/\/.+\/join$/);
+    const dj = connect(`http://127.0.0.1:${other.port}`, { auth: { role: 'dj' }, transports: ['websocket'], forceNew: true });
+    const view = await new Promise<DjView>((ok) => dj.on('dj:view', ok));
+    expect(view.relay).toMatchObject({ state: 'page-down', onlineHost: 'sing.example' });
+    dj.disconnect();
     await other.close();
   });
 

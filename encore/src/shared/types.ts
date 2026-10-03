@@ -213,9 +213,14 @@ export interface DjView {
   joinUrl: string;
   joinLabel: string;
   relay: {
-    /** 'off' when the online link is turned off or not configured. */
-    state: 'off' | 'connecting' | 'online' | 'offline';
+    /**
+     * 'off': turned off or not configured. 'offline': no internet / relay down.
+     * 'page-down': the relay works but the join page doesn't load yet.
+     */
+    state: 'off' | 'connecting' | 'online' | 'offline' | 'page-down';
     lanUrl: string;
+    /** Where the online join page lives, e.g. sing.scriblio.co. */
+    onlineHost?: string;
     /** Phones currently connected through the online link. */
     phones: number;
   };

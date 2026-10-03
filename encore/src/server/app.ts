@@ -470,7 +470,8 @@ export async function createApp(opts: AppOptions) {
       joinUrl: joinUrl(),
       joinLabel: joinLabel(),
       relay: {
-        state: !relay ? (cloud && config.onlineJoin !== false ? 'connecting' : 'off') : relay.state === 'online' && !joinPageOk ? 'offline' : relay.state,
+        state: !relay ? (cloud && config.onlineJoin !== false ? 'connecting' : 'off') : relay.state === 'online' && !joinPageOk ? 'page-down' : relay.state,
+        onlineHost: cloud ? new URL(cloud.joinOrigin).host : undefined,
         lanUrl: lanJoinUrl(),
         phones: relay?.sessionCount ?? 0,
       },

@@ -203,9 +203,10 @@ function TopBar({ offline }: { offline: boolean }) {
             ) : (
               <p className="muted">
                 Wi-Fi link: phones must be on the same network as this laptop.
-                {view.relay.state === 'offline' || view.relay.state === 'connecting'
-                  ? ' The secure online link comes back on its own when the internet does.'
-                  : ''}
+                {view.relay.state === 'page-down' &&
+                  ` The secure online link turns on by itself as soon as ${view.relay.onlineHost} is reachable.`}
+                {(view.relay.state === 'offline' || view.relay.state === 'connecting') &&
+                  ' The secure online link turns on by itself when this laptop is back online.'}
               </p>
             )}
           </div>

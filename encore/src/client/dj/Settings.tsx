@@ -179,7 +179,15 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
             />
             <p className="muted small">
               Status:{' '}
-              {{ online: 'online', connecting: 'connecting…', offline: 'offline (using the Wi-Fi link)', off: 'off (using the Wi-Fi link)' }[view.relay.state]}
+              {
+                {
+                  online: 'online',
+                  connecting: 'connecting…',
+                  offline: 'no internet, so using the Wi-Fi link',
+                  'page-down': `waiting for ${view.relay.onlineHost} to come online, using the Wi-Fi link meanwhile`,
+                  off: 'off (using the Wi-Fi link)',
+                }[view.relay.state]
+              }
               {view.relay.state === 'online' && view.relay.phones > 0 && ` · ${view.relay.phones} phone${view.relay.phones > 1 ? 's' : ''} connected`}
             </p>
           </Section>
