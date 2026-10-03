@@ -65,12 +65,15 @@ export function JoinApp({ socket: given, tokenKey = 'encore.token', offlineHint,
     socket.on('connect', onConnect);
     socket.on('connect', onUp);
     socket.on('singer:removed', onRemoved);
+    const onNotice = (n: { text: string }) => toast(n.text, 'info');
+    socket.on('singer:notice', onNotice);
     socket.on('connect_error', onError);
     return () => {
       socket.off('singer:view', onView);
       socket.off('connect', onConnect);
       socket.off('connect', onUp);
       socket.off('singer:removed', onRemoved);
+      socket.off('singer:notice', onNotice);
       socket.off('connect_error', onError);
     };
   }, [socket]);

@@ -341,6 +341,14 @@ describe('YouTube videos that won’t play here', () => {
     // The fake search only knows two versions and both are refused now, so it's flagged.
     expect(np).toMatchObject({ entry: { wontPlay: true }, error: expect.stringMatching(/no other version/) });
 
+    // The KJ marks a video "not karaoke": the request goes, the singer is told, and it's hidden.
+    const vocalId = await request('ccccccccccc', 'Toto - Africa (Official Video)');
+    const told = nextEvent<{ text: string }>(phone, 'singer:notice');
+    await call((a) => dj.emit('dj:action', { type: 'notKaraoke', entryId: vocalId }, a));
+    expect((await told).text).toMatch(/isn’t a karaoke version/);
+    expect(own.show.findEntry(vocalId)).toBeUndefined();
+    await expect(request('ccccccccccc', 'again')).rejects.toThrow(/not a karaoke version/);
+
     // Refused videos no longer show up in YouTube search on this laptop.
     const results = await call<SearchResult[]>((a) => phone.emit('searchYouTube', 'toto africa', a));
     expect(results.map((r) => r.song.source.kind === 'youtube' && r.song.source.videoId)).not.toContain('aaaaaaaaaaa');

@@ -542,3 +542,6 @@ select.input {
   text-decoration: underline;
   text-underline-offset: 2px;
 }
+.toast.info svg {
+  color: var(--amber);
+}

@@ -13,6 +13,7 @@ import * as I from '../common/icons.tsx';
 import { checkYouTube, type YouTubeHandle } from '../common/youtube-embed.ts';
 import { Player, type PlayerHandle } from '../display/players.tsx';
 import { useDj } from './context.ts';
+import { NotKaraokeButton } from './NotKaraoke.tsx';
 
 /** Wait this long before retrying a video whose check didn't finish (offline, say). */
 const RETRY_MS = 3 * 60_000;
@@ -206,6 +207,7 @@ function Previewing({ entry, onClose }: { entry: Entry; onClose: () => void }) {
         >
           <I.Volume /> {muted ? 'Sound off' : 'Sound on'}
         </button>
+        <NotKaraokeButton entry={entry} />
         <span className="muted small preview-time">
           {formatDuration(time.position)} / {formatDuration(time.duration)}
         </span>

@@ -23,7 +23,7 @@ import {
 /** Events a phone may send. Never the DJ or display events. */
 const ALLOWED = new Set(['singer:join', 'singer:resume', 'singer:reclaim', 'singer:action', 'search', 'searchYouTube', 'lookupYouTube']);
 /** Events forwarded from the server to the phone. */
-const FORWARD = ['singer:view', 'singer:removed'] as const;
+const FORWARD = ['singer:view', 'singer:removed', 'singer:notice'] as const;
 
 const IDLE_MS = 75_000;
 const MAX_SESSIONS = 400;

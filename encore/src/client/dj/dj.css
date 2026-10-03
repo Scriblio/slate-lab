@@ -1427,3 +1427,19 @@ kbd {
   width: 14px;
   height: 14px;
 }
+
+/* ---- not karaoke ---- */
+
+.not-karaoke {
+  white-space: nowrap;
+}
+.not-karaoke svg {
+  width: 14px;
+  height: 14px;
+}
+.not-karaoke.ghost:not(:hover) svg {
+  color: var(--amber);
+}
+.previewable {
+  cursor: pointer;
+}

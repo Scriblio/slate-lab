@@ -128,6 +128,19 @@ describe('online join link, end to end', () => {
     expect(wire).not.toContain(token);
   });
 
+  it('passes the KJ’s notices on to the phone', async () => {
+    const p = phone();
+    await new Promise((r) => p.on('connect', r));
+    await ack(p, 'singer:join', 'Lily');
+    const id = await ack<string>(p, 'singer:action', { type: 'request', song: { kind: 'youtube', videoId: 'vocalsvid02', title: 'With vocals' } });
+    const told = new Promise<{ text: string }>((r) => p.on('singer:notice', (n) => r(n as { text: string })));
+    const dj = connect(`http://127.0.0.1:${app.port}`, { auth: { role: 'dj' }, transports: ['websocket'], forceNew: true });
+    cleanup.push(() => dj.disconnect());
+    await new Promise((r) => dj.on('connect', () => r(null)));
+    await ack(dj, 'dj:action', { type: 'notKaraoke', entryId: id });
+    expect((await told).text).toMatch(/isn’t a karaoke version/);
+  });
+
   it('only allows singer events through the relay', async () => {
     const p = phone();
     await new Promise((r) => p.on('connect', r));

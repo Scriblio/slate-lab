@@ -362,3 +362,26 @@ describe('Changing the song on stage', () => {
     expect(() => show.singerAction(a.id, { type: 'changeMySong', song: yt('zz') })).toThrow(/already started/);
   });
 });
+
+describe('Dropping a request', () => {
+  it('takes it from the queue, undoes a call-up, or ends a song in progress', () => {
+    const { show } = makeShow();
+    const [a, b, c] = ['Alex', 'Bea', 'Cam'].map((n) => show.join(n).singer);
+    const ea = show.addEntry(a!.id, yt('a1'), { fromPhone: true });
+    const eb = show.addEntry(b!.id, yt('b1'), { fromPhone: true });
+    const ec = show.addEntry(c!.id, yt('c1'), { fromPhone: true });
+    show.dropRequest(ec.id);
+    expect(show.state.entries.map((e) => e.id)).toEqual([ea.id, eb.id]);
+
+    show.callNext(); // Alex
+    show.dropRequest(ea.id);
+    expect(show.state.nowPlaying!.singerName).toBe('Bea');
+    expect(show.singer(a!.id)!.songsSung).toBe(0);
+    expect(show.state.history).toHaveLength(0);
+
+    show.play();
+    show.dropRequest(eb.id);
+    expect(show.state.nowPlaying).toBeNull();
+    expect(show.state.history[0]).toMatchObject({ outcome: 'skipped' });
+  });
+});

@@ -7,6 +7,7 @@ import type { Entry, Singer } from '../../shared/types.ts';
 import * as I from '../common/icons.tsx';
 import { SongThumb, SourceBadge } from '../common/ui.tsx';
 import { useDj } from './context.ts';
+import { NotKaraokeButton } from './NotKaraoke.tsx';
 
 export function Rotation() {
   const { view, act, setTarget, setPreview, focusFinder } = useDj();
@@ -392,6 +393,7 @@ function EntryRow({ entry: e, first, last, index }: { entry: Entry; first: boole
                 <I.Mic />
               </button>
             )}
+            <NotKaraokeButton entry={e} compact />
             <button className="btn ghost icon sm danger" onClick={() => act({ type: 'removeEntry', entryId: e.id })} aria-label="Remove song" title="Remove song">
               <I.Trash />
             </button>

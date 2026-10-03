@@ -33,7 +33,7 @@ function setup(opts: { results?: SearchResult[]; dataDir?: string; now?: () => n
     resolveLocal: () => undefined,
     onChange: () => {},
     onPlayerCommand: () => {},
-    isRefused: (id) => guard?.isRefused(id) ?? false,
+    blockReason: (id) => guard?.blockReason(id),
   });
   guard = new YouTubeGuard({
     show,
@@ -134,7 +134,7 @@ describe('YouTubeGuard', () => {
     const now = () => t;
     const first = setup({ dataDir: dir, now });
     await first.guard.report('refused0001', false);
-    expect(JSON.parse(await readFile(join(dir, 'youtube-refused.json'), 'utf8'))).toEqual({ refused0001: t });
+    expect(JSON.parse(await readFile(join(dir, 'youtube-refused.json'), 'utf8'))).toEqual({ refused0001: { at: t, reason: 'refused' } });
 
     const again = setup({ dataDir: dir, now });
     await again.guard.load();
@@ -146,6 +146,29 @@ describe('YouTubeGuard', () => {
     t = Date.UTC(2026, 9, 2);
     await again.guard.report('refused0001', true, 'direct');
     expect(again.guard.isRefused('refused0001')).toBe(false);
+    await rm(dir, { recursive: true, force: true });
+  });
+});
+
+describe('“Not karaoke”', () => {
+  it('blocks the video for that reason, which a later good check doesn’t undo', async () => {
+    const { show, guard } = setup();
+    const robin = show.join('Robin').singer;
+    await guard.markNotKaraoke('vocalsvid01');
+    expect(guard.blockReason('vocalsvid01')).toBe('not-karaoke');
+    expect(() => show.addEntry(robin.id, { kind: 'youtube', videoId: 'vocalsvid01', title: 'x' }, { fromPhone: true })).toThrow(/not a karaoke version/);
+    await guard.report('vocalsvid01', true, 'site');
+    await guard.report('vocalsvid01', false);
+    expect(guard.blockReason('vocalsvid01')).toBe('not-karaoke');
+  });
+
+  it('reads the older refusal file format', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'encore-ytguard-old-'));
+    const { writeFile } = await import('node:fs/promises');
+    await writeFile(join(dir, 'youtube-refused.json'), JSON.stringify({ oldrefused1: Date.now() }));
+    const { guard } = setup({ dataDir: dir, now: Date.now });
+    await guard.load();
+    expect(guard.blockReason('oldrefused1')).toBe('refused');
     await rm(dir, { recursive: true, force: true });
   });
 });

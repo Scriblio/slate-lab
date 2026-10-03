@@ -19,7 +19,7 @@ import { loadConfig, saveConfig, type Config } from './config.ts';
 import { Library } from './library.ts';
 import { serveMedia } from './media.ts';
 import { loadIdentity, RelayHost, type RelayIdentity } from './relay.ts';
-import { Show, UserError } from './show.ts';
+import { blockedMessage, Show, UserError } from './show.ts';
 import { YouTube } from './youtube.ts';
 import { REFUSAL_CODES, YouTubeGuard } from './ytguard.ts';
 
@@ -81,7 +81,7 @@ export async function createApp(opts: AppOptions) {
   let guard: YouTubeGuard | undefined;
   const show = new Show({
     dataDir: opts.dataDir,
-    isRefused: (videoId) => guard?.isRefused(videoId) ?? false,
+    blockReason: (videoId) => guard?.blockReason(videoId),
     onNotice: (text) => io?.to('dj').emit('dj:notice', { text }),
     resolveLocal: (id) => {
       const t = library.get(id);
@@ -368,7 +368,8 @@ export async function createApp(opts: AppOptions) {
         if (!isDj && !show.state.settings.allowYouTube) throw new UserError('YouTube requests are off tonight.');
         const id = parseYouTubeId(String(input ?? ''));
         if (!id) throw new UserError('That doesn’t look like a YouTube link.');
-        if (ytGuard.isRefused(id)) throw new UserError('YouTube won’t play that video here. Pick another version of the song.');
+        const blocked = blockedMessage(ytGuard.blockReason(id));
+        if (blocked) throw new UserError(blocked);
         const result = await youtube.lookup(id);
         return { ...result, playedTonight: show.playedTonight(result.song) } satisfies SearchResult;
       }),
@@ -421,6 +422,18 @@ export async function createApp(opts: AppOptions) {
         return show.callEntry(a.entryId);
       case 'changeStageSong':
         return show.changeStageSong(a.song, { fromPhone: false }).id;
+      case 'notKaraoke': {
+        // The KJ says this YouTube video isn't a karaoke version: off the list,
+        // hidden from searches on this laptop, and the singer is told why.
+        const entry = show.findEntry(String(a.entryId));
+        if (!entry || entry.song.source.kind !== 'youtube') throw new UserError('That isn’t a YouTube request any more.');
+        await ytGuard.markNotKaraoke(entry.song.source.videoId);
+        show.dropRequest(entry.id);
+        io.to(`singer:${entry.singerId}`).emit('singer:notice', {
+          text: `The KJ removed “${entry.song.title}” because it isn’t a karaoke version. Pick a karaoke version of the song (tap Preview to check before you add it).`,
+        });
+        return null;
+      }
       case 'play':
         return show.play();
       case 'pause':

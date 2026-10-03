@@ -8,6 +8,7 @@ import * as I from '../common/icons.tsx';
 import { request } from '../common/socket.ts';
 import { SongThumb, SourceBadge, useDebounced, useToast, YouTubeTerms } from '../common/ui.tsx';
 import { useDj } from './context.ts';
+import { NotKaraokeButton } from './NotKaraoke.tsx';
 
 type Tab = 'search' | 'requests' | 'history';
 
@@ -296,7 +297,7 @@ function ResultList({
 }
 
 function Requests() {
-  const { view, act } = useDj();
+  const { view, act, setPreview } = useDj();
   const pending = view.show.entries.filter((e) => e.status === 'pending');
   const name = (id: string) => view.show.singers.find((s) => s.id === id)?.name ?? '—';
   if (!view.show.settings.requireApproval && pending.length === 0)
@@ -327,7 +328,7 @@ function Requests() {
             {pending.map((e) => (
               <li key={e.id} className="result-row">
                 <SongThumb song={e.song} size={38} />
-                <div className="result-main ellipsis">
+                <div className="result-main ellipsis previewable" onClick={() => setPreview(e.id)} title="Preview this song">
                   <div className="result-title ellipsis">{e.song.title}</div>
                   <div className="result-sub ellipsis">
                     <strong>{name(e.singerId)}</strong> · {e.song.artist}
@@ -335,6 +336,7 @@ function Requests() {
                   </div>
                 </div>
                 <SourceBadge song={e.song} />
+                <NotKaraokeButton entry={e} compact />
                 <button className="btn sm" onClick={() => act({ type: 'approveEntry', entryId: e.id })}>
                   <I.Check />
                 </button>

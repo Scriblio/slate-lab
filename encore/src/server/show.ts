@@ -50,8 +50,8 @@ export interface ShowDeps {
   resolveLocal: (trackId: string) => Song | undefined;
   onChange: () => void;
   onPlayerCommand: (playId: string, cmd: PlayerCommand) => void;
-  /** YouTube videos known not to play here are turned away when requested. */
-  isRefused?: (videoId: string) => boolean;
+  /** YouTube videos that won't play here, or that the KJ marked not karaoke, are turned away. */
+  blockReason?: (videoId: string) => 'refused' | 'not-karaoke' | undefined;
   /** Something the KJ should hear about right away (a singer left, or asked to wait). */
   onNotice?: (text: string) => void;
 }
@@ -410,9 +410,7 @@ export class Show {
       }
     }
     if (mine.some((e) => sourceKey(e.song) === sourceKey(song))) throw new UserError('That song is already on your list.');
-    if (song.source.kind === 'youtube' && this.deps.isRefused?.(song.source.videoId)) {
-      throw new UserError('YouTube won’t play that video here. Pick another version of the song.');
-    }
+    this.checkBlocked(song);
     const entry: Entry = {
       id: shortId(),
       singerId,
@@ -424,6 +422,33 @@ export class Show {
     this.state = { ...this.state, entries: [...this.state.entries, entry] };
     this.changed();
     return entry;
+  }
+
+  private checkBlocked(song: Song): void {
+    if (song.source.kind !== 'youtube') return;
+    const msg = blockedMessage(this.deps.blockReason?.(song.source.videoId));
+    if (msg) throw new UserError(msg);
+  }
+
+  /**
+   * Take a request off the list wherever it is. On stage, a song that hasn't
+   * started is undone as if never called; one that has is ended. Either way the
+   * next singer comes up when auto-advance is on.
+   */
+  dropRequest(entryId: string): void {
+    const np = this.state.nowPlaying;
+    if (np?.entry.id === entryId) {
+      if (np.stage === 'intro') {
+        this.undoCall(np.playId);
+        this.removeEntry(entryId);
+      } else {
+        this.finish('skipped');
+      }
+      if (this.state.settings.autoAdvance) this.callNext();
+      else this.changed();
+      return;
+    }
+    this.removeEntry(entryId);
   }
 
   /** Where a request lives now: waiting in the queue, or on stage. */
@@ -755,9 +780,7 @@ export class Show {
     if (!np) throw new UserError('Nobody is on stage.');
     if (opts.fromPhone && np.stage !== 'intro') throw new UserError('Your song has already started. Ask the KJ.');
     const song = this.resolveSong(ref);
-    if (song.source.kind === 'youtube' && this.deps.isRefused?.(song.source.videoId)) {
-      throw new UserError('YouTube won’t play that video here. Pick another version of the song.');
-    }
+    this.checkBlocked(song);
     if (sourceKey(song) === sourceKey(np.entry.song)) return np.entry;
     if (opts.fromPhone && song.source.kind === 'youtube' && !this.state.settings.allowYouTube) {
       throw new UserError('The KJ isn’t taking YouTube requests tonight.');
@@ -948,6 +971,13 @@ export function freshShow(now: number): ShowState {
     nowPlaying: null,
     history: [],
   };
+}
+
+/** What a singer is told when they request a video that's kept off the list. */
+export function blockedMessage(reason: 'refused' | 'not-karaoke' | undefined): string | undefined {
+  if (reason === 'refused') return 'YouTube won’t play that video here. Pick another version of the song.';
+  if (reason === 'not-karaoke') return 'The KJ marked that video as not a karaoke version. Pick a karaoke version of the song.';
+  return undefined;
 }
 
 /** Give back the held turns an undone call-up counted down (holds asked for since then stay). */

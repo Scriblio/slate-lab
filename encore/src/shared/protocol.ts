@@ -58,6 +58,8 @@ export type DjAction =
   | { type: 'callEntry'; entryId: string }
   /** Give the singer on stage a different song; it goes up on the intro card. */
   | { type: 'changeStageSong'; song: SongRef }
+  /** This YouTube request isn't a karaoke version: remove it and hide the video from searches. */
+  | { type: 'notKaraoke'; entryId: string }
   | { type: 'play' }
   | { type: 'pause' }
   | { type: 'restart' }
@@ -107,6 +109,8 @@ export interface ServerToClient {
   'dj:notice': (p: { text: string }) => void;
   'singer:view': (view: SingerView) => void;
   'singer:removed': () => void;
+  /** Something this singer should know, e.g. the KJ removed a song that wasn't karaoke. */
+  'singer:notice': (p: { text: string }) => void;
   'display:view': (view: DisplayView) => void;
   'player:cmd': (p: { playId: string } & PlayerCommand) => void;
 }

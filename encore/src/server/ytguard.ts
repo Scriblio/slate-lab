@@ -31,9 +31,12 @@ export interface YouTubeGuardDeps {
   log?: (msg: string) => void;
 }
 
+/** Why a video is kept off the list: YouTube won't play it here, or the KJ says it isn't karaoke. */
+export type BlockReason = 'refused' | 'not-karaoke';
+
 export class YouTubeGuard {
-  /** videoId -> when it was refused. Only ids and times are kept. */
-  private refused = new Map<string, number>();
+  /** videoId -> when and why it was blocked. Only ids, times and reasons are kept. */
+  private refused = new Map<string, { at: number; reason: BlockReason }>();
   private checks = new Map<string, { ok: boolean; mode?: YouTubeMode; at: number }>();
   private swapping = new Set<string>();
   private saving: Promise<void> = Promise.resolve();
@@ -50,8 +53,13 @@ export class YouTubeGuard {
   async load(): Promise<void> {
     if (!this.file) return;
     try {
-      const saved = JSON.parse(await readFile(this.file, 'utf8')) as Record<string, number>;
-      for (const [id, at] of Object.entries(saved)) if (/^[\w-]{11}$/.test(id) && Number.isFinite(at)) this.refused.set(id, at);
+      const saved = JSON.parse(await readFile(this.file, 'utf8')) as Record<string, number | { at: number; reason: BlockReason }>;
+      for (const [id, v] of Object.entries(saved)) {
+        // Older files kept only the time of a refusal.
+        const entry = typeof v === 'number' ? { at: v, reason: 'refused' as const } : v;
+        const reason = entry?.reason === 'not-karaoke' ? 'not-karaoke' : 'refused';
+        if (/^[\w-]{11}$/.test(id) && Number.isFinite(entry?.at)) this.refused.set(id, { at: entry.at, reason });
+      }
       this.expire();
     } catch {
       // nothing remembered yet
@@ -72,13 +80,30 @@ export class YouTubeGuard {
 
   private expire(): void {
     const cutoff = this.now() - REMEMBER_MS;
-    for (const [id, at] of this.refused) if (at < cutoff) this.refused.delete(id);
+    for (const [id, { at }] of this.refused) if (at < cutoff) this.refused.delete(id);
     while (this.refused.size > MAX_REMEMBERED) this.refused.delete(this.refused.keys().next().value!);
   }
 
+  /** Why a video is kept off the list on this laptop, if it is. */
+  blockReason(videoId: string): BlockReason | undefined {
+    const b = this.refused.get(videoId);
+    return b && this.now() - b.at < REMEMBER_MS ? b.reason : undefined;
+  }
+
+  /** Blocked for any reason: hidden from search, turned away when requested, never swapped in. */
   isRefused(videoId: string): boolean {
-    const at = this.refused.get(videoId);
-    return at !== undefined && this.now() - at < REMEMBER_MS;
+    return this.blockReason(videoId) !== undefined;
+  }
+
+  /** The KJ says this video isn't a karaoke version. */
+  async markNotKaraoke(videoId: string): Promise<void> {
+    if (!/^[\w-]{11}$/.test(videoId)) return;
+    this.refused.delete(videoId);
+    this.refused.set(videoId, { at: this.now(), reason: 'not-karaoke' });
+    this.checks.delete(videoId);
+    this.expire();
+    await this.save();
+    this.onUpdate?.();
   }
 
   /** What the console and venue screen need: check results for tonight's YouTube videos. */
@@ -107,13 +132,19 @@ export class YouTubeGuard {
     if (!/^[\w-]{11}$/.test(videoId)) return;
     if (ok) {
       this.checks.set(videoId, { ok: true, mode: mode === 'site' || mode === 'direct' ? mode : undefined, at: this.now() });
-      if (this.refused.delete(videoId)) await this.save();
+      // It plays after all; a KJ's "not karaoke" still stands.
+      if (this.refused.get(videoId)?.reason === 'refused') {
+        this.refused.delete(videoId);
+        await this.save();
+      }
       this.onUpdate?.();
       return;
     }
     this.checks.delete(videoId);
-    this.refused.delete(videoId);
-    this.refused.set(videoId, this.now());
+    if (this.refused.get(videoId)?.reason !== 'not-karaoke') {
+      this.refused.delete(videoId);
+      this.refused.set(videoId, { at: this.now(), reason: 'refused' });
+    }
     this.expire();
     await this.save();
     const { entries, nowPlaying } = this.deps.show.state;
