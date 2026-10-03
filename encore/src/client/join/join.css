@@ -892,3 +892,45 @@ button.status {
 .preview-note {
   margin: 12px 0 0;
 }
+
+/* Key change when adding a library song */
+.key-picker {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 14px 0 4px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+.key-picker strong {
+  display: block;
+}
+.key-picker span {
+  display: block;
+  margin-top: 2px;
+  font-size: 12.5px;
+  line-height: 1.35;
+}
+.key-stepper {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+}
+.key-stepper .btn {
+  --h: 36px;
+  font-size: 18px;
+}
+.key-stepper output {
+  min-width: 62px;
+  text-align: center;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-2);
+}
+.key-stepper output.on {
+  color: var(--cyan);
+}

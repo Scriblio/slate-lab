@@ -1443,3 +1443,54 @@ kbd {
 .previewable {
   cursor: pointer;
 }
+
+/* Key change on the stage card */
+.key-control {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  border: 1px solid var(--line-2);
+  border-radius: 999px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.key-control button {
+  height: 100%;
+  padding: 0 8px;
+  border: 0;
+  background: transparent;
+  color: var(--text-2);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+}
+.key-control .key-step {
+  width: 26px;
+  padding: 0;
+  font-size: 15px;
+  line-height: 1;
+}
+.key-control button:hover:not(:disabled) {
+  background: var(--surface-3);
+  color: var(--text);
+}
+.key-control .key-step:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.key-control .key-value:disabled {
+  cursor: default;
+}
+.key-control.on {
+  border-color: var(--cyan);
+}
+.key-control.on .key-value {
+  color: var(--cyan);
+}
+.badge.key-off {
+  opacity: 0.75;
+}
+.entry-key {
+  color: var(--cyan);
+}

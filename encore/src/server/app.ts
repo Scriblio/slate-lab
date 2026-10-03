@@ -16,6 +16,7 @@ import type { DjView, SearchResult } from '../shared/types.ts';
 import { CLOUD, cloudConfigured } from '../shared/cloud.ts';
 import { joinLink, supabaseTransport, type RelayTransport } from '../shared/relay.ts';
 import { loadConfig, saveConfig, type Config } from './config.ts';
+import { KeyMemory } from './keys.ts';
 import { Library } from './library.ts';
 import { serveMedia } from './media.ts';
 import { PushNotifier, turnAlerts } from './push.ts';
@@ -78,10 +79,14 @@ export async function createApp(opts: AppOptions) {
     });
   };
 
+  const keys = new KeyMemory({ dataDir: opts.dataDir, log });
+  await keys.load();
+
   // Created once the online settings are known (it needs the player page's address).
   let guard: YouTubeGuard | undefined;
   const show = new Show({
     dataDir: opts.dataDir,
+    keys,
     blockReason: (videoId) => guard?.blockReason(videoId),
     onNotice: (text) => io?.to('dj').emit('dj:notice', { text }),
     resolveLocal: (id) => {
@@ -360,7 +365,12 @@ export async function createApp(opts: AppOptions) {
     socket.on('search', (query, ack) =>
       respond(ack, () => {
         const results = library.search(String(query ?? '').slice(0, 100), { limit: isDj ? 60 : 30, dedupe: !isDj });
-        return results.map((r) => ({ ...r, playedTonight: show.playedTonight(r.song) }));
+        // A singer sees the key they sang each song in last time, so it comes up that way again.
+        const me = !isDj && socket.data.singerId ? show.singer(socket.data.singerId)?.name : undefined;
+        return results.map((r) => {
+          const lastKey = me ? keys.get(me, r.song) : undefined;
+          return { ...r, playedTonight: show.playedTonight(r.song), ...(lastKey ? { lastKey } : {}) };
+        });
       }),
     );
     socket.on('searchYouTube', (query, ack) =>
@@ -416,7 +426,9 @@ export async function createApp(opts: AppOptions) {
       case 'moveSinger':
         return show.moveSinger(a.singerId, Number(a.toIndex));
       case 'addEntry':
-        return show.addEntry(a.singerId, a.song, { note: a.note, fromPhone: false }).id;
+        return show.addEntry(a.singerId, a.song, { note: a.note, fromPhone: false, key: a.key }).id;
+      case 'setKey':
+        return show.setKey(String(a.entryId), Number(a.key)).key ?? 0;
       case 'removeEntry':
         return show.removeEntry(a.entryId);
       case 'moveEntry':
@@ -614,6 +626,7 @@ export async function createApp(opts: AppOptions) {
     await show.flush().catch(() => {});
     await push?.settle();
     await push?.flush();
+    await keys.flush();
     io.disconnectSockets(true);
     await new Promise<void>((ok) => io.close(() => ok()));
     await vite?.close();

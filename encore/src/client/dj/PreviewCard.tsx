@@ -182,6 +182,7 @@ function Previewing({ entry, onClose }: { entry: Entry; onClose: () => void }) {
           volume={100}
           muted={muted}
           startAt={0}
+          semitones={entry.key ?? 0}
           youtube={{ frameUrl: view.youtube.frameUrl, mode: song.source.kind === 'youtube' ? view.youtube.modes[song.source.videoId] : undefined }}
           onProgress={(position, duration) => setTime({ position, duration: duration ?? song.durationSec })}
           onEnded={() => setPlaying(false)}

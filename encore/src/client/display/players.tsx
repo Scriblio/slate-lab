@@ -6,6 +6,7 @@ import type { Song, YouTubeMode } from '../../shared/types.ts';
 import { CDG_HEIGHT, CDG_WIDTH, CdgDecoder } from '../cdg/decoder.ts';
 import * as I from '../common/icons.tsx';
 import { modeOrder, playYouTube, YOUTUBE_ERRORS, type YouTubeHandle } from '../common/youtube-embed.ts';
+import { routeKey, type KeyRoute } from './key-change.ts';
 
 export interface PlayerHandle {
   play(): void;
@@ -27,6 +28,8 @@ export interface PlayerProps {
   onError: (message: string, code?: number) => void;
   /** Where YouTube's player loads from, and the embedding known to work for this video. */
   youtube?: { frameUrl?: string; mode?: YouTubeMode };
+  /** Key change in semitones, for library songs (YouTube songs ignore it). */
+  semitones?: number;
 }
 
 export const Player = forwardRef<PlayerHandle, PlayerProps>(function Player(props, ref) {
@@ -45,7 +48,11 @@ export const Player = forwardRef<PlayerHandle, PlayerProps>(function Player(prop
 function useMediaElement<T extends HTMLMediaElement>(props: PlayerProps, ref: React.ForwardedRef<PlayerHandle>) {
   const el = useRef<T>(null);
   const started = useRef(false);
-  const { playing, volume, muted, onProgress, onEnded, onError, startAt } = props;
+  const { playing, volume, muted, onProgress, onEnded, onError, startAt, semitones = 0 } = props;
+  const route = useRef<KeyRoute | null>(null);
+  const routing = useRef<Promise<KeyRoute> | null>(null);
+  const sound = useRef({ volume, muted });
+  sound.current = { volume, muted };
   // An aborted play() (e.g. a quick pause) is not an error worth reporting.
   const report = (message: string) => message && onError(message);
   const cb = useRef({ onProgress, onEnded, onError: report });
@@ -67,11 +74,35 @@ function useMediaElement<T extends HTMLMediaElement>(props: PlayerProps, ref: Re
   }, [playing]);
 
   useEffect(() => {
-    if (el.current) {
-      el.current.volume = Math.max(0, Math.min(1, volume / 100));
-      el.current.muted = muted;
+    if (!el.current) return;
+    if (route.current) {
+      route.current.setVolume(volume, muted);
+      return;
     }
+    el.current.volume = Math.max(0, Math.min(1, volume / 100));
+    el.current.muted = muted;
   }, [volume, muted]);
+
+  // Key change: the first time this song's key moves off the original, its
+  // sound starts going through the pitch shifter (and stays routed after).
+  useEffect(() => {
+    const m = el.current;
+    if (!m || (!semitones && !routing.current)) return;
+    let live = true;
+    routing.current ??= routeKey(m, semitones).then((r) => (route.current = r));
+    routing.current.then(
+      (r) => {
+        if (!live) return;
+        r.setKey(semitones);
+        r.setVolume(sound.current.volume, sound.current.muted);
+      },
+      (err: Error) => console.warn('Key change unavailable:', err.message),
+    );
+    return () => {
+      live = false;
+    };
+  }, [semitones]);
+  useEffect(() => () => route.current?.dispose(), []);
 
   useEffect(() => {
     const m = el.current;
@@ -102,7 +133,9 @@ function useMediaElement<T extends HTMLMediaElement>(props: PlayerProps, ref: Re
     };
   }, [startAt]);
 
-  return el;
+  /** How far the heard sound trails the element's clock, so lyrics can wait for it. */
+  const keyLatency = () => route.current?.latency ?? 0;
+  return { el, keyLatency };
 }
 
 function playError(e: Error): string {
@@ -127,14 +160,14 @@ function mediaError(err: MediaError | null): string {
 // --- local video ----------------------------------------------------------------
 
 const VideoPlayer = forwardRef<PlayerHandle, PlayerProps & { src: string }>(function VideoPlayer(props, ref) {
-  const el = useMediaElement<HTMLVideoElement>(props, ref);
+  const { el } = useMediaElement<HTMLVideoElement>(props, ref);
   return <video ref={el} className="media-fill" src={props.src} preload="auto" playsInline />;
 });
 
 // --- MP3+G ------------------------------------------------------------------------
 
 const CdgPlayer = forwardRef<PlayerHandle, PlayerProps & { audioSrc: string; cdgSrc: string }>(function CdgPlayer(props, ref) {
-  const audio = useMediaElement<HTMLAudioElement>(props, ref);
+  const { el: audio, keyLatency } = useMediaElement<HTMLAudioElement>(props, ref);
   const canvas = useRef<HTMLCanvasElement>(null);
   const [bg, setBg] = useState('#000');
   const [failed, setFailed] = useState<string | null>(null);
@@ -156,7 +189,8 @@ const CdgPlayer = forwardRef<PlayerHandle, PlayerProps & { audioSrc: string; cdg
         if (cancelled) return;
         const dec = new CdgDecoder(buf);
         const frame = () => {
-          const t = audio.current?.currentTime ?? 0;
+          // With a key change the sound comes out a little late; keep the lyrics with the sound.
+          const t = Math.max(0, (audio.current?.currentTime ?? 0) - keyLatency());
           dec.seekTo(t);
           if (dec.dirty) {
             dec.renderTo(image.data);
@@ -191,7 +225,7 @@ const CdgPlayer = forwardRef<PlayerHandle, PlayerProps & { audioSrc: string; cdg
 // --- audio only -------------------------------------------------------------------
 
 const AudioOnlyPlayer = forwardRef<PlayerHandle, PlayerProps & { src: string }>(function AudioOnlyPlayer(props, ref) {
-  const el = useMediaElement<HTMLAudioElement>(props, ref);
+  const { el } = useMediaElement<HTMLAudioElement>(props, ref);
   return (
     <div className="audio-stage">
       <I.Music />

@@ -1,7 +1,8 @@
 // The stage card: who's on, transport controls, and calling the next singer.
 
 import { useEffect, useRef, useState } from 'react';
-import { formatDuration } from '../../shared/text.ts';
+import { MAX_SEMITONES } from '../../shared/pitch.ts';
+import { formatDuration, formatKey } from '../../shared/text.ts';
 import * as I from '../common/icons.tsx';
 import { Eq, SongThumb, SourceBadge, useTick } from '../common/ui.tsx';
 import { useDj } from './context.ts';
@@ -35,6 +36,37 @@ function ChangeSong() {
     >
       <I.Restart /> Change song
     </button>
+  );
+}
+
+/** Key change for the song on stage. Library songs only; remembered for this singer and song. */
+function KeyControl() {
+  const { view, act } = useDj();
+  const entry = view.show.nowPlaying!.entry;
+  const [key, setKey] = useState(entry.key ?? 0);
+  useEffect(() => setKey(entry.key ?? 0), [entry.id, entry.key]);
+  if (entry.song.source.kind !== 'local')
+    return (
+      <span className="badge key-off" title="YouTube songs play in YouTube’s own player, so Encore can’t change their key.">
+        Original key only
+      </span>
+    );
+  const set = (k: number) => {
+    setKey(k);
+    void act({ type: 'setKey', entryId: entry.id, key: k });
+  };
+  return (
+    <span className={`key-control ${key ? 'on' : ''}`} title="Change the key without changing the speed. Encore remembers it for this singer and song.">
+      <button className="key-step" disabled={key <= -MAX_SEMITONES} onClick={() => set(key - 1)} aria-label="Key down a semitone">
+        −
+      </button>
+      <button className="key-value" disabled={!key} onClick={() => set(0)} title={key ? 'Back to the original key' : undefined}>
+        {key ? `Key ${formatKey(key)}` : 'Key'}
+      </button>
+      <button className="key-step" disabled={key >= MAX_SEMITONES} onClick={() => set(key + 1)} aria-label="Key up a semitone">
+        +
+      </button>
+    </span>
   );
 }
 
@@ -95,6 +127,7 @@ export function Stage() {
             <div className="stage-tags">
               <SourceBadge song={song} />
               {np.entry.note && <span className="badge violet">“{np.entry.note}”</span>}
+              <KeyControl />
               <ChangeSong />
             </div>
           </div>
@@ -159,6 +192,7 @@ function Playing() {
           <div className="stage-tags">
             <SourceBadge song={song} />
             {np.entry.note && <span className="badge violet">“{np.entry.note}”</span>}
+            <KeyControl />
             <ChangeSong />
           </div>
         </div>

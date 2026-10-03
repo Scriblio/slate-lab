@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from 'react';
 import { isRoundBased } from '../../shared/rotation.ts';
-import { formatWait, nameKey } from '../../shared/text.ts';
+import { formatKey, formatWait, nameKey } from '../../shared/text.ts';
 import type { Entry, Singer } from '../../shared/types.ts';
 import * as I from '../common/icons.tsx';
 import { SongThumb, SourceBadge } from '../common/ui.tsx';
@@ -340,6 +340,7 @@ function EntryRow({ entry: e, first, last, index }: { entry: Entry; first: boole
         <div className="entry-title ellipsis">{e.song.title}</div>
         <div className="entry-sub ellipsis">
           {e.song.artist}
+          {e.key ? <span className="entry-key"> · Key {formatKey(e.key)}</span> : null}
           {e.note && <span className="entry-note"> “{e.note}”</span>}
         </div>
       </div>

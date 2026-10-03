@@ -5,6 +5,7 @@
 import { randomBytes, randomInt, randomUUID } from 'node:crypto';
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
+import { clampKey } from '../shared/pitch.ts';
 import type { PlayerCommand, SingerAction, SongRef } from '../shared/protocol.ts';
 import { nameKey } from '../shared/text.ts';
 import {
@@ -54,7 +55,11 @@ export interface ShowDeps {
   blockReason?: (videoId: string) => 'refused' | 'not-karaoke' | undefined;
   /** Something the KJ should hear about right away (a singer left, or asked to wait). */
   onNotice?: (text: string) => void;
+  /** The key each singer likes for a library song, remembered from night to night. */
+  keys?: { get(singerName: string, song: Song): number | undefined; set(singerName: string, song: Song, key: number): void };
 }
+
+const NO_KEY_FOR_YOUTUBE = 'YouTube songs can’t change key: they play in YouTube’s own player. Key change works for songs from the KJ’s library.';
 
 /** What the KJ needs to undo a call-up when the singer doesn't show. */
 interface CallSnapshot {
@@ -396,10 +401,12 @@ export class Show {
     throw new UserError('Unknown song source.');
   }
 
-  addEntry(singerId: string, ref: SongRef, opts: { note?: string; fromPhone: boolean }): Entry {
+  addEntry(singerId: string, ref: SongRef, opts: { note?: string; fromPhone: boolean; key?: number }): Entry {
     const singer = this.singer(singerId);
     if (!singer) throw new UserError('That singer has left.');
     const song = this.resolveSong(ref);
+    const asked = opts.key === undefined ? undefined : clampKey(opts.key);
+    if (asked && song.source.kind !== 'local') throw new UserError(NO_KEY_FOR_YOUTUBE);
     const { settings } = this.state;
     const mine = this.state.entries.filter((e) => e.singerId === singerId);
     if (opts.fromPhone) {
@@ -411,6 +418,9 @@ export class Show {
     }
     if (mine.some((e) => sourceKey(e.song) === sourceKey(song))) throw new UserError('That song is already on your list.');
     this.checkBlocked(song);
+    // A key the singer picked becomes their key for this song; otherwise use the one they liked last time.
+    if (asked !== undefined) this.deps.keys?.set(singer.name, song, asked);
+    const key = asked ?? this.rememberedKey(singer.name, song);
     const entry: Entry = {
       id: shortId(),
       singerId,
@@ -418,8 +428,33 @@ export class Show {
       requestedAt: this.now(),
       status: opts.fromPhone && settings.requireApproval ? 'pending' : 'queued',
       note: cleanText(opts.note ?? '', MAX_NOTE) || undefined,
+      ...(key ? { key } : {}),
     };
     this.state = { ...this.state, entries: [...this.state.entries, entry] };
+    this.changed();
+    return entry;
+  }
+
+  private rememberedKey(singerName: string, song: Song): number | undefined {
+    return song.source.kind === 'local' ? clampKey(this.deps.keys?.get(singerName, song) ?? 0) || undefined : undefined;
+  }
+
+  /**
+   * Key change for a library song, waiting or on stage. On stage the venue
+   * screen follows straight away. Remembered for this singer and song.
+   */
+  setKey(entryId: string, semitones: number): Entry {
+    const old = this.findEntry(entryId);
+    if (!old) throw new UserError('That song is no longer in the queue.');
+    if (old.song.source.kind !== 'local') throw new UserError(NO_KEY_FOR_YOUTUBE);
+    const key = clampKey(semitones);
+    const entry: Entry = { ...old, key: key || undefined };
+    if (!key) delete entry.key;
+    const np = this.state.nowPlaying;
+    if (np?.entry.id === entryId) this.state.nowPlaying = { ...np, entry };
+    else this.state = { ...this.state, entries: this.state.entries.map((e) => (e.id === entryId ? entry : e)) };
+    const name = this.singer(entry.singerId)?.name ?? (np?.entry.id === entryId ? np.singerName : undefined);
+    if (name) this.deps.keys?.set(name, entry.song, key);
     this.changed();
     return entry;
   }
@@ -789,7 +824,9 @@ export class Show {
     // Picked from their own list: trade places, so the old song keeps that spot in line.
     const queued = this.state.entries.find((e) => e.singerId === old.singerId && sourceKey(e.song) === sourceKey(song));
     const entries = queued
-      ? this.state.entries.map((e) => (e.id === queued.id ? { ...e, song: old.song, swappedFrom: old.swappedFrom, swaps: old.swaps, wontPlay: old.wontPlay } : e))
+      ? this.state.entries.map((e) =>
+          e.id === queued.id ? { ...e, song: old.song, swappedFrom: old.swappedFrom, swaps: old.swaps, wontPlay: old.wontPlay, key: old.key } : e,
+        )
       : this.state.entries;
     const entry: Entry = {
       ...old,
@@ -798,6 +835,7 @@ export class Show {
       swappedFrom: queued?.swappedFrom,
       swaps: queued?.swaps,
       wontPlay: queued?.wontPlay,
+      key: queued ? queued.key : this.rememberedKey(np.singerName, song),
     };
     const playId = shortId();
     this.state = {
@@ -866,7 +904,7 @@ export class Show {
   singerAction(singerId: string, action: SingerAction): unknown {
     switch (action.type) {
       case 'request':
-        return this.addEntry(singerId, action.song, { note: action.note, fromPhone: true }).id;
+        return this.addEntry(singerId, action.song, { note: action.note, fromPhone: true, key: action.key }).id;
       case 'removeMyEntry': {
         const e = this.entry(action.entryId);
         if (e.singerId !== singerId) throw new UserError('That isn’t your song.');

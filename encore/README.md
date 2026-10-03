@@ -89,6 +89,17 @@ These work in every mode:
 
 The **Up next** panel shows the running order with estimated wait times, and phones show each singer their own position and wait.
 
+## Key change
+
+Library songs (video, MP3+G, audio) can be moved up or down by up to 6 semitones without changing their speed, so CD+G lyrics stay in time.
+
+- **Singers** pick a key when they add a song on their phone: *Key − Original +*.
+- **The KJ** changes it on the stage card while the singer is being called up or mid-song: *− Key −2 +*. Click the key itself to go back to the original. Requests show their key in the rotation and in the approval list.
+- **Encore remembers each singer's key for each song** from night to night, keyed by their name (`data/keys.json`, forgotten after a year unused). A regular's request comes up in their key, and their phone says what key they used last time.
+- **YouTube songs keep their original key.** They play in YouTube's own player, which Encore never processes.
+
+The pitch shifter is a phase vocoder with peak phase locking (`src/shared/pitch.ts`), running in an AudioWorklet on the venue screen. Songs in their original key never go through it. It adds about 32 ms of delay, which the CD+G lyrics account for.
+
 ## Night-of controls
 
 | Key | Action |
@@ -127,7 +138,7 @@ On the Wi-Fi link, if phones can't connect, the venue Wi-Fi is probably isolatin
 ## Honest limitations
 
 - **YouTube** needs internet. Some uploaders block their videos from playing outside YouTube; search only returns embeddable videos, and Encore swaps any that still refuse (see above). YouTube may show ads in embedded videos. YouTube's terms and your local performance licensing (ASCAP, BMI, SOCAN, PRS and so on) apply to public playback. Check what your venue is covered for.
-- **No key or pitch change yet.** That needs a real-time pitch shifter, which is on the list below.
+- **Key change works for library songs only.** YouTube songs play inside YouTube's own player, which Encore can't (and mustn't) process. The pitch shifter sounds clean for a few semitones; toward ±6 its artifacts become audible, as with any real-time shifter.
 - **Wait times are estimates.** Local files don't report their length until they've played once, so a default length is used until then.
 - **Encore doesn't store or download YouTube media.** It embeds YouTube's player.
 
@@ -146,12 +157,12 @@ How the code is organized:
 - `src/client/cdg/decoder.ts` is a CD+G decoder written from scratch, so MP3+G lyrics render on a canvas in sync with the audio.
 - `src/server/zip.ts` reads zipped MP3+G tracks with no dependencies.
 - `src/shared/relay.ts`, `src/server/relay.ts` and `src/client/common/relay-socket.ts` make up the encrypted online join link (P-256 ECDH, HKDF and AES-GCM over Supabase Realtime). On the laptop, each phone becomes an ordinary singer connection, so the online and Wi-Fi links follow the same rules.
+- `src/shared/pitch.ts` is the key-change pitch shifter, pure TypeScript so the tests run it in Node. `src/client/display/pitch-worklet.ts` runs it on the audio thread, `src/client/display/key-change.ts` routes a song through it, and `src/server/keys.ts` remembers singers' keys.
 - `src/server/webpush.ts` and `src/server/push.ts` send the lock-screen alerts: VAPID signing and RFC 8291 encryption with Node's own crypto, and the turn tracking that decides who to alert. `src/sw/sw.js` is the join page's service worker that shows them, and `src/client/sing/alerts.ts` subscribes the phone.
 - `src/desktop/` is the Electron shell. It runs the same server in-process and adds native windows, the folder picker and menus. `scripts/build-desktop.mjs` bundles it, `electron-builder.yml` packages it, and `npm run icons` redraws the icons in `build/`.
 
 ## Ideas for next
 
-- Key change for local tracks (AudioWorklet pitch shifting)
 - Background music between singers
 - Singer history across nights (regulars, favorites, "sing it again")
 - Printable QR table tents

@@ -78,6 +78,11 @@ export interface Entry {
   swaps?: number;
   /** YouTube won't play this video here and Encore found no other version. */
   wontPlay?: boolean;
+  /**
+   * Key change in semitones (−6 to +6), library songs only; absent means the
+   * original key. YouTube songs can't change key: they play in YouTube's own player.
+   */
+  key?: number;
 }
 
 /** How the YouTube player is embedded: from Encore's site, or straight into the page. */
@@ -192,6 +197,8 @@ export interface SearchResult {
   detail?: string;
   /** Already queued or sung tonight. */
   playedTonight?: boolean;
+  /** On a phone: the key this singer sang this library song in last time. */
+  lastKey?: number;
 }
 
 /** What a phone sees. Never includes other singers' private details. */

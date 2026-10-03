@@ -47,7 +47,9 @@ export type DjAction =
   | { type: 'mergeSingers'; fromId: string; intoId: string }
   | { type: 'setSingerStatus'; singerId: string; status: 'active' | 'away' }
   | { type: 'moveSinger'; singerId: string; toIndex: number }
-  | { type: 'addEntry'; singerId: string; song: SongRef; note?: string }
+  | { type: 'addEntry'; singerId: string; song: SongRef; note?: string; key?: number }
+  /** Key change for a library song, queued or on stage (semitones, −6 to +6). */
+  | { type: 'setKey'; entryId: string; key: number }
   | { type: 'removeEntry'; entryId: string }
   | { type: 'moveEntry'; entryId: string; toIndex: number }
   | { type: 'approveEntry'; entryId: string }
@@ -82,7 +84,8 @@ export interface PushSubscriptionRef {
 }
 
 export type SingerAction =
-  | { type: 'request'; song: SongRef; note?: string }
+  /** key: semitones up or down, for library songs. */
+  | { type: 'request'; song: SongRef; note?: string; key?: number }
   | { type: 'removeMyEntry'; entryId: string }
   | { type: 'moveMyEntry'; entryId: string; direction: -1 | 1 }
   | { type: 'setAway'; away: boolean }

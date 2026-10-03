@@ -291,6 +291,27 @@ describe('server', () => {
     expect(await qr.text()).toContain('<svg');
   });
 
+  it('takes a key with a library request, lets the KJ change it, and remembers it for the singer', async () => {
+    const dj = client({ role: 'dj' });
+    const phone = client();
+    await call((a) => phone.emit('singer:join', 'Lena', a));
+    const [found] = await call<SearchResult[]>((a) => phone.emit('search', 'adele hello', a));
+    if (found?.song.source.kind !== 'local') throw new Error('expected a library track');
+    expect(found.lastKey).toBeUndefined();
+    const { trackId } = found.song.source;
+
+    const id = (await call<unknown>((a) => phone.emit('singer:action', { type: 'request', song: { kind: 'local', trackId }, key: -2 }, a))) as string;
+    expect(app.show.findEntry(id)?.key).toBe(-2);
+    const seen = nextEvent<DjView>(dj, 'dj:view', (v) => v.show.entries.find((e) => e.id === id)?.key === 1);
+    await call((a) => dj.emit('dj:action', { type: 'setKey', entryId: id, key: 1 }, a));
+    await seen;
+
+    // Next time Lena looks it up, it comes up in her key.
+    const [again] = await call<SearchResult[]>((a) => phone.emit('search', 'adele hello', a));
+    expect(again!.lastKey).toBe(1);
+    await call((a) => phone.emit('singer:action', { type: 'removeMyEntry', entryId: id }, a));
+  });
+
   it('persists the show across restarts', async () => {
     await app.show.flush();
     const again = await createApp({ port: 0, host: '127.0.0.1', dataDir: join(dir, 'data'), quiet: true, cloud: false, youtubeProxy: false });

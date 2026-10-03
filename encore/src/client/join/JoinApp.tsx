@@ -2,8 +2,9 @@
 // watch your place in line.
 
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { MAX_SEMITONES } from '../../shared/pitch.ts';
 import { songRef, type SingerAction } from '../../shared/protocol.ts';
-import { formatWait, parseYouTubeId } from '../../shared/text.ts';
+import { formatKey, formatWait, parseYouTubeId } from '../../shared/text.ts';
 import type { Entry, SearchResult, SingerView, Song } from '../../shared/types.ts';
 import { chime, unlockChime } from '../common/chime.ts';
 import * as I from '../common/icons.tsx';
@@ -780,7 +781,7 @@ function SearchTab({
           disabled={full}
           onClose={() => setPicked(null)}
           replacing={replacing}
-          onAdd={async (note) => {
+          onAdd={async (note, key) => {
             if (replacing) {
               await request(socket, 'singer:action', { type: 'changeMySong', song: songRef(picked.song) });
               setPicked(null);
@@ -790,7 +791,7 @@ function SearchTab({
               onReplaceDone();
               return;
             }
-            await request(socket, 'singer:action', { type: 'request', song: songRef(picked.song), note });
+            await request(socket, 'singer:action', { type: 'request', song: songRef(picked.song), note, key });
             setPicked(null);
             setQ('');
             setYt(null);
@@ -865,7 +866,8 @@ function AddSheet({
 }: {
   result: SearchResult;
   onClose: () => void;
-  onAdd: (note?: string) => Promise<void>;
+  /** key: semitones, for library songs. */
+  onAdd: (note?: string, key?: number) => Promise<void>;
   disabled?: boolean;
   replacing?: boolean;
 }) {
@@ -873,6 +875,9 @@ function AddSheet({
   const [busy, setBusy] = useState(false);
   const run = useAction();
   const { song } = result;
+  const local = song.source.kind === 'local';
+  // Starts in the key this singer sang it in last time.
+  const [key, setKey] = useState(result.lastKey ?? 0);
   return (
     <div className="sheet-backdrop" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="sheet" role="dialog" aria-modal="true" aria-label="Add song">
@@ -891,6 +896,27 @@ function AddSheet({
           <p className="muted small preview-note">From the KJ’s own library. Previews are available for YouTube songs.</p>
         )}
         {result.playedTonight && <div className="hint warn">Someone already sang or picked this tonight. You can still add it.</div>}
+        {!replacing && local && (
+          <div className="key-picker">
+            <div>
+              <strong>Key</strong>
+              <span className="muted">
+                {result.lastKey ? `You sang it ${formatKey(result.lastKey)} last time. ` : ''}Too high or low? The speed stays the same.
+              </span>
+            </div>
+            <div className="key-stepper">
+              <button type="button" className="btn icon" disabled={key <= -MAX_SEMITONES} onClick={() => setKey(key - 1)} aria-label="Lower the key">
+                −
+              </button>
+              <output className={key ? 'on' : ''} aria-live="polite">
+                {key ? formatKey(key) : 'Original'}
+              </output>
+              <button type="button" className="btn icon" disabled={key >= MAX_SEMITONES} onClick={() => setKey(key + 1)} aria-label="Raise the key">
+                +
+              </button>
+            </div>
+          </div>
+        )}
         {!replacing && (
           <>
             <label className="note-label" htmlFor="note">
@@ -901,7 +927,7 @@ function AddSheet({
               className="input"
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              placeholder="e.g. duet with Sam, key down 2"
+              placeholder="e.g. duet with Sam"
               maxLength={80}
             />
           </>
@@ -915,7 +941,7 @@ function AddSheet({
             disabled={busy || disabled}
             onClick={async () => {
               setBusy(true);
-              await run(() => onAdd(note.trim() || undefined));
+              await run(() => onAdd(note.trim() || undefined, local ? key : undefined));
               setBusy(false);
             }}
           >
@@ -1095,6 +1121,7 @@ function MyEntry({ entry, first, last, onMove, onRemove }: { entry: Entry; first
         <div className="tags">
           {first && <span className="badge accent">Next up for you</span>}
           {entry.status === 'pending' && <span className="badge amber">Waiting for approval</span>}
+          {entry.key ? <span className="badge accent">Key {formatKey(entry.key)}</span> : null}
           {entry.note && <span className="badge">“{entry.note}”</span>}
         </div>
         {entry.wontPlay ? (

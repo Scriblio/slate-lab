@@ -160,6 +160,7 @@ function Show({ socket, view }: { socket: AppSocket; view: DisplayView }) {
             volume={view.volume}
             muted={!view.primary}
             startAt={startAt}
+            semitones={np.entry.key ?? 0}
             youtube={{
               frameUrl: view.youtube.frameUrl,
               mode: np.entry.song.source.kind === 'youtube' ? view.youtube.modes[np.entry.song.source.videoId] : undefined,

@@ -101,6 +101,12 @@ export function parseYouTubeId(input: string): string | null {
 }
 
 /** "3:45" / "1:02:03" */
+/** A key change for display: "+2", "−3" (a real minus sign), or "" for the original key. */
+export function formatKey(semitones: number | undefined): string {
+  if (!semitones) return '';
+  return semitones > 0 ? `+${semitones}` : `−${-semitones}`;
+}
+
 export function formatDuration(sec: number | undefined): string {
   if (sec === undefined || !Number.isFinite(sec) || sec < 0) return '–:––';
   const s = Math.floor(sec % 60);

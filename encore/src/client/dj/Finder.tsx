@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type RefObject } from 'react';
 import { songRef } from '../../shared/protocol.ts';
-import { formatDuration, parseYouTubeId } from '../../shared/text.ts';
+import { formatDuration, formatKey, parseYouTubeId } from '../../shared/text.ts';
 import type { SearchResult, Song } from '../../shared/types.ts';
 import * as I from '../common/icons.tsx';
 import { request } from '../common/socket.ts';
@@ -332,6 +332,7 @@ function Requests() {
                   <div className="result-title ellipsis">{e.song.title}</div>
                   <div className="result-sub ellipsis">
                     <strong>{name(e.singerId)}</strong> · {e.song.artist}
+                    {e.key ? <span className="entry-key"> · Key {formatKey(e.key)}</span> : null}
                     {e.note && <span className="entry-note"> “{e.note}”</span>}
                   </div>
                 </div>
