@@ -1,0 +1,55 @@
+# Builds the Encore Karaoke Windows installer on a real Windows machine.
+# Every push that touches encore/ produces a downloadable installer under
+# Actions → this run → Artifacts. Run it by hand with "Store package"
+# ticked to also build the .appx for the Microsoft Store (see encore/STORE.md).
+
+name: Encore desktop
+
+on:
+  push:
+    paths:
+      - 'encore/**'
+      - '.github/workflows/encore-desktop.yml'
+  workflow_dispatch:
+    inputs:
+      store:
+        description: Also build the Microsoft Store package (.appx)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: encore
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: encore/package-lock.json
+
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+
+      - name: Build the installer
+        run: npm run dist:win
+
+      - name: Build the Store package
+        if: github.event_name == 'workflow_dispatch' && inputs.store
+        run: npx electron-builder --win appx
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Encore-Karaoke-Windows
+          path: |
+            encore/release/*.exe
+            encore/release/*.appx
+          if-no-files-found: error

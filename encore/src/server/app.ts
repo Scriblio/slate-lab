@@ -31,6 +31,10 @@ export interface AppOptions {
   trustLocal?: boolean;
   /** Folders scanned in addition to the configured ones (the demo library). */
   extraLibraryFolders?: string[];
+  /** Scanned only while the KJ has no library folders of their own. */
+  fallbackLibraryFolder?: string;
+  /** If the port is taken, take any free one instead of failing. */
+  portFallback?: boolean;
   quiet?: boolean;
 }
 
@@ -384,6 +388,7 @@ export async function createApp(opts: AppOptions) {
   async function rescan() {
     if (library.getStatus().scanning) return;
     const folders = [...config.libraryFolders, ...(opts.extraLibraryFolders ?? [])];
+    if (folders.length === 0 && opts.fallbackLibraryFolder) folders.push(opts.fallbackLibraryFolder);
     await library.scan(folders, scheduleBroadcast);
     log(`  Library: ${library.getStatus().trackCount} tracks from ${folders.length} folder(s)`);
   }
@@ -430,10 +435,20 @@ export async function createApp(opts: AppOptions) {
   // --- lifecycle -------------------------------------------------------------
 
   async function listen(): Promise<string> {
-    await new Promise<void>((ok, fail) => {
-      server.once('error', fail);
-      server.listen(opts.port, opts.host ?? '0.0.0.0', () => ok());
-    });
+    const bind = (p: number) =>
+      new Promise<void>((ok, fail) => {
+        server.once('error', fail);
+        server.listen(p, opts.host ?? '0.0.0.0', () => {
+          server.off('error', fail);
+          ok();
+        });
+      });
+    try {
+      await bind(opts.port);
+    } catch (err) {
+      if (!opts.portFallback || (err as NodeJS.ErrnoException).code !== 'EADDRINUSE') throw err;
+      await bind(0);
+    }
     const addr = server.address();
     if (addr && typeof addr === 'object') port = addr.port;
     void rescan();

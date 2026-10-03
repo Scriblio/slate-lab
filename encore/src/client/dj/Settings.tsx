@@ -3,6 +3,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import type { ServerConfigView } from '../../shared/protocol.ts';
 import type { Settings } from '../../shared/types.ts';
+import { desktop } from '../common/desktop.ts';
 import * as I from '../common/icons.tsx';
 import { request } from '../common/socket.ts';
 import { Modal, Toggle } from '../common/ui.tsx';
@@ -82,6 +83,19 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
             </select>
             <span className="muted small">filename order</span>
             <span className="spacer" />
+            {desktop && (
+              <button
+                className="btn sm"
+                onClick={async () => {
+                  const picked = (await desktop?.pickFolders()) ?? [];
+                  if (!picked.length) return;
+                  const current = folders.split('\n').map((f) => f.trim()).filter(Boolean);
+                  setFolders([...current, ...picked.filter((p) => !current.includes(p))].join('\n'));
+                }}
+              >
+                <I.Folder /> Browse…
+              </button>
+            )}
             {foldersChanged ? (
               <button
                 className="btn sm primary"

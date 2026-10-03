@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } fro
 import type { PlayerCommand } from '../../shared/protocol.ts';
 import type { DisplayView } from '../../shared/types.ts';
 import * as I from '../common/icons.tsx';
+import { desktop } from '../common/desktop.ts';
 import { connect, savePin, storedPin, useConnection, type AppSocket } from '../common/socket.ts';
 import { useTick } from '../common/ui.tsx';
 import { Player, type PlayerHandle } from './players.tsx';
@@ -15,7 +16,8 @@ export function DisplayApp() {
   useEffect(() => () => void socket.disconnect(), [socket]);
   const conn = useConnection(socket);
   const [view, setView] = useState<DisplayView | null>(null);
-  const [armed, setArmed] = useState(false);
+  // The desktop app may play sound without a click; browsers need one.
+  const [armed, setArmed] = useState(Boolean(desktop));
 
   useEffect(() => {
     socket.on('display:view', setView);

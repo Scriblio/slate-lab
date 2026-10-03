@@ -14,6 +14,14 @@ Songs come from your own library (MP4/MKV/WebM video, MP3+G, zipped MP3+G) or fr
 |---|---|---|---|
 | ![Venue screen idle](docs/display-idle.png) | ![Intro card](docs/display-intro.png) | ![CD+G lyrics](docs/display-cdg.png) | ![Phone](docs/phone-line.png) |
 
+## Desktop app (Windows)
+
+Encore also comes as a desktop app. Install it and click the **Encore Karaoke** icon on your desktop: the server starts, and the DJ console opens in its own window. **Open screen** puts the venue screen fullscreen on your second monitor or TV automatically, with no "click to start" step. Demo songs are included until you add your own folders, and **Settings → Browse…** lets you pick those folders.
+
+- **Get the installer:** every push builds one on GitHub (**Actions → Encore desktop → Artifacts**). On a Windows PC you can also run `npm run dist:win` here.
+- **Run it from source:** `npm run desktop`.
+- **Microsoft Store:** see [STORE.md](STORE.md) for building the Store package and submitting it, plus [PRIVACY.md](PRIVACY.md), a draft privacy policy the Store listing needs.
+
 ## Try it in two minutes
 
 You need Node.js 20.12 or newer.
@@ -105,11 +113,12 @@ How the code is organized:
 - `src/server/show.ts` validates and applies every action and saves the show. `src/server/app.ts` is the HTTP and Socket.IO layer, and each client gets a view of the state shaped for its role. Phones never see other singers' private details.
 - `src/client/cdg/decoder.ts` is a CD+G decoder written from scratch, so MP3+G lyrics render on a canvas in sync with the audio.
 - `src/server/zip.ts` reads zipped MP3+G tracks with no dependencies.
+- `src/desktop/` is the Electron shell. It runs the same server in-process and adds native windows, the folder picker and menus. `scripts/build-desktop.mjs` bundles it, `electron-builder.yml` packages it, and `npm run icons` redraws the icons in `build/`.
 
 ## Ideas for next
 
 - Key change for local tracks (AudioWorklet pitch shifting)
 - Background music between singers
 - Singer history across nights (regulars, favorites, "sing it again")
-- Packaged desktop app (no Node install) and printable QR table tents
+- Printable QR table tents
 - Duet requests and tip/priority bumps

@@ -275,7 +275,7 @@ export function zip(files: Record<string, Uint8Array>): Buffer {
   return Buffer.concat([...locals, cenBuf, end]);
 }
 
-export async function makeDemoLibrary(dir: string): Promise<string> {
+export async function makeDemoLibrary(dir: string, opts: { video?: boolean } = {}): Promise<string> {
   await mkdir(dir, { recursive: true });
   const cdg = makeDemoCdg();
   const wav = makeDemoWav();
@@ -287,7 +287,7 @@ export async function makeDemoLibrary(dir: string): Promise<string> {
   const zipped = join(dir, 'ENC001-02 - Encore Band - Step Up (Zipped Demo).zip');
   if (!existsSync(zipped)) await writeFile(zipped, zip({ 'Step Up.wav': wav, 'Step Up.cdg': cdg }));
   const video = join(dir, 'ENC001-03 - Encore Band - Test Pattern (Video Demo).webm');
-  if (!existsSync(video)) await makeVideo(video).catch(() => {});
+  if ((opts.video ?? true) && !existsSync(video)) await makeVideo(video).catch(() => {});
   return dir;
 }
 

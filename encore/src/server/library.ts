@@ -3,7 +3,7 @@
 
 import { createHash } from 'node:crypto';
 import { readdir } from 'node:fs/promises';
-import { basename, extname, join } from 'node:path';
+import { basename, extname, join, relative } from 'node:path';
 import type { LibraryStatus, LibraryTrack, LocalFormat, SearchResult } from '../shared/types.ts';
 import { normalize, parseFilename, type FilenameOrder } from '../shared/text.ts';
 
@@ -63,7 +63,8 @@ export class Library {
     for (const d of dirents) {
       if (!d.isFile() || d.name.startsWith('.')) continue;
       const dir = d.parentPath;
-      if (dir.split(/[\\/]/).some((part) => part.startsWith('.'))) continue;
+      // Skip hidden subfolders, but not a hidden folder the library lives in.
+      if (relative(folder, dir).split(/[\\/]/).some((part) => part.startsWith('.'))) continue;
       const ext = extname(d.name).toLowerCase();
       const key = join(dir, basename(d.name, extname(d.name))).toLowerCase();
       let group = stems.get(key);
