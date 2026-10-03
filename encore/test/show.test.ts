@@ -312,3 +312,53 @@ describe('Phone turn alert actions', () => {
     expect(show.singer(a.id)!.holdTurns).toBe(1);
   });
 });
+
+describe('Changing the song on stage', () => {
+  function onStage() {
+    const { show } = makeShow();
+    const notices: string[] = [];
+    (show as unknown as { deps: { onNotice?: (t: string) => void } }).deps.onNotice = (t) => notices.push(t);
+    const a = show.join('Alex').singer;
+    const b = show.join('Bea').singer;
+    show.addEntry(a.id, yt('a1', 'First pick'), { fromPhone: true });
+    show.addEntry(a.id, yt('a2', 'Second pick'), { fromPhone: true });
+    show.addEntry(b.id, yt('b1'), { fromPhone: true });
+    show.callNext();
+    return { show, notices, a, b };
+  }
+
+  it('puts a brand-new song on the intro card and drops the old one', () => {
+    const { show } = onStage();
+    const before = show.state.nowPlaying!;
+    show.changeStageSong({ kind: 'youtube', videoId: 'newsong0001', title: 'Something else' }, { fromPhone: false });
+    const np = show.state.nowPlaying!;
+    expect(np).toMatchObject({ singerName: 'Alex', stage: 'intro', entry: { song: { title: 'Something else' } } });
+    expect(np.playId).not.toBe(before.playId);
+    expect(show.state.entries.map((e) => e.song.title)).toEqual(['Second pick', 'b1']);
+    expect(show.state.history).toHaveLength(0);
+  });
+
+  it('trades places with one of their own songs, so the old one stays in line', () => {
+    const { show } = onStage();
+    show.changeStageSong({ kind: 'youtube', videoId: 'a2'.padEnd(11, 'x') }, { fromPhone: false });
+    expect(show.state.nowPlaying!.entry.song.title).toBe('Second pick');
+    expect(show.state.entries.map((e) => e.song.title)).toEqual(['First pick', 'b1']);
+  });
+
+  it('works mid-song for the KJ, going back to the intro card', () => {
+    const { show } = onStage();
+    show.play();
+    show.changeStageSong({ kind: 'youtube', videoId: 'newsong0001', title: 'Swap' }, { fromPhone: false });
+    expect(show.state.nowPlaying).toMatchObject({ stage: 'intro', position: 0, startedAt: undefined });
+  });
+
+  it('lets the singer change from their phone before the song starts, and tells the KJ', () => {
+    const { show, notices, a, b } = onStage();
+    show.singerAction(a.id, { type: 'changeMySong', song: { kind: 'youtube', videoId: 'newsong0001', title: 'My new pick' } });
+    expect(show.state.nowPlaying!.entry.song.title).toBe('My new pick');
+    expect(notices).toEqual(['Alex changed their song to “My new pick”.']);
+    expect(() => show.singerAction(b.id, { type: 'changeMySong', song: yt('zz') })).toThrow(/once you’re called up/);
+    show.play();
+    expect(() => show.singerAction(a.id, { type: 'changeMySong', song: yt('zz') })).toThrow(/already started/);
+  });
+});

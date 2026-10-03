@@ -56,6 +56,8 @@ export type DjAction =
   | { type: 'unpinEntry'; entryId: string }
   | { type: 'callNext' }
   | { type: 'callEntry'; entryId: string }
+  /** Give the singer on stage a different song; it goes up on the intro card. */
+  | { type: 'changeStageSong'; song: SongRef }
   | { type: 'play' }
   | { type: 'pause' }
   | { type: 'restart' }
@@ -77,6 +79,8 @@ export type SingerAction =
   | { type: 'setAway'; away: boolean }
   /** "Can't sing right now": let the next couple of singers go first. */
   | { type: 'notNow' }
+  /** Once called up: sing this instead (one of my songs, or a new one). */
+  | { type: 'changeMySong'; song: SongRef }
   | { type: 'leave' };
 
 export interface ClientToServer {

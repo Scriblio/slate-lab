@@ -23,6 +23,7 @@ export function DjApp() {
   const toast = useToast();
   const [target, setTarget] = useState<string | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
+  const [stageSwap, setStageSwap] = useState<string | null>(null);
   const finderInput = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -95,6 +96,8 @@ export function DjApp() {
     setTarget,
     preview,
     setPreview,
+    stageSwap,
+    setStageSwap,
     focusFinder: () => window.dispatchEvent(new Event('encore:find')),
   };
 

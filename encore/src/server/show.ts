@@ -580,7 +580,6 @@ export class Show {
     };
     const now = this.now();
     this.state = recordPerformance(this.state, entry.id, now);
-    const { autoStartSec } = this.state.settings;
     this.state.nowPlaying = {
       playId,
       entry,
@@ -589,15 +588,20 @@ export class Show {
       calledAt: now,
       position: 0,
       duration: entry.song.durationSec,
-      autoStartAt: autoStartSec > 0 ? now + autoStartSec * 1000 : undefined,
+      autoStartAt: this.armAutoStart(playId),
     };
-    clearTimeout(this.autoStartTimer);
-    if (autoStartSec > 0) {
-      this.autoStartTimer = setTimeout(() => {
-        if (this.state.nowPlaying?.playId === playId && this.state.nowPlaying.stage === 'intro') this.play();
-      }, autoStartSec * 1000);
-    }
     this.changed();
+  }
+
+  /** Start the intro countdown, when the KJ uses one. Returns when it fires. */
+  private armAutoStart(playId: string): number | undefined {
+    clearTimeout(this.autoStartTimer);
+    const { autoStartSec } = this.state.settings;
+    if (autoStartSec <= 0) return undefined;
+    this.autoStartTimer = setTimeout(() => {
+      if (this.state.nowPlaying?.playId === playId && this.state.nowPlaying.stage === 'intro') this.play();
+    }, autoStartSec * 1000);
+    return this.now() + autoStartSec * 1000;
   }
 
   play(): void {
@@ -740,6 +744,59 @@ export class Show {
     else this.changed();
   }
 
+  /**
+   * The singer on stage wants a different song. One of their own queued
+   * songs trades places with the current one (so it goes back in line); any
+   * other song replaces it. The new song goes up on the intro card, ready
+   * for the KJ to start. From a phone, only before the song has started.
+   */
+  changeStageSong(ref: SongRef, opts: { fromPhone: boolean }): Entry {
+    const np = this.state.nowPlaying;
+    if (!np) throw new UserError('Nobody is on stage.');
+    if (opts.fromPhone && np.stage !== 'intro') throw new UserError('Your song has already started. Ask the KJ.');
+    const song = this.resolveSong(ref);
+    if (song.source.kind === 'youtube' && this.deps.isRefused?.(song.source.videoId)) {
+      throw new UserError('YouTube won’t play that video here. Pick another version of the song.');
+    }
+    if (sourceKey(song) === sourceKey(np.entry.song)) return np.entry;
+    if (opts.fromPhone && song.source.kind === 'youtube' && !this.state.settings.allowYouTube) {
+      throw new UserError('The KJ isn’t taking YouTube requests tonight.');
+    }
+    const old = np.entry;
+    // Picked from their own list: trade places, so the old song keeps that spot in line.
+    const queued = this.state.entries.find((e) => e.singerId === old.singerId && sourceKey(e.song) === sourceKey(song));
+    const entries = queued
+      ? this.state.entries.map((e) => (e.id === queued.id ? { ...e, song: old.song, swappedFrom: old.swappedFrom, swaps: old.swaps, wontPlay: old.wontPlay } : e))
+      : this.state.entries;
+    const entry: Entry = {
+      ...old,
+      song: queued?.song ?? song,
+      note: queued ? queued.note : old.note,
+      swappedFrom: queued?.swappedFrom,
+      swaps: queued?.swaps,
+      wontPlay: queued?.wontPlay,
+    };
+    const playId = shortId();
+    this.state = {
+      ...this.state,
+      entries,
+      nowPlaying: {
+        ...np,
+        entry,
+        playId,
+        stage: 'intro',
+        position: 0,
+        duration: entry.song.durationSec,
+        error: undefined,
+        startedAt: undefined,
+        autoStartAt: this.armAutoStart(playId),
+      },
+    };
+    if (opts.fromPhone) this.deps.onNotice?.(`${np.singerName} changed their song to “${entry.song.title}”.`);
+    this.changed();
+    return entry;
+  }
+
   /** The singer left from their phone: off the list, and off the stage if they were being called. */
   leaveFromPhone(singerId: string): void {
     const singer = this.singer(singerId);
@@ -806,6 +863,11 @@ export class Show {
       case 'notNow':
         this.holdTurn(singerId);
         return null;
+      case 'changeMySong': {
+        const np = this.state.nowPlaying;
+        if (np?.entry.singerId !== singerId) throw new UserError('You can change your song once you’re called up.');
+        return this.changeStageSong(action.song, { fromPhone: true }).id;
+      }
       case 'leave':
         this.leaveFromPhone(singerId);
         return null;

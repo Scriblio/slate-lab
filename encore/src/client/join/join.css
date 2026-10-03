@@ -810,3 +810,19 @@ button.status {
   font-size: 16px !important;
   font-weight: 600;
 }
+.turn-alert .turn-song {
+  justify-content: flex-start;
+  text-align: left;
+}
+.turn-song span {
+  min-width: 0;
+}
+.replace-hint {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.replace-hint span {
+  flex: 1;
+}

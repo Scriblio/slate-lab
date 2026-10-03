@@ -14,6 +14,9 @@ export interface DjCtx {
   /** Request shown in the preview card. */
   preview: string | null;
   setPreview: (entryId: string | null) => void;
+  /** Play id of the performance the finder is picking a replacement song for. */
+  stageSwap: string | null;
+  setStageSwap: (playId: string | null) => void;
   focusFinder: () => void;
 }
 

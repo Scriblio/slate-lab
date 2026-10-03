@@ -19,6 +19,25 @@ function NoScreen() {
   );
 }
 
+/** Pick a different song for whoever is on stage, in the finder. */
+function ChangeSong() {
+  const { view, setTarget, setStageSwap, focusFinder } = useDj();
+  const np = view.show.nowPlaying!;
+  return (
+    <button
+      className="btn sm ghost change-song"
+      onClick={() => {
+        setTarget(np.entry.singerId);
+        setStageSwap(np.playId);
+        focusFinder();
+      }}
+      title="Pick a different song for this singer"
+    >
+      <I.Restart /> Change song
+    </button>
+  );
+}
+
 export function Stage() {
   const { view, act } = useDj();
   const np = view.show.nowPlaying;
@@ -76,6 +95,7 @@ export function Stage() {
             <div className="stage-tags">
               <SourceBadge song={song} />
               {np.entry.note && <span className="badge violet">“{np.entry.note}”</span>}
+              <ChangeSong />
             </div>
           </div>
         </div>
@@ -139,6 +159,7 @@ function Playing() {
           <div className="stage-tags">
             <SourceBadge song={song} />
             {np.entry.note && <span className="badge violet">“{np.entry.note}”</span>}
+            <ChangeSong />
           </div>
         </div>
       </div>

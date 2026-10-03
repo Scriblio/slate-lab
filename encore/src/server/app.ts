@@ -419,6 +419,8 @@ export async function createApp(opts: AppOptions) {
         return show.callNext()?.id ?? null;
       case 'callEntry':
         return show.callEntry(a.entryId);
+      case 'changeStageSong':
+        return show.changeStageSong(a.song, { fromPhone: false }).id;
       case 'play':
         return show.play();
       case 'pause':

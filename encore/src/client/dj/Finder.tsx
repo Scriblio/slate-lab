@@ -49,7 +49,11 @@ export function Finder({ inputRef }: { inputRef: RefObject<HTMLInputElement | nu
 }
 
 function SongSearch({ inputRef }: { inputRef: RefObject<HTMLInputElement | null> }) {
-  const { view, act, socket, target, setTarget } = useDj();
+  const { view, act, socket, target, setTarget, stageSwap, setStageSwap } = useDj();
+  const np = view.show.nowPlaying;
+  // Picking a replacement for the song on stage (until that performance changes).
+  const swapping = np && stageSwap === np.playId ? np : null;
+  const theirList = swapping ? view.show.entries.filter((e) => e.singerId === swapping.entry.singerId) : [];
   const toast = useToast();
   const [q, setQ] = useState('');
   const query = useDebounced(q.trim(), 200);
@@ -97,6 +101,14 @@ function SongSearch({ inputRef }: { inputRef: RefObject<HTMLInputElement | null>
   }
 
   async function add(song: Song, pin: boolean) {
+    if (swapping) {
+      const ok = await act({ type: 'changeStageSong', song: songRef(song) });
+      if (ok === undefined) return;
+      toast(`${swapping.singerName} will sing “${song.title}” instead`);
+      setStageSwap(null);
+      setQ('');
+      return;
+    }
     if (!target || !singer) {
       toast('Pick a singer first (click one in the list).', 'error');
       return;
@@ -109,6 +121,18 @@ function SongSearch({ inputRef }: { inputRef: RefObject<HTMLInputElement | null>
 
   return (
     <div className="song-search">
+      {swapping ? (
+        <div className="swap-banner">
+          <I.Restart />
+          <div className="ellipsis">
+            <strong>New song for {swapping.singerName}</strong>
+            <span className="ellipsis">Replaces “{swapping.entry.song.title}” on stage. Pick one of theirs, or search.</span>
+          </div>
+          <button className="btn sm ghost" onClick={() => setStageSwap(null)}>
+            Cancel
+          </button>
+        </div>
+      ) : (
       <div className="target-row">
         <span className="muted small">Adding for</span>
         <select className="input sm" value={target ?? ''} onChange={(e) => setTarget(e.target.value || null)}>
@@ -120,6 +144,7 @@ function SongSearch({ inputRef }: { inputRef: RefObject<HTMLInputElement | null>
           ))}
         </select>
       </div>
+      )}
       <div className="search-box">
         <I.Search />
         <input
@@ -137,13 +162,16 @@ function SongSearch({ inputRef }: { inputRef: RefObject<HTMLInputElement | null>
       </div>
 
       <div className="results-scroll">
-        {!query && !ytId && <LibraryHint />}
+        {swapping && theirList.length > 0 && (
+          <ResultList title={`${swapping.singerName}’s other songs`} icon={<I.Music />} results={theirList.map((e) => ({ song: e.song }))} onAdd={add} canAdd swap />
+        )}
+        {!query && !ytId && !swapping && <LibraryHint />}
 
         {linked && (
-          <ResultList title="YouTube link" icon={<I.Link />} results={[linked]} onAdd={add} canAdd={Boolean(singer)} />
+          <ResultList title="YouTube link" icon={<I.Link />} results={[linked]} onAdd={add} canAdd={Boolean(singer || swapping)} swap={Boolean(swapping)} />
         )}
 
-        {local && local.length > 0 && <ResultList title={`Library · ${local.length}${local.length >= 60 ? '+' : ''}`} icon={<I.Disc />} results={local} onAdd={add} canAdd={Boolean(singer)} />}
+        {local && local.length > 0 && <ResultList title={`Library · ${local.length}${local.length >= 60 ? '+' : ''}`} icon={<I.Disc />} results={local} onAdd={add} canAdd={Boolean(singer || swapping)} swap={Boolean(swapping)} />}
         {query && !ytId && local?.length === 0 && <p className="muted small pad">No library matches for “{query}”.</p>}
 
         {query && !ytId && (
@@ -151,7 +179,7 @@ function SongSearch({ inputRef }: { inputRef: RefObject<HTMLInputElement | null>
             {yt?.q === query ? (
               yt.results.length ? (
                 <>
-                  <ResultList title="YouTube" icon={<I.YouTube />} results={yt.results} onAdd={add} canAdd={Boolean(singer)} />
+                  <ResultList title="YouTube" icon={<I.YouTube />} results={yt.results} onAdd={add} canAdd={Boolean(singer || swapping)} swap={Boolean(swapping)} />
                   <p className="muted small pad">
                     <YouTubeTerms short />
                   </p>
@@ -216,12 +244,15 @@ function ResultList({
   results,
   onAdd,
   canAdd,
+  swap,
 }: {
   title: string;
   icon: React.ReactNode;
   results: SearchResult[];
   onAdd: (song: Song, pin: boolean) => void;
   canAdd: boolean;
+  /** Picking a replacement for the song on stage: "Sing now" instead of "+". */
+  swap?: boolean;
 }) {
   return (
     <section>
@@ -248,9 +279,15 @@ function ResultList({
               )}
               {r.song.durationSec ? <span className="muted small">{formatDuration(r.song.durationSec)}</span> : <SourceBadge song={r.song} />}
             </div>
-            <button className="btn sm icon add-btn" disabled={!canAdd} onClick={(e) => onAdd(r.song, e.shiftKey)} title={canAdd ? 'Add (shift: play next)' : 'Pick a singer first'} aria-label="Add">
-              <I.Plus />
-            </button>
+            {swap ? (
+              <button className="btn sm primary swap-btn" onClick={() => onAdd(r.song, false)} title="Sing this instead, now">
+                <I.Mic /> Sing now
+              </button>
+            ) : (
+              <button className="btn sm icon add-btn" disabled={!canAdd} onClick={(e) => onAdd(r.song, e.shiftKey)} title={canAdd ? 'Add (shift: play next)' : 'Pick a singer first'} aria-label="Add">
+                <I.Plus />
+              </button>
+            )}
           </li>
         ))}
       </ul>

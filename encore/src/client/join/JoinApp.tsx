@@ -299,6 +299,11 @@ function Main({
   const called = onStage && view.nowPlaying?.stage === 'intro';
   const upNext = view.myNextPosition === 1 && !onStage && me.status === 'active';
   const [alert, setAlert] = useState<'next' | 'called' | null>(null);
+  // Picking a song to sing instead, once called up.
+  const [replacing, setReplacing] = useState(false);
+  useEffect(() => {
+    if (!called) setReplacing(false);
+  }, [called]);
   const prev = useRef({ pos: view.myNextPosition, called });
 
   // Buzz, chime and pop up the turn alert when you're up next, and again when you're called.
@@ -352,7 +357,15 @@ function Main({
       </header>
 
       <main className="app-body">
-        {tab === 'search' && <SearchTab socket={socket} view={view} onAdded={() => setTab('mine')} />}
+        {tab === 'search' && (
+          <SearchTab
+            socket={socket}
+            view={view}
+            onAdded={() => setTab('mine')}
+            replacing={replacing && called}
+            onReplaceDone={() => setReplacing(false)}
+          />
+        )}
         {tab === 'mine' && <MineTab view={view} call={call} goSearch={() => setTab('search')} />}
         {tab === 'line' && <LineTab view={view} elapsed={elapsed} />}
       </main>
@@ -370,6 +383,12 @@ function Main({
           onClose={() => setAlert(null)}
           onNotNow={() => call({ type: 'notNow' })}
           onLeave={() => call({ type: 'leave' })}
+          onPickMine={(entry) => call({ type: 'changeMySong', song: songRef(entry.song) })}
+          onFindNew={() => {
+            setReplacing(true);
+            setTab('search');
+            setAlert(null);
+          }}
         />
       )}
     </div>
@@ -383,16 +402,21 @@ function TurnAlert({
   onClose,
   onNotNow,
   onLeave,
+  onPickMine,
+  onFindNew,
 }: {
   kind: 'next' | 'called';
   view: SingerView;
   onClose: () => void;
   onNotNow: () => Promise<unknown>;
   onLeave: () => Promise<unknown>;
+  onPickMine: (entry: Entry) => Promise<unknown>;
+  onFindNew: () => void;
 }) {
   const me = view.me!;
   const run = useAction();
   const [confirmLeave, setConfirmLeave] = useState(false);
+  const [changing, setChanging] = useState(false);
   const [busy, setBusy] = useState(false);
   const song = kind === 'called' ? view.nowPlaying : view.upcoming.find((u) => u.isMe);
   const heading = kind === 'called' ? 'It’s your turn!' : 'You’re up next!';
@@ -425,7 +449,22 @@ function TurnAlert({
             {song.artist && <span> · {song.artist}</span>}
           </p>
         )}
-        {confirmLeave ? (
+        {changing ? (
+          <div className="turn-actions">
+            <p className="turn-confirm">What would you like to sing instead?</p>
+            {view.myEntries.map((e) => (
+              <button key={e.id} className="btn lg turn-song" disabled={busy} onClick={() => act(() => onPickMine(e), `You’ll sing “${e.song.title}”. Head to the stage!`)}>
+                <I.Music /> <span className="ellipsis">{e.song.title}</span>
+              </button>
+            ))}
+            <button className="btn lg" disabled={busy} onClick={onFindNew}>
+              <I.Search /> Find a different song
+            </button>
+            <button className="btn lg ghost" disabled={busy} onClick={() => setChanging(false)}>
+              Keep my song
+            </button>
+          </div>
+        ) : confirmLeave ? (
           <div className="turn-actions">
             <p className="turn-confirm">Leave the list? Your songs will be removed.</p>
             <button className="btn lg danger" disabled={busy} onClick={() => act(onLeave, 'You’ve left the list. Thanks for singing!')}>
@@ -440,6 +479,11 @@ function TurnAlert({
             <button className="btn lg primary" onClick={onClose}>
               {kind === 'called' ? 'On my way!' : 'I’m ready'}
             </button>
+            {kind === 'called' && (
+              <button className="btn lg" disabled={busy} onClick={() => setChanging(true)}>
+                <I.Music /> Change my song
+              </button>
+            )}
             <button className="btn lg" disabled={busy} onClick={() => act(onNotNow, 'No problem: two singers will go first. We’ll let you know when you’re up.')}>
               <I.Clock /> Can’t sing right now
             </button>
@@ -544,7 +588,20 @@ function TabButton({ active, onClick, icon, label, count }: { active: boolean; o
 
 // --- search ------------------------------------------------------------------
 
-function SearchTab({ socket, view, onAdded }: { socket: ReturnType<typeof connect>; view: SingerView; onAdded: () => void }) {
+function SearchTab({
+  socket,
+  view,
+  onAdded,
+  replacing,
+  onReplaceDone,
+}: {
+  socket: ReturnType<typeof connect>;
+  view: SingerView;
+  onAdded: () => void;
+  /** Called up and picking a song to sing instead of the current one. */
+  replacing?: boolean;
+  onReplaceDone: () => void;
+}) {
   const [q, setQ] = useState('');
   const query = useDebounced(q.trim(), 250);
   const [local, setLocal] = useState<SearchResult[] | null>(null);
@@ -553,7 +610,7 @@ function SearchTab({ socket, view, onAdded }: { socket: ReturnType<typeof connec
   const [picked, setPicked] = useState<SearchResult | null>(null);
   const toast = useToast();
   const ytId = parseYouTubeId(q);
-  const full = view.maxQueuedPerSinger > 0 && view.myEntries.length >= view.maxQueuedPerSinger;
+  const full = !replacing && view.maxQueuedPerSinger > 0 && view.myEntries.length >= view.maxQueuedPerSinger;
 
   useEffect(() => {
     let live = true;
@@ -594,6 +651,16 @@ function SearchTab({ socket, view, onAdded }: { socket: ReturnType<typeof connec
 
   return (
     <div className="search-tab">
+      {replacing && (
+        <div className="hint replace-hint">
+          <span>
+            Pick a song to sing <strong>now</strong>, instead of “{view.nowPlaying?.title ?? 'your song'}”.
+          </span>
+          <button className="btn sm ghost" onClick={onReplaceDone}>
+            Cancel
+          </button>
+        </div>
+      )}
       <div className="search-sticky">
         <div className="search-box">
           <I.Search />
@@ -682,7 +749,17 @@ function SearchTab({ socket, view, onAdded }: { socket: ReturnType<typeof connec
           result={picked}
           disabled={full}
           onClose={() => setPicked(null)}
+          replacing={replacing}
           onAdd={async (note) => {
+            if (replacing) {
+              await request(socket, 'singer:action', { type: 'changeMySong', song: songRef(picked.song) });
+              setPicked(null);
+              setQ('');
+              setYt(null);
+              toast(`You’ll sing “${picked.song.title}”. Head to the stage!`);
+              onReplaceDone();
+              return;
+            }
             await request(socket, 'singer:action', { type: 'request', song: songRef(picked.song), note });
             setPicked(null);
             setQ('');
@@ -714,7 +791,19 @@ function ResultRow({ r, onPick, disabled }: { r: SearchResult; onPick: () => voi
   );
 }
 
-function AddSheet({ result, onClose, onAdd, disabled }: { result: SearchResult; onClose: () => void; onAdd: (note?: string) => Promise<void>; disabled?: boolean }) {
+function AddSheet({
+  result,
+  onClose,
+  onAdd,
+  disabled,
+  replacing,
+}: {
+  result: SearchResult;
+  onClose: () => void;
+  onAdd: (note?: string) => Promise<void>;
+  disabled?: boolean;
+  replacing?: boolean;
+}) {
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const run = useAction();
@@ -732,17 +821,21 @@ function AddSheet({ result, onClose, onAdd, disabled }: { result: SearchResult; 
           </div>
         </div>
         {result.playedTonight && <div className="hint warn">Someone already sang or picked this tonight. You can still add it.</div>}
-        <label className="note-label" htmlFor="note">
-          Note for the KJ <span className="muted">(optional)</span>
-        </label>
-        <input
-          id="note"
-          className="input"
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          placeholder="e.g. duet with Sam, key down 2"
-          maxLength={80}
-        />
+        {!replacing && (
+          <>
+            <label className="note-label" htmlFor="note">
+              Note for the KJ <span className="muted">(optional)</span>
+            </label>
+            <input
+              id="note"
+              className="input"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="e.g. duet with Sam, key down 2"
+              maxLength={80}
+            />
+          </>
+        )}
         <div className="sheet-actions">
           <button className="btn lg ghost" onClick={onClose}>
             Cancel
@@ -756,7 +849,7 @@ function AddSheet({ result, onClose, onAdd, disabled }: { result: SearchResult; 
               setBusy(false);
             }}
           >
-            {busy ? <I.Loader /> : <I.Plus />} Add to my songs
+            {busy ? <I.Loader /> : replacing ? <I.Mic /> : <I.Plus />} {replacing ? 'Sing this now' : 'Add to my songs'}
           </button>
         </div>
       </div>
