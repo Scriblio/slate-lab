@@ -55,8 +55,11 @@ Certification usually takes a few business days. If it fails, the report says wh
 
 - **YouTube.** Encore plays YouTube through YouTube's official embedded player and never downloads videos. That keeps it within YouTube's terms. Still:
   - Market Encore as KJ software, not as "free karaoke from YouTube".
-  - Each KJ uses their own YouTube API key. Don't ship yours inside the app.
-  - The YouTube API Services Terms and Developer Policies apply to your app. Read them before launch.
+  - Search goes through your one Google Cloud project, via the `youtube-search` Supabase function; the key never ships inside the app (see [supabase/README.md](supabase/README.md)). The YouTube policies forbid both shipping the key and asking KJs for their own.
+  - The free quota is 10,000 units a day: about 99 uncached searches across all customers. Apply for more through the YouTube API Services audit and quota extension form well before launch; it can take weeks.
+  - Keep YouTube search part of the product, not a paid add-on: the policies forbid selling access to YouTube API Services.
+  - Your Terms of Use should say that users of YouTube features agree to the YouTube Terms of Service, and link the Google Privacy Policy (the app already shows both links next to search results).
+  - Encore leaves YouTube's player uncovered and shows YouTube titles unmodified, as the policies require. Keep it that way.
 - **Music licensing.** KJs bring their own legally obtained tracks, and venues need public-performance licenses. Say both in your listing and terms of use.
 - **Support.** Paying customers will email you. Set up a support address before launch, and put it in the listing and in PRIVACY.md.
 - **Mac.** `npm run dist:mac` builds a `.dmg`, but selling on Mac needs an Apple Developer account plus signing and notarization. That's a separate project.

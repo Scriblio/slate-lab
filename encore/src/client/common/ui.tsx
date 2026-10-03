@@ -152,3 +152,26 @@ export function useDebounced<T>(value: T, ms: number): T {
 export function songLine(song: { title: string; artist: string }): string {
   return song.artist ? `${song.title} — ${song.artist}` : song.title;
 }
+
+/** YouTube's API terms ask apps that search YouTube to link these. */
+export function YouTubeTerms({ short }: { short?: boolean }) {
+  const tos = (
+    <a href="https://www.youtube.com/t/terms" target="_blank" rel="noreferrer">
+      YouTube Terms of Service
+    </a>
+  );
+  const privacy = (
+    <a href="https://policies.google.com/privacy" target="_blank" rel="noreferrer">
+      Google Privacy Policy
+    </a>
+  );
+  return short ? (
+    <span className="yt-terms">
+      Results from YouTube · {tos} · {privacy}
+    </span>
+  ) : (
+    <span className="yt-terms">
+      YouTube search is provided by YouTube; using it means agreeing to the {tos}. See also the {privacy}.
+    </span>
+  );
+}

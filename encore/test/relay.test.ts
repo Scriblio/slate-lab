@@ -83,6 +83,7 @@ describe('online join link, end to end', () => {
       dataDir: dir,
       quiet: true,
       cloud: { joinOrigin: 'https://sing.example', transport: () => hub.transport(), checkJoinPage: async () => pageUp },
+      youtubeProxy: false,
     });
     await app.listen();
     await until(() => app.relay?.state === 'online');
@@ -191,6 +192,7 @@ describe('online join link, end to end', () => {
       dataDir: await mkdtemp(join(tmpdir(), 'encore-relay2-')),
       quiet: true,
       cloud: { joinOrigin: 'https://sing.example', transport: () => new MemoryHub().transport(), checkJoinPage: async () => false },
+      youtubeProxy: false,
     });
     await other.listen();
     await until(() => other.relay?.state === 'online');

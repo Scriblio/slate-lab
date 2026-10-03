@@ -20,7 +20,8 @@ export type Ack<T = undefined> = (res: { ok: true; data: T } | { ok: false; erro
 export interface ServerConfigView {
   libraryFolders: string[];
   filenameOrder: FilenameOrder;
-  hasYouTubeKey: boolean;
+  /** 'built-in': through Encore's search service; 'own-key': a developer's YOUTUBE_API_KEY. */
+  youtubeSearch: 'built-in' | 'own-key' | 'off';
   djPin: string;
   publicUrl?: string;
   /** This build has an online join link configured. */
@@ -62,7 +63,7 @@ export type DjAction =
   | { type: 'setVolume'; volume: number }
   | { type: 'newShow' }
   | { type: 'rescanLibrary' }
-  | { type: 'setConfig'; libraryFolders?: string[]; filenameOrder?: FilenameOrder; youtubeApiKey?: string; onlineJoin?: boolean };
+  | { type: 'setConfig'; libraryFolders?: string[]; filenameOrder?: FilenameOrder; onlineJoin?: boolean };
 
 export type SingerAction =
   | { type: 'request'; song: SongRef; note?: string }

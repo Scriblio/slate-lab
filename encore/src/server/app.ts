@@ -40,6 +40,8 @@ export interface AppOptions {
   portFallback?: boolean;
   /** The online join link. Defaults to shared/cloud.ts (plus env overrides); false turns it off. */
   cloud?: false | { joinOrigin: string; transport: () => RelayTransport; checkJoinPage?: () => Promise<boolean> };
+  /** Encore's YouTube search service. Defaults to shared/cloud.ts (plus env overrides); false turns it off. */
+  youtubeProxy?: false | { url: string; key: string };
   quiet?: boolean;
 }
 
@@ -57,7 +59,8 @@ export async function createApp(opts: AppOptions) {
   await mkdir(opts.dataDir, { recursive: true });
   const config = await loadConfig(opts.dataDir);
   const library = new Library(config.filenameOrder);
-  const youtube = new YouTube(config.youtubeApiKey, opts.fetchImpl);
+  const proxy = resolveYouTubeProxy(opts.youtubeProxy);
+  const youtube = new YouTube(config.youtubeApiKey, opts.fetchImpl, proxy && { ...proxy, installId: config.installId });
   const mediaKey = randomBytes(12).toString('base64url');
   const trustLocal = opts.trustLocal ?? true;
   const log = opts.quiet ? () => {} : console.log;
@@ -249,7 +252,7 @@ export async function createApp(opts: AppOptions) {
       respond(ack, () => ({
         libraryFolders: config.libraryFolders,
         filenameOrder: config.filenameOrder,
-        hasYouTubeKey: youtube.canSearch,
+        youtubeSearch: youtube.mode,
         djPin: config.djPin,
         publicUrl: config.publicUrl,
         onlineJoinAvailable: Boolean(cloud),
@@ -335,8 +338,8 @@ export async function createApp(opts: AppOptions) {
         if (!isDj && !show.state.settings.allowYouTube) throw new UserError('YouTube requests are off tonight.');
         const id = parseYouTubeId(String(input ?? ''));
         if (!id) throw new UserError('That doesn’t look like a YouTube link.');
-        const song = await youtube.lookup(id);
-        return { song, playedTonight: show.playedTonight(song) } satisfies SearchResult;
+        const result = await youtube.lookup(id);
+        return { ...result, playedTonight: show.playedTonight(result.song) } satisfies SearchResult;
       }),
     );
   }
@@ -433,11 +436,6 @@ export async function createApp(opts: AppOptions) {
       config.filenameOrder = a.filenameOrder === 'title-artist' ? 'title-artist' : 'artist-title';
       saved.filenameOrder = config.filenameOrder;
       library.setOrder(config.filenameOrder);
-    }
-    if (a.youtubeApiKey !== undefined) {
-      config.youtubeApiKey = String(a.youtubeApiKey).trim() || undefined;
-      saved.youtubeApiKey = config.youtubeApiKey;
-      youtube.setApiKey(config.youtubeApiKey);
     }
     if (a.onlineJoin !== undefined) {
       config.onlineJoin = Boolean(a.onlineJoin);
@@ -631,6 +629,19 @@ function resolveCloud(opt: AppOptions['cloud']): Exclude<AppOptions['cloud'], fa
   };
   if (!cloudConfigured(c) || process.env.ENCORE_ONLINE_JOIN === '0') return undefined;
   return { joinOrigin: c.joinOrigin, transport: () => supabaseTransport(c.supabaseUrl, c.supabaseKey) };
+}
+
+/** Encore's YouTube search service (a Supabase Edge Function), unless turned off. */
+function resolveYouTubeProxy(opt: AppOptions['youtubeProxy']): { url: string; key: string } | undefined {
+  if (opt === false) return undefined;
+  if (opt) return opt;
+  const c = {
+    joinOrigin: CLOUD.joinOrigin,
+    supabaseUrl: process.env.ENCORE_SUPABASE_URL || CLOUD.supabaseUrl,
+    supabaseKey: process.env.ENCORE_SUPABASE_KEY || CLOUD.supabaseKey,
+  };
+  if (!cloudConfigured(c) || process.env.ENCORE_YOUTUBE_SEARCH === '0') return undefined;
+  return { url: `${c.supabaseUrl.replace(/\/$/, '')}/functions/v1/youtube-search`, key: c.supabaseKey };
 }
 
 async function pageLoads(url: string): Promise<boolean> {

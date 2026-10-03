@@ -70,35 +70,6 @@ export function parseFilename(base: string, order: FilenameOrder = 'artist-title
     : { artist: second, title: first, discId };
 }
 
-// Karaoke channels title their uploads in a handful of shapes:
-//   "Adele - Hello (Karaoke Version)"
-//   "Hello - Adele | Karaoke Version | KaraFun"
-//   "Sing King - Hello (Karaoke Version) - Adele"   (rare; left as-is)
-//   "Adele - Hello | Karaoke with Lyrics"
-const CHANNEL_SUFFIX = /\s*[|•]\s*(?:karafun|sing king|stingray karaoke|zoom karaoke|karaoke[^|]*|lyrics?[^|]*)\s*$/i;
-
-/** Best-effort artist/title from a YouTube video title and channel name. */
-export function parseYouTubeTitle(raw: string, channel = ''): { artist: string; title: string } {
-  // KaraFun titles its uploads "Title - Artist | Karaoke Version | KaraFun".
-  const titleFirst = /karafun/i.test(channel) || /\|\s*karafun\s*$/i.test(raw);
-  let t = decodeEntities(raw);
-  for (let i = 0; i < 3; i++) t = t.replace(CHANNEL_SUFFIX, '');
-  t = t.split(/\s*[|•]\s*/)[0] ?? t;
-  t = stripNoise(t);
-  const parts = t.split(/\s+[-–—]\s+/).map((p) => stripNoise(p)).filter(Boolean);
-  if (parts.length >= 2) {
-    // Channels that put their own name first: "Sing King - Adele - Hello"
-    if (parts.length >= 3 && channel && normalize(parts[0]!) === normalize(channel)) parts.shift();
-    if (titleFirst && parts.length === 2) return { artist: parts[1]!, title: parts[0]! };
-    return { artist: parts[0]!, title: parts.slice(1).join(' - ') };
-  }
-  return { artist: cleanChannel(channel), title: t };
-}
-
-function cleanChannel(c: string): string {
-  return /karaoke|karafun|sing king|backing/i.test(c) ? '' : c;
-}
-
 export function decodeEntities(s: string): string {
   return s
     .replace(/&amp;/g, '&')

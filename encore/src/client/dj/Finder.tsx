@@ -6,7 +6,7 @@ import { formatDuration, parseYouTubeId } from '../../shared/text.ts';
 import type { SearchResult, Song } from '../../shared/types.ts';
 import * as I from '../common/icons.tsx';
 import { request } from '../common/socket.ts';
-import { SongThumb, SourceBadge, useDebounced, useToast } from '../common/ui.tsx';
+import { SongThumb, SourceBadge, useDebounced, useToast, YouTubeTerms } from '../common/ui.tsx';
 import { useDj } from './context.ts';
 
 type Tab = 'search' | 'requests' | 'history';
@@ -150,9 +150,14 @@ function SongSearch({ inputRef }: { inputRef: RefObject<HTMLInputElement | null>
           <div className="yt-block">
             {yt?.q === query ? (
               yt.results.length ? (
-                <ResultList title="YouTube" icon={<I.YouTube />} results={yt.results} onAdd={add} canAdd={Boolean(singer)} />
+                <>
+                  <ResultList title="YouTube" icon={<I.YouTube />} results={yt.results} onAdd={add} canAdd={Boolean(singer)} />
+                  <p className="muted small pad">
+                    <YouTubeTerms short />
+                  </p>
+                </>
               ) : (
-                <p className="muted small pad">YouTube found no embeddable videos.</p>
+                <p className="muted small pad">YouTube found no videos that can play here.</p>
               )
             ) : view.youtubeSearch ? (
               <button className="btn block yt-btn" onClick={searchYouTube} disabled={ytBusy}>
@@ -160,7 +165,7 @@ function SongSearch({ inputRef }: { inputRef: RefObject<HTMLInputElement | null>
               </button>
             ) : (
               <p className="muted small pad">
-                <I.YouTube className="inline-icon" /> Paste a YouTube link to queue it, or add an API key in Settings to search YouTube here.
+                <I.YouTube className="inline-icon" /> Paste a YouTube link to queue it.
               </p>
             )}
           </div>

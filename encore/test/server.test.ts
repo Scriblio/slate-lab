@@ -74,7 +74,15 @@ beforeAll(async () => {
   await writeFile(join(lib, '.hidden.mp4'), Buffer.alloc(10));
   process.env.ENCORE_LIBRARY = lib;
   process.env.DJ_PIN = '424242';
-  app = await createApp({ port: 0, host: '127.0.0.1', dataDir: join(dir, 'data'), quiet: true, fetchImpl: fakeFetch });
+  app = await createApp({
+    port: 0,
+    host: '127.0.0.1',
+    dataDir: join(dir, 'data'),
+    quiet: true,
+    fetchImpl: fakeFetch,
+    cloud: false,
+    youtubeProxy: { url: SEARCH_URL, key: 'pk_test' },
+  });
   base = await app.listen();
   // wait for the initial library scan
   for (let i = 0; i < 50 && app.library.getStatus().trackCount < 3; i++) await new Promise((r) => setTimeout(r, 20));
@@ -88,8 +96,23 @@ afterAll(async () => {
   await rm(dir, { recursive: true, force: true });
 });
 
-async function fakeFetch(input: string | URL | Request): Promise<Response> {
+const SEARCH_URL = 'https://search.example/functions/v1/youtube-search';
+const searches: { apikey: string | null; body: { q: string; installId: string } }[] = [];
+
+async function fakeFetch(input: string | URL | Request, init?: RequestInit): Promise<Response> {
   const url = String(input);
+  if (url === SEARCH_URL) {
+    const body = JSON.parse(String(init?.body)) as { q: string; installId: string };
+    searches.push({ apikey: new Headers(init?.headers).get('apikey'), body });
+    if (body.q === 'busy') return Response.json({ ok: false, error: 'YouTube search is busy right now.', code: 'limit' }, { status: 429 });
+    return Response.json({
+      ok: true,
+      results: [
+        { videoId: 'aaaaaaaaaaa', title: 'Toto - Africa (Karaoke Version)', channel: 'Sing King', durationSec: 295 },
+        { videoId: 'bad id', title: 'Dropped', channel: 'x' },
+      ],
+    });
+  }
   if (url.includes('/oembed')) {
     if (url.includes('NOEMBEDxxxx')) return new Response('Unauthorized', { status: 401 });
     return Response.json({ title: 'Toto - Africa (Karaoke Version)', author_name: 'Sing King' });
@@ -209,12 +232,26 @@ describe('server', () => {
     expect(app.show.state.singers.filter((s) => s.name.toLowerCase().startsWith('lily'))).toHaveLength(1);
   });
 
-  it('looks up pasted YouTube links without an API key', async () => {
+  it('looks up pasted YouTube links, keeping YouTube’s title as is', async () => {
     const phone = client();
     const r = await call<SearchResult>((a) => phone.emit('lookupYouTube', 'https://youtu.be/abcdefghijk', a));
-    expect(r.song).toMatchObject({ artist: 'Toto', title: 'Africa', source: { kind: 'youtube', videoId: 'abcdefghijk' } });
+    expect(r.song).toMatchObject({ title: 'Toto - Africa (Karaoke Version)', artist: '', source: { kind: 'youtube', videoId: 'abcdefghijk' } });
+    expect(r.detail).toBe('Sing King');
     await expect(call((a) => phone.emit('lookupYouTube', 'https://youtu.be/NOEMBEDxxxx', a))).rejects.toThrow(/embedding/);
-    await expect(call((a) => phone.emit('searchYouTube', 'africa', a))).rejects.toThrow(/API key/);
+  });
+
+  it('searches YouTube through Encore’s search service, with no key of its own', async () => {
+    const phone = client();
+    const r = await call<SearchResult[]>((a) => phone.emit('searchYouTube', 'africa', a));
+    expect(r).toHaveLength(1);
+    expect(r[0]).toMatchObject({ detail: 'Sing King', song: { title: 'Toto - Africa (Karaoke Version)', durationSec: 295, source: { videoId: 'aaaaaaaaaaa' } } });
+    expect(searches.at(-1)).toEqual({ apikey: 'pk_test', body: { q: 'africa', installId: app.config.installId } });
+    expect(app.config.installId).toMatch(/^[\w-]{20,}$/);
+    // Repeats come from the laptop's own cache.
+    const before = searches.length;
+    await call<SearchResult[]>((a) => client({ role: 'dj' }).emit('searchYouTube', 'Africa', a));
+    expect(searches.length).toBe(before);
+    await expect(call((a) => phone.emit('searchYouTube', 'busy', a))).rejects.toThrow(/busy right now/);
   });
 
   it('keeps phones out of the DJ console', async () => {
@@ -246,7 +283,7 @@ describe('server', () => {
 
   it('persists the show across restarts', async () => {
     await app.show.flush();
-    const again = await createApp({ port: 0, host: '127.0.0.1', dataDir: join(dir, 'data'), quiet: true });
+    const again = await createApp({ port: 0, host: '127.0.0.1', dataDir: join(dir, 'data'), quiet: true, cloud: false, youtubeProxy: false });
     expect(again.show.state.singers.map((s) => s.name)).toEqual(app.show.state.singers.map((s) => s.name));
     expect(again.show.state.history).toHaveLength(1);
     await again.close();

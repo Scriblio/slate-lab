@@ -11,7 +11,7 @@ Encore Karaoke ("Encore") is software that a karaoke host (KJ) runs on their own
 - Everything Encore stores stays on the KJ's computer. [Scriblio] does not receive it.
 - When singers join through the online link, their messages are end-to-end encrypted between their phone and the KJ's computer. The relay in between can't read them.
 - Encore has no accounts, no advertising and no analytics or tracking.
-- If the KJ uses YouTube features, YouTube (Google) receives the requests involved.
+- If the KJ uses YouTube features, YouTube (Google) receives the requests involved. YouTube searches pass through [Scriblio]'s search service, which keeps the search text and results (not who searched) for up to 30 days.
 
 ## What Encore stores, and where
 
@@ -19,7 +19,7 @@ On the KJ's computer, in Encore's data folder:
 
 - **Singer names** that singers type when they join, or that the KJ enters.
 - **Song requests and tonight's history:** which singer sang which song, and when.
-- **Settings:** the show name, the KJ's music folder locations, the DJ PIN, and the KJ's own YouTube API key if they add one.
+- **Settings:** the show name, the KJ's music folder locations, the DJ PIN, and a random installation ID (used only to share YouTube search limits fairly).
 
 When the KJ starts a new show, the previous show's list is archived in the same data folder. The KJ can delete the folder at any time; menu **Show → Open Data Folder** opens it.
 
@@ -31,12 +31,12 @@ On a singer's phone, the browser keeps a random code so the singer keeps their p
 - **On the venue's local network:** with the Wi-Fi link, phones connect directly to the KJ's computer to join the list and request songs. Other singers' phones see singer names in the queue and the song currently being performed. They see upcoming song titles only if the KJ turns that on.
 - **With YouTube (Google), only when YouTube features are used:**
   - YouTube videos play through YouTube's embedded player.
-  - Searches made from Encore send the search text to the YouTube Data API using the KJ's own API key.
+  - Searches made from Encore go to [Scriblio]'s YouTube search service (hosted by Supabase), which sends the search text to the YouTube Data API. The service receives the search text, the installation ID and the KJ computer's IP address. It keeps the search text and YouTube's results for up to 30 days so repeat searches don't use up the daily quota, and keeps a daily count of searches per installation ID and per IP address (the address only as a one-way hash that changes every day) for a few days. Singer names and song requests are never sent to it.
   - Thumbnails load from YouTube's servers.
 
   YouTube's use of this information is covered by the [Google Privacy Policy](https://policies.google.com/privacy). By using YouTube features, users are also bound by the [YouTube Terms of Service](https://www.youtube.com/t/terms).
 
-Encore sends nothing to [Scriblio].
+Apart from YouTube searches described above, Encore sends nothing to [Scriblio].
 
 ## Children
 

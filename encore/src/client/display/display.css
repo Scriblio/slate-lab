@@ -56,7 +56,6 @@ body,
   width: 100%;
   height: 100%;
   border: 0;
-  pointer-events: none;
 }
 .cdg-stage {
   position: absolute;
@@ -351,6 +350,29 @@ body,
 }
 
 /* ---- overlays during the song ---- */
+
+.show-root {
+  position: absolute;
+  inset: 0;
+}
+
+/* YouTube's terms forbid overlays on its player: shrink it to leave a band. */
+.yt-band .media-layer {
+  bottom: 16vh;
+}
+.yt-band .lower-third {
+  bottom: 2.5vh;
+  padding: 0.55em 1.3em 0.6em;
+}
+.yt-band .lt-name {
+  font-size: 1.7em;
+}
+.yt-band .paused-pill,
+.yt-band .error-pill,
+.stage:has(.yt-band) .offline-pill {
+  top: auto;
+  bottom: 4.5vh;
+}
 
 .lower-third {
   position: absolute;

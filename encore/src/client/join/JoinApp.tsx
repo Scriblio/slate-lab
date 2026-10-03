@@ -7,7 +7,7 @@ import { formatWait, parseYouTubeId } from '../../shared/text.ts';
 import type { Entry, SearchResult, SingerView, Song } from '../../shared/types.ts';
 import * as I from '../common/icons.tsx';
 import { connect, request, safeGet, safeSet, useConnection, type AppSocket, type ServerError } from '../common/socket.ts';
-import { Eq, SongThumb, SourceBadge, useAction, useDebounced, useTick, useToast } from '../common/ui.tsx';
+import { Eq, SongThumb, SourceBadge, useAction, useDebounced, useTick, useToast, YouTubeTerms } from '../common/ui.tsx';
 
 type Tab = 'search' | 'mine' | 'line';
 
@@ -544,13 +544,18 @@ function SearchTab({ socket, view, onAdded }: { socket: ReturnType<typeof connec
                 <I.YouTube /> YouTube
               </h3>
               {yt.results.length === 0 ? (
-                <p className="muted pad">No embeddable karaoke videos found.</p>
+                <p className="muted pad">No karaoke videos found that can play here.</p>
               ) : (
-                <ul className="results">
-                  {yt.results.map((r) => (
-                    <ResultRow key={sourceId(r.song)} r={r} onPick={() => setPicked(r)} disabled={full} />
-                  ))}
-                </ul>
+                <>
+                  <ul className="results">
+                    {yt.results.map((r) => (
+                      <ResultRow key={sourceId(r.song)} r={r} onPick={() => setPicked(r)} disabled={full} />
+                    ))}
+                  </ul>
+                  <p className="muted small pad">
+                    <YouTubeTerms short />
+                  </p>
+                </>
               )}
             </>
           ) : (

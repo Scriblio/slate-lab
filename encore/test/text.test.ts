@@ -6,7 +6,6 @@ import {
   parseFilename,
   parseIsoDuration,
   parseYouTubeId,
-  parseYouTubeTitle,
 } from '../src/shared/text.ts';
 
 describe('parseFilename', () => {
@@ -26,19 +25,6 @@ describe('parseFilename', () => {
 
   it('honours title-first libraries', () => {
     expect(parseFilename('SC8125-01 - Hello - Adele', 'title-artist')).toEqual({ discId: 'SC8125-01', artist: 'Adele', title: 'Hello' });
-  });
-});
-
-describe('parseYouTubeTitle', () => {
-  it.each([
-    ['Adele - Hello (Karaoke Version)', 'Sing King', { artist: 'Adele', title: 'Hello' }],
-    ['Hello - Adele | Karaoke Version | KaraFun', 'KaraFun Karaoke', { artist: 'Adele', title: 'Hello' }],
-    ['Sing King - Adele - Hello', 'Sing King', { artist: 'Adele', title: 'Hello' }],
-    ['Queen - Bohemian Rhapsody [Karaoke with Lyrics]', 'Some Channel', { artist: 'Queen', title: 'Bohemian Rhapsody' }],
-    ['Bohemian Rhapsody karaoke', 'Queen Official', { artist: 'Queen Official', title: 'Bohemian Rhapsody' }],
-    ['Simon &amp; Garfunkel - The Boxer (Karaoke)', '', { artist: 'Simon & Garfunkel', title: 'The Boxer' }],
-  ])('%s', (raw, channel, expected) => {
-    expect(parseYouTubeTitle(raw, channel)).toEqual(expected);
   });
 });
 

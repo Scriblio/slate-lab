@@ -1,4 +1,4 @@
-// Show settings, library folders, YouTube key and remote access.
+// Show settings, library folders, YouTube search and remote access.
 
 import { useEffect, useState, type ReactNode } from 'react';
 import type { ServerConfigView } from '../../shared/protocol.ts';
@@ -6,7 +6,7 @@ import type { Settings } from '../../shared/types.ts';
 import { desktop } from '../common/desktop.ts';
 import * as I from '../common/icons.tsx';
 import { request } from '../common/socket.ts';
-import { Modal, Toggle } from '../common/ui.tsx';
+import { Modal, Toggle, YouTubeTerms } from '../common/ui.tsx';
 import { useDj } from './context.ts';
 
 export function SettingsModal({ onClose }: { onClose: () => void }) {
@@ -14,7 +14,6 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   const s = view.show.settings;
   const [config, setConfig] = useState<ServerConfigView | null>(null);
   const [folders, setFolders] = useState('');
-  const [apiKey, setApiKey] = useState('');
   const [showName, setShowName] = useState(s.showName);
   const [confirmNew, setConfirmNew] = useState(false);
 
@@ -126,43 +125,15 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
 
         <Section title="YouTube search">
           <p className="muted small">
-            Pasting YouTube links always works. To <em>search</em> YouTube from Encore, add a free YouTube Data API key (Google Cloud Console → APIs → YouTube Data API v3 →
-            Credentials). The free quota covers about 100 searches a day; Encore caches results to stretch it.
+            {config?.youtubeSearch === 'off'
+              ? 'YouTube search is turned off in this copy of Encore. Pasting a YouTube link still works.'
+              : config?.youtubeSearch === 'own-key'
+                ? 'Searching YouTube directly with the developer key from YOUTUBE_API_KEY.'
+                : 'Built in: search YouTube right from Encore, with nothing to set up. Pasting a YouTube link works too.'}{' '}
+            Some uploaders block their videos from playing outside YouTube; Encore only lists videos that allow it and flags any that fail.
           </p>
-          <div className="settings-row">
-            <input
-              className="input mono"
-              type="password"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              placeholder={config?.hasYouTubeKey ? '•••••••••• key saved — paste to replace' : 'Paste API key'}
-              autoComplete="off"
-            />
-            <button
-              className="btn sm"
-              disabled={!apiKey.trim()}
-              onClick={async () => {
-                await act({ type: 'setConfig', youtubeApiKey: apiKey.trim() }, 'YouTube key saved');
-                setApiKey('');
-                setConfig((c) => c && { ...c, hasYouTubeKey: true });
-              }}
-            >
-              Save
-            </button>
-            {config?.hasYouTubeKey && (
-              <button
-                className="btn sm ghost danger"
-                onClick={async () => {
-                  await act({ type: 'setConfig', youtubeApiKey: '' }, 'YouTube key removed');
-                  setConfig((c) => c && { ...c, hasYouTubeKey: false });
-                }}
-              >
-                Remove
-              </button>
-            )}
-          </div>
           <p className="muted small">
-            Note: some uploaders block their videos from playing outside YouTube; Encore only lists embeddable videos and flags any that fail.
+            <YouTubeTerms />
           </p>
         </Section>
 

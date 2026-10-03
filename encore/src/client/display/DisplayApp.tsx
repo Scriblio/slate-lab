@@ -143,9 +143,12 @@ function Show({ socket, view }: { socket: AppSocket; view: DisplayView }) {
 
   // Remember where we were so a reload mid-song picks up close to it.
   const startAt = useMemo(() => np?.position ?? 0, [playId]); // eslint-disable-line react-hooks/exhaustive-deps
+  // YouTube's terms forbid covering its player, so during YouTube songs the
+  // player leaves a band at the bottom for the lower thirds and status pills.
+  const ytBand = np?.entry.song.source.kind === 'youtube' && np.stage !== 'intro';
 
   return (
-    <>
+    <div className={`show-root ${ytBand ? 'yt-band' : ''}`}>
       {np && (
         <div className={`media-layer ${np.stage === 'intro' ? 'hidden' : ''}`}>
           <Player
@@ -172,7 +175,7 @@ function Show({ socket, view }: { socket: AppSocket; view: DisplayView }) {
         </div>
       )}
       {np?.error && <div className="error-pill">{np.error}</div>}
-    </>
+    </div>
   );
 }
 

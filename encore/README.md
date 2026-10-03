@@ -50,12 +50,15 @@ npm start
 Open **Settings** (the gear icon) to:
 
 - **Add your library folders.** Encore scans them for video files, `.mp3` + `.cdg` pairs and zipped MP3+G, and reads names like `SC8125-01 - Artist - Title`. If your files are named title-first, switch the filename order.
-- **Add a YouTube API key** (optional). Pasting a YouTube link always works without one. To *search* YouTube from Encore, create a free YouTube Data API v3 key in the Google Cloud Console. The free quota covers about 100 searches a day, and Encore caches results to stretch it.
 - Set the show name, sign-up limits, request approval, auto-advance and auto-start.
 
 Settings and the current show are saved in `encore/data/`. If the laptop restarts mid-show, Encore picks up where it left off, with the song that was playing paused.
 
-Configuration can also come from the environment: `PORT`, `ENCORE_LIBRARY` (folders separated by `:` on macOS/Linux or `;` on Windows), `YOUTUBE_API_KEY`, `DJ_PIN`, `PUBLIC_URL` and `ENCORE_DATA`.
+Configuration can also come from the environment: `PORT`, `ENCORE_LIBRARY` (folders separated by `:` on macOS/Linux or `;` on Windows), `DJ_PIN`, `PUBLIC_URL` and `ENCORE_DATA`. For development, `YOUTUBE_API_KEY` makes this copy search YouTube directly with your own key instead of through Encore's search service, and `ENCORE_YOUTUBE_SEARCH=0` turns search off.
+
+### YouTube search
+
+Searching YouTube is built in; KJs don't need a key. YouTube's developer policies allow one API project per app and forbid sharing its key, so every copy of Encore asks Encore's search service (`supabase/functions/youtube-search`), which holds the one key, caches results for everyone, and caps daily use so the shared quota lasts. Pasting a YouTube link never uses the quota. See [supabase/README.md](supabase/README.md) to set it up.
 
 ## Rotation modes
 

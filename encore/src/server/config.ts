@@ -1,7 +1,7 @@
 // Server configuration: data/config.json, overridable by environment
 // variables. Holds things the KJ sets once per laptop rather than per show.
 
-import { randomInt } from 'node:crypto';
+import { randomBytes, randomInt } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { delimiter, join } from 'node:path';
 import type { FilenameOrder } from '../shared/text.ts';
@@ -9,7 +9,10 @@ import type { FilenameOrder } from '../shared/text.ts';
 export interface Config {
   libraryFolders: string[];
   filenameOrder: FilenameOrder;
+  /** Development only: search YouTube directly with this key (env YOUTUBE_API_KEY). */
   youtubeApiKey?: string;
+  /** Random id for this installation, so the YouTube search service can share its quota fairly. */
+  installId: string;
   /** Lets the console or a display connect from another device. */
   djPin: string;
   /** Base URL phones should use, when the LAN address isn't right (tunnels). */
@@ -28,18 +31,18 @@ export async function loadConfig(dataDir: string, env = process.env): Promise<Co
   const config: Config = {
     libraryFolders: saved.libraryFolders ?? [],
     filenameOrder: saved.filenameOrder === 'title-artist' ? 'title-artist' : 'artist-title',
-    youtubeApiKey: saved.youtubeApiKey,
+    installId: saved.installId ?? randomBytes(16).toString('base64url'),
     djPin: saved.djPin ?? String(randomInt(100000, 1000000)),
     publicUrl: saved.publicUrl,
     onlineJoin: saved.onlineJoin,
   };
-  if (!saved.djPin) await saveConfig(dataDir, config);
+  if (!saved.djPin || !saved.installId) await saveConfig(dataDir, config);
   // Environment wins over the file, but is not written back to it.
   const lib = env.ENCORE_LIBRARY ?? env.LIBRARY;
   return {
     ...config,
     libraryFolders: lib ? lib.split(delimiter).filter(Boolean) : config.libraryFolders,
-    youtubeApiKey: env.YOUTUBE_API_KEY || config.youtubeApiKey,
+    youtubeApiKey: env.YOUTUBE_API_KEY || undefined,
     djPin: env.DJ_PIN || config.djPin,
     publicUrl: env.PUBLIC_URL || config.publicUrl,
   };

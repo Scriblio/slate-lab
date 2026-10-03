@@ -536,3 +536,9 @@ select.input {
     transition-duration: 0.01ms !important;
   }
 }
+
+.yt-terms a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
