@@ -89,19 +89,25 @@ function guard(win: BrowserWindow): void {
 }
 
 function openDj(): void {
+  // Never open bigger than the screen; on smaller laptop screens, fill it.
+  const work = screen.getPrimaryDisplay().workAreaSize;
+  const small = work.width < 1440 || work.height < 900;
   dj = new BrowserWindow({
     title: PRODUCT,
-    width: 1440,
-    height: 900,
-    minWidth: 1024,
-    minHeight: 680,
+    width: Math.min(1440, work.width),
+    height: Math.min(900, work.height),
+    minWidth: Math.min(1024, work.width),
+    minHeight: Math.min(600, work.height),
     backgroundColor: '#07070c',
     show: false,
     autoHideMenuBar: true,
     webPreferences: webPreferences(),
   });
   guard(dj);
-  dj.once('ready-to-show', () => dj?.show());
+  dj.once('ready-to-show', () => {
+    if (small) dj?.maximize();
+    dj?.show();
+  });
   dj.on('close', (e) => {
     if (!quitting && !okToQuit()) e.preventDefault();
   });
@@ -122,12 +128,14 @@ function openDisplay(): void {
   const primary = screen.getPrimaryDisplay();
   const other = screen.getAllDisplays().find((d) => d.id !== primary.id);
   const area = (other ?? primary).bounds;
+  // With one screen, a 16:9 window that fits on it (press F11 for fullscreen).
+  const fitWidth = Math.min(1280, Math.round(primary.workAreaSize.width * 0.8), Math.round((primary.workAreaSize.height * 0.8 * 16) / 9));
   display = new BrowserWindow({
     title: `${PRODUCT} · Venue Screen`,
     x: other ? area.x : undefined,
     y: other ? area.y : undefined,
-    width: other ? area.width : 1280,
-    height: other ? area.height : 720,
+    width: other ? area.width : fitWidth,
+    height: other ? area.height : Math.round((fitWidth * 9) / 16),
     fullscreen: Boolean(other),
     backgroundColor: '#000000',
     autoHideMenuBar: true,

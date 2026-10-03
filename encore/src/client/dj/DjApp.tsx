@@ -90,13 +90,13 @@ export function DjApp() {
           <section className="col col-stage">
             <Stage />
             <UpNext />
-            <YouTubeCheck />
           </section>
           <section className="col col-rotation">
             <Rotation />
           </section>
           <section className="col col-finder">
             <Finder inputRef={finderInput} />
+            <YouTubeCheck />
           </section>
         </main>
       </div>
