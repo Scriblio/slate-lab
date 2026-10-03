@@ -32,7 +32,8 @@ describe('relay crypto', () => {
     await expect(open((await deriveSessionKeys(host.privateKey, phone.publicKey, 'room2')).up, box)).rejects.toThrow();
     await expect(open((await deriveSessionKeys(host.privateKey, other.publicKey, 'room1')).up, box)).rejects.toThrow();
     // Tampering is detected.
-    const flipped = { ...box, ct: box.ct.slice(0, -2) + (box.ct.endsWith('A') ? 'B' : 'A') + box.ct.slice(-1) };
+    const i = box.ct.length - 2;
+    const flipped = { ...box, ct: box.ct.slice(0, i) + (box.ct[i] === 'A' ? 'B' : 'A') + box.ct.slice(i + 1) };
     await expect(open(b.up, flipped)).rejects.toThrow();
   });
 
@@ -59,6 +60,7 @@ describe('online join link, end to end', () => {
   let app: App;
   let hub: MemoryHub;
   let target: JoinTarget;
+  let pageUp = true;
   const cleanup: (() => void)[] = [];
 
   const ack = <T,>(s: { emit(ev: string, ...a: unknown[]): unknown }, ev: string, ...args: unknown[]) =>
@@ -80,7 +82,7 @@ describe('online join link, end to end', () => {
       host: '127.0.0.1',
       dataDir: dir,
       quiet: true,
-      cloud: { joinOrigin: 'https://sing.example', transport: () => hub.transport() },
+      cloud: { joinOrigin: 'https://sing.example', transport: () => hub.transport(), checkJoinPage: async () => pageUp },
     });
     await app.listen();
     await until(() => app.relay?.state === 'online');
@@ -180,6 +182,20 @@ describe('online join link, end to end', () => {
     await until(() => connects > 0);
     const back = await ack<{ singerId: string }>(p, 'singer:resume', token);
     expect(app.show.singer(back.singerId)?.name).toBe('Barney');
+  });
+
+  it('keeps the Wi-Fi link in the QR code until the join page loads', async () => {
+    const other = await createApp({
+      port: 0,
+      host: '127.0.0.1',
+      dataDir: await mkdtemp(join(tmpdir(), 'encore-relay2-')),
+      quiet: true,
+      cloud: { joinOrigin: 'https://sing.example', transport: () => new MemoryHub().transport(), checkJoinPage: async () => false },
+    });
+    await other.listen();
+    await until(() => other.relay?.state === 'online');
+    expect(other.joinUrl()).toMatch(/^http:\/\/.+\/join$/);
+    await other.close();
   });
 
   it('falls back to the Wi-Fi link when the online link is off', async () => {

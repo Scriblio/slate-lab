@@ -39,7 +39,7 @@ export interface AppOptions {
   /** If the port is taken, take any free one instead of failing. */
   portFallback?: boolean;
   /** The online join link. Defaults to shared/cloud.ts (plus env overrides); false turns it off. */
-  cloud?: false | { joinOrigin: string; transport: () => RelayTransport };
+  cloud?: false | { joinOrigin: string; transport: () => RelayTransport; checkJoinPage?: () => Promise<boolean> };
   quiet?: boolean;
 }
 
@@ -96,15 +96,31 @@ export async function createApp(opts: AppOptions) {
   let relay: RelayHost | undefined;
   let identity: RelayIdentity | undefined;
   const onlineJoinUrl = () => (cloud && identity ? joinLink(cloud.joinOrigin, { room: identity.room, hostKey: identity.publicKey }) : undefined);
+  // Only advertise the online link once its page actually loads, so a site
+  // that's down (or not set up yet) can never strand singers.
+  let joinPageOk = false;
+  let joinPageTimer: ReturnType<typeof setInterval> | undefined;
+  async function checkJoinPage() {
+    if (!cloud) return;
+    const ok = await (cloud.checkJoinPage ?? (() => pageLoads(cloud.joinOrigin)))().catch(() => false);
+    if (ok !== joinPageOk) {
+      joinPageOk = ok;
+      scheduleBroadcast();
+    }
+  }
+  const onlineReady = () => relay?.state === 'online' && joinPageOk;
   /** The link in the QR code: the secure online one while it works, else the Wi-Fi one. */
-  const joinUrl = () => (relay?.state === 'online' ? onlineJoinUrl()! : lanJoinUrl());
-  const joinLabel = () => (relay?.state === 'online' ? new URL(cloud!.joinOrigin).host : lanJoinUrl().replace(/^https?:\/\//, ''));
+  const joinUrl = () => (onlineReady() ? onlineJoinUrl()! : lanJoinUrl());
+  const joinLabel = () => (onlineReady() ? new URL(cloud!.joinOrigin).host : lanJoinUrl().replace(/^https?:\/\//, ''));
 
   async function startRelay() {
     if (!cloud || relay || config.onlineJoin === false) return;
     identity ??= await loadIdentity(opts.dataDir);
     relay = new RelayHost({ transport: cloud.transport(), identity, localUrl: `http://127.0.0.1:${port}`, onState: scheduleBroadcast });
     relay.start();
+    await checkJoinPage();
+    joinPageTimer ??= setInterval(() => void checkJoinPage(), (joinPageOk ? 10 : 1) * 60_000);
+    joinPageTimer.unref?.();
     scheduleBroadcast();
   }
 
@@ -454,7 +470,7 @@ export async function createApp(opts: AppOptions) {
       joinUrl: joinUrl(),
       joinLabel: joinLabel(),
       relay: {
-        state: relay ? relay.state : cloud && config.onlineJoin !== false ? 'connecting' : 'off',
+        state: !relay ? (cloud && config.onlineJoin !== false ? 'connecting' : 'off') : relay.state === 'online' && !joinPageOk ? 'offline' : relay.state,
         lanUrl: lanJoinUrl(),
         phones: relay?.sessionCount ?? 0,
       },
@@ -502,6 +518,7 @@ export async function createApp(opts: AppOptions) {
   }
 
   async function close(): Promise<void> {
+    clearInterval(joinPageTimer);
     relay?.stop();
     show.dispose();
     await show.flush().catch(() => {});
@@ -582,7 +599,7 @@ function notFound(res: ServerResponse): void {
 }
 
 /** The online join link's settings: explicit option, else shared/cloud.ts with env overrides. */
-function resolveCloud(opt: AppOptions['cloud']): { joinOrigin: string; transport: () => RelayTransport } | undefined {
+function resolveCloud(opt: AppOptions['cloud']): Exclude<AppOptions['cloud'], false> | undefined {
   if (opt === false) return undefined;
   if (opt) return opt;
   const c = {
@@ -592,6 +609,12 @@ function resolveCloud(opt: AppOptions['cloud']): { joinOrigin: string; transport
   };
   if (!cloudConfigured(c) || process.env.ENCORE_ONLINE_JOIN === '0') return undefined;
   return { joinOrigin: c.joinOrigin, transport: () => supabaseTransport(c.supabaseUrl, c.supabaseKey) };
+}
+
+async function pageLoads(url: string): Promise<boolean> {
+  const res = await fetch(url, { signal: AbortSignal.timeout(6000), redirect: 'follow' });
+  await res.body?.cancel();
+  return res.ok;
 }
 
 /** The address phones on the same Wi-Fi can reach this laptop at. */

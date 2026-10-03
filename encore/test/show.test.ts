@@ -165,13 +165,15 @@ describe('Show', () => {
     const { show } = makeShow();
     const a = show.join('Alex').singer;
     const b = show.join('Bea').singer;
-    show.addEntry(a.id, yt('a1'), { fromPhone: true });
-    show.addEntry(b.id, yt('b1'), { fromPhone: true });
+    show.addEntry(a.id, yt('a1', 'Alex Secret Pick'), { fromPhone: true });
+    show.addEntry(b.id, yt('b1', 'Bea Song'), { fromPhone: true });
     const view = show.singerView(b.id, show.upcoming(), false);
     expect(view.myNextPosition).toBe(2);
     expect(view.upcoming[0]).toEqual({ singerName: 'Alex', isMe: false, etaSec: 0 });
-    expect(view.upcoming[1]!.title).toBe('b1');
-    expect(JSON.stringify(view)).not.toContain('a1');
+    expect(view.upcoming[1]!.title).toBe('Bea Song');
+    const json = JSON.stringify(view);
+    expect(json).not.toContain('Alex Secret Pick');
+    expect(json).not.toContain('a1xxxxxxxxx');
   });
 
   it('removing a singer drops their songs, pins and tokens', () => {
