@@ -183,3 +183,34 @@ describe('changeMode()', () => {
     expect(next.round).toBe(s.round + 1);
   });
 });
+
+describe('“Can’t sing right now”', () => {
+  const hold = (s: ShowState, name: string, turns = 2): ShowState => ({
+    ...s,
+    singers: s.singers.map((x) => (x.name === name ? { ...x, holdTurns: turns } : x)),
+  });
+
+  it.each(['rotation', 'fair', 'fifo', 'shuffle'] as const)('lets the next two singers go first in %s mode', (mode) => {
+    const s = hold(show(mode, { A: ['a1'], B: ['b1'], C: ['c1'], D: ['d1'] }), 'A');
+    expect(perform(s).order.slice(0, 3)).toEqual(['b1', 'c1', 'a1']);
+  });
+
+  it('still calls a waiting singer when nobody else is left', () => {
+    const s = hold(show('rotation', { A: ['a1', 'a2'], B: ['b1'] }), 'A', 5);
+    expect(perform(s).order).toEqual(['b1', 'a1', 'a2']);
+  });
+
+  it('counts down as others sing, and shows the wait in the running order', () => {
+    const s = hold(show('rotation', { A: ['a1'], B: ['b1'], C: ['c1'] }), 'A');
+    const list = upcoming(s, { now: 0, remainingSec: 0 });
+    expect(list.map((u) => u.singer.name)).toEqual(['B', 'C', 'A']);
+    const after = perform(s, 1).state;
+    expect(after.singers.find((x) => x.name === 'A')!.holdTurns).toBe(1);
+  });
+
+  it('gives way to the KJ’s pins', () => {
+    let s = hold(show('rotation', { A: ['a1'], B: ['b1'] }), 'A');
+    s = { ...s, playNext: [s.entries.find((e) => e.song.title === 'a1')!.id] };
+    expect(perform(s, 1).order).toEqual(['a1']);
+  });
+});

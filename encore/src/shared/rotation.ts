@@ -61,12 +61,22 @@ export function prepareRound(state: ShowState, rng?: Rng): ShowState {
 
 /**
  * The entry that should be performed next, or null when nobody is waiting.
- * Call prepareRound first so a finished round rolls over.
+ * Call prepareRound first so a finished round rolls over. Singers holding
+ * their turn ("can't sing right now") let others go first, unless nobody
+ * else is waiting; the KJ's pins still win.
  */
 export function chooseNext(state: ShowState): Entry | null {
   const pinned = livePins(state)[0];
   if (pinned) return pinned;
+  if (state.singers.some((s) => s.holdTurns)) {
+    const others: ShowState = { ...state, singers: state.singers.map((s) => (s.holdTurns ? { ...s, status: 'away' as const } : s)) };
+    const e = chooseByMode(others);
+    if (e) return e;
+  }
+  return chooseByMode(state);
+}
 
+function chooseByMode(state: ShowState): Entry | null {
   switch (state.mode) {
     case 'fifo': {
       for (const e of state.entries) {
@@ -103,12 +113,17 @@ export function chooseNext(state: ShowState): Entry | null {
 /**
  * Take an entry out of the queue because it is being performed: the singer's
  * count goes up and, in round-based modes, they have had their turn this round.
+ * Anyone holding their turn is one performance closer to theirs.
  */
 export function recordPerformance(state: ShowState, entryId: string, now: number): ShowState {
   const entry = state.entries.find((e) => e.id === entryId);
   if (!entry) return state;
   const singers = state.singers.map((s) =>
-    s.id === entry.singerId ? { ...s, songsSung: s.songsSung + 1, lastSangAt: now } : s,
+    s.id === entry.singerId
+      ? { ...s, songsSung: s.songsSung + 1, lastSangAt: now, holdTurns: undefined }
+      : s.holdTurns
+        ? { ...s, holdTurns: s.holdTurns - 1 || undefined }
+        : s,
   );
   let { sungThisRound } = state;
   if (isRoundBased(state.mode) && !sungThisRound.includes(entry.singerId)) {

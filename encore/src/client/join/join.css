@@ -764,3 +764,49 @@ body {
 .swap-note.warn {
   color: var(--amber);
 }
+
+/* ---- "you're up" alert ---- */
+
+button.status {
+  width: 100%;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.turn-alert.next {
+  background:
+    radial-gradient(80% 60% at 50% 30%, rgba(255, 192, 70, 0.32), transparent 70%),
+    rgba(7, 7, 12, 0.96);
+}
+.turn-alert .takeover-inner {
+  width: min(100%, 380px);
+}
+.turn-alert h1 {
+  font-size: 38px;
+}
+.turn-actions {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+  margin-top: 14px;
+}
+.turn-alert .turn-actions .btn {
+  margin-top: 0;
+  width: 100%;
+}
+.turn-actions .btn svg {
+  width: 18px;
+  height: 18px;
+}
+.turn-hint,
+.turn-confirm {
+  margin: 4px 0 0 !important;
+  font-size: 13px !important;
+  line-height: 1.4;
+}
+.turn-confirm {
+  color: var(--text) !important;
+  font-size: 16px !important;
+  font-weight: 600;
+}

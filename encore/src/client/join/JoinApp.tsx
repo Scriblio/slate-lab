@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { songRef, type SingerAction } from '../../shared/protocol.ts';
 import { formatWait, parseYouTubeId } from '../../shared/text.ts';
 import type { Entry, SearchResult, SingerView, Song } from '../../shared/types.ts';
+import { chime, unlockChime } from '../common/chime.ts';
 import * as I from '../common/icons.tsx';
 import { connect, request, safeGet, safeSet, useConnection, type AppSocket, type ServerError } from '../common/socket.ts';
 import { Eq, SongThumb, SourceBadge, useAction, useDebounced, useTick, useToast, YouTubeTerms } from '../common/ui.tsx';
@@ -32,6 +33,12 @@ export function JoinApp({ socket: given, tokenKey = 'encore.token', offlineHint,
   const [tab, setTab] = useState<Tab>('search');
   const [connError, setConnError] = useState<string | null>(null);
   const toast = useToast();
+
+  // Phones only allow sound after a tap; the first one readies the "you're up" chime.
+  useEffect(() => {
+    window.addEventListener('pointerdown', unlockChime);
+    return () => window.removeEventListener('pointerdown', unlockChime);
+  }, []);
 
   useEffect(() => {
     const onView = (v: SingerView) => {
@@ -289,20 +296,43 @@ function Main({
   const elapsed = Math.max(0, (now - receivedAt) / 1000);
   const eta = view.myNextEtaSec === null ? null : Math.max(0, view.myNextEtaSec - elapsed);
   const onStage = view.nowPlaying?.isMe ?? false;
-  const [takeover, setTakeover] = useState(false);
-  const prev = useRef({ pos: view.myNextPosition, onStage });
+  const called = onStage && view.nowPlaying?.stage === 'intro';
+  const upNext = view.myNextPosition === 1 && !onStage && me.status === 'active';
+  const [alert, setAlert] = useState<'next' | 'called' | null>(null);
+  const prev = useRef({ pos: view.myNextPosition, called });
 
-  // Buzz the phone when it's nearly your turn, and again when you're called.
+  // Buzz, chime and pop up the turn alert when you're up next, and again when you're called.
   useEffect(() => {
     const p = prev.current;
-    if (view.myNextPosition === 1 && p.pos !== 1 && !onStage) navigator.vibrate?.(200);
-    if (onStage && !p.onStage) {
+    if (called && !p.called) {
       navigator.vibrate?.([300, 120, 300, 120, 300]);
-      setTakeover(true);
+      chime();
+      setAlert('called');
+    } else if (upNext && p.pos !== 1) {
+      navigator.vibrate?.([200, 100, 200]);
+      chime();
+      setAlert('next');
     }
-    if (!onStage) setTakeover(false);
-    prev.current = { pos: view.myNextPosition, onStage };
-  }, [view.myNextPosition, onStage]);
+    if (!called && !upNext) setAlert(null);
+    prev.current = { pos: view.myNextPosition, called };
+  }, [view.myNextPosition, called, upNext]);
+
+  // Keep the screen on when your turn is close, so the alert can reach you.
+  const soon = !onStage && me.status === 'active' && view.myNextPosition !== null && view.myNextPosition <= 2;
+  useEffect(() => {
+    const wl = (navigator as Navigator & { wakeLock?: { request(type: 'screen'): Promise<{ release(): Promise<void> }> } }).wakeLock;
+    if (!soon || !wl) return;
+    let lock: { release(): Promise<void> } | undefined;
+    let done = false;
+    wl.request('screen').then(
+      (l) => (done ? void l.release().catch(() => {}) : (lock = l)),
+      () => {},
+    );
+    return () => {
+      done = true;
+      void lock?.release().catch(() => {});
+    };
+  }, [soon]);
 
   const call = (action: SingerAction) => request(socket, 'singer:action', action);
 
@@ -318,7 +348,7 @@ function Main({
             </div>
           </div>
         </div>
-        <StatusCard view={view} eta={eta} onBack={() => call({ type: 'setAway', away: false })} />
+        <StatusCard view={view} eta={eta} onBack={() => call({ type: 'setAway', away: false })} onOptions={() => setAlert(called ? 'called' : 'next')} />
       </header>
 
       <main className="app-body">
@@ -333,38 +363,117 @@ function Main({
         <TabButton active={tab === 'line'} onClick={() => setTab('line')} icon={<I.Users />} label="The line" />
       </nav>
 
-      {takeover && view.nowPlaying && (
-        <div className="takeover" onClick={() => setTakeover(false)}>
-          <div className="takeover-inner">
-            <div className="logo-mark big pulse">
-              <I.Mic />
-            </div>
-            <h1>It’s your turn!</h1>
-            <p>Head to the stage, {me.name}.</p>
-            {view.nowPlaying.title && (
-              <p className="takeover-song">
-                {view.nowPlaying.title}
-                {view.nowPlaying.artist && <span> · {view.nowPlaying.artist}</span>}
-              </p>
-            )}
-            <button className="btn lg">Got it</button>
-          </div>
-        </div>
+      {alert && (
+        <TurnAlert
+          kind={alert}
+          view={view}
+          onClose={() => setAlert(null)}
+          onNotNow={() => call({ type: 'notNow' })}
+          onLeave={() => call({ type: 'leave' })}
+        />
       )}
     </div>
   );
 }
 
-function StatusCard({ view, eta, onBack }: { view: SingerView; eta: number | null; onBack: () => Promise<unknown> }) {
+/** "You're up": I'm ready, can't sing right now (the next two go first), or I left. */
+function TurnAlert({
+  kind,
+  view,
+  onClose,
+  onNotNow,
+  onLeave,
+}: {
+  kind: 'next' | 'called';
+  view: SingerView;
+  onClose: () => void;
+  onNotNow: () => Promise<unknown>;
+  onLeave: () => Promise<unknown>;
+}) {
+  const me = view.me!;
+  const run = useAction();
+  const [confirmLeave, setConfirmLeave] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const song = kind === 'called' ? view.nowPlaying : view.upcoming.find((u) => u.isMe);
+  const heading = kind === 'called' ? 'It’s your turn!' : 'You’re up next!';
+
+  // Show it in the tab title too, for phones with several tabs open.
+  useEffect(() => {
+    const before = document.title;
+    document.title = `🎤 ${heading}`;
+    return () => void (document.title = before);
+  }, [heading]);
+
+  const act = async (fn: () => Promise<unknown>, done: string) => {
+    setBusy(true);
+    const ok = await run(fn, done);
+    setBusy(false);
+    if (ok !== undefined) onClose();
+  };
+
+  return (
+    <div className={`takeover turn-alert ${kind}`} role="alertdialog" aria-label={heading}>
+      <div className="takeover-inner">
+        <div className="logo-mark big pulse">
+          <I.Mic />
+        </div>
+        <h1>{heading}</h1>
+        <p>{kind === 'called' ? `Head to the stage, ${me.name}.` : 'Get ready and stay close to the stage.'}</p>
+        {song?.title && (
+          <p className="takeover-song">
+            {song.title}
+            {song.artist && <span> · {song.artist}</span>}
+          </p>
+        )}
+        {confirmLeave ? (
+          <div className="turn-actions">
+            <p className="turn-confirm">Leave the list? Your songs will be removed.</p>
+            <button className="btn lg danger" disabled={busy} onClick={() => act(onLeave, 'You’ve left the list. Thanks for singing!')}>
+              Yes, I left
+            </button>
+            <button className="btn lg ghost" disabled={busy} onClick={() => setConfirmLeave(false)}>
+              No, I’m staying
+            </button>
+          </div>
+        ) : (
+          <div className="turn-actions">
+            <button className="btn lg primary" onClick={onClose}>
+              {kind === 'called' ? 'On my way!' : 'I’m ready'}
+            </button>
+            <button className="btn lg" disabled={busy} onClick={() => act(onNotNow, 'No problem: two singers will go first. We’ll let you know when you’re up.')}>
+              <I.Clock /> Can’t sing right now
+            </button>
+            <button className="btn lg ghost danger" disabled={busy} onClick={() => setConfirmLeave(true)}>
+              <I.Logout /> I left
+            </button>
+            <p className="turn-hint">“Can’t sing right now” lets the next two singers go first. You keep your songs and your spot after them.</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function StatusCard({ view, eta, onBack, onOptions }: { view: SingerView; eta: number | null; onBack: () => Promise<unknown>; onOptions: () => void }) {
   const me = view.me!;
   const np = view.nowPlaying;
   const run = useAction();
+  if (np?.isMe && np.stage === 'intro')
+    return (
+      <button className="status live" onClick={onOptions}>
+        <Eq paused />
+        <div>
+          <strong>You’re up — head to the stage!</strong>
+          <span>Can’t make it? Tap here.</span>
+        </div>
+      </button>
+    );
   if (np?.isMe)
     return (
       <div className="status live">
         <Eq paused={np.stage !== 'playing'} />
         <div>
-          <strong>{np.stage === 'intro' ? 'You’re up — head to the stage!' : 'You’re on! Sing it!'}</strong>
+          <strong>You’re on! Sing it!</strong>
         </div>
       </div>
     );
@@ -380,13 +489,15 @@ function StatusCard({ view, eta, onBack }: { view: SingerView; eta: number | nul
     );
   if (view.myNextPosition === 1)
     return (
-      <div className="status next">
+      <button className="status next" onClick={onOptions}>
         <I.Bolt />
         <div>
           <strong>You’re up next!</strong>
-          <span>Stay close to the stage{eta !== null && eta > 45 ? ` · ${formatWait(eta)}` : ''}</span>
+          <span>
+            Stay close to the stage{eta !== null && eta > 45 ? ` · ${formatWait(eta)}` : ''} · Can’t sing now? Tap here.
+          </span>
         </div>
-      </div>
+      </button>
     );
   if (view.myNextPosition)
     return (

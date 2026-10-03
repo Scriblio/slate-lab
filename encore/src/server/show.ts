@@ -52,6 +52,8 @@ export interface ShowDeps {
   onPlayerCommand: (playId: string, cmd: PlayerCommand) => void;
   /** YouTube videos known not to play here are turned away when requested. */
   isRefused?: (videoId: string) => boolean;
+  /** Something the KJ should hear about right away (a singer left, or asked to wait). */
+  onNotice?: (text: string) => void;
 }
 
 /** What the KJ needs to undo a call-up when the singer doesn't show. */
@@ -62,7 +64,13 @@ interface CallSnapshot {
   sungThisRound: string[];
   round: number;
   playNext: string[];
+  /** Everyone's held turns before the call counted them down. */
+  holds?: Record<string, number>;
 }
+
+/** How many singers go first when someone can't sing right now. */
+export const HOLD_TURNS = 2;
+const MAX_HOLD = 6;
 
 interface Persisted {
   version: 1;
@@ -568,6 +576,7 @@ export class Show {
       sungThisRound: this.state.sungThisRound,
       round: this.state.round,
       playNext: this.state.playNext,
+      holds: Object.fromEntries(this.state.singers.filter((s) => s.holdTurns).map((s) => [s.id, s.holdTurns!])),
     };
     const now = this.now();
     this.state = recordPerformance(this.state, entry.id, now);
@@ -655,10 +664,13 @@ export class Show {
       sungThisRound: snap ? snap.sungThisRound : this.state.sungThisRound.filter((id) => id !== np.entry.singerId),
       round: snap?.round ?? this.state.round,
       playNext: snap ? snap.playNext.filter((id) => entries.some((e) => e.id === id)) : this.state.playNext,
-      singers: this.state.singers.map((s) =>
-        s.id === np.entry.singerId
-          ? { ...s, ...(snap?.singer ? { songsSung: snap.singer.songsSung, lastSangAt: snap.singer.lastSangAt } : {}), status: 'away' }
-          : s,
+      singers: restoreHolds(
+        this.state.singers.map((s) =>
+          s.id === np.entry.singerId
+            ? { ...s, ...(snap?.singer ? { songsSung: snap.singer.songsSung, lastSangAt: snap.singer.lastSangAt } : {}), status: 'away' }
+            : s,
+        ),
+        snap,
       ),
     };
     this.snapshot = undefined;
@@ -699,11 +711,45 @@ export class Show {
       sungThisRound: snap ? snap.sungThisRound : this.state.sungThisRound,
       round: snap?.round ?? this.state.round,
       playNext: snap ? snap.playNext.filter((id) => entries.some((e) => e.id === id)) : this.state.playNext,
-      singers: snap?.singer
-        ? this.state.singers.map((s) => (s.id === snap.singer!.id ? { ...s, songsSung: snap.singer!.songsSung, lastSangAt: snap.singer!.lastSangAt } : s))
-        : this.state.singers,
+      singers: restoreHolds(
+        snap?.singer
+          ? this.state.singers.map((s) => (s.id === snap.singer!.id ? { ...s, songsSung: snap.singer!.songsSung, lastSangAt: snap.singer!.lastSangAt } : s))
+          : this.state.singers,
+        snap,
+      ),
     };
     this.snapshot = undefined;
+  }
+
+  /**
+   * "Can't sing right now": the next few singers go first and this one keeps
+   * their songs. If they were just called up, the call is undone and the
+   * next singer comes up instead.
+   */
+  holdTurn(singerId: string, turns = HOLD_TURNS): void {
+    const singer = this.singer(singerId);
+    if (!singer) throw new UserError('Join the list first.');
+    const np = this.state.nowPlaying;
+    const called = np?.entry.singerId === singerId;
+    if (called && np.stage !== 'intro') throw new UserError('You’re already singing!');
+    if (called) this.undoCall(np.playId);
+    const holdTurns = Math.min(MAX_HOLD, (this.singer(singerId)?.holdTurns ?? 0) + turns);
+    this.state = { ...this.state, singers: this.state.singers.map((s) => (s.id === singerId ? { ...s, holdTurns } : s)) };
+    this.deps.onNotice?.(`${singer.name} can’t sing right now, so the next ${turns} singers go first.`);
+    if (called && this.state.settings.autoAdvance) this.callNext();
+    else this.changed();
+  }
+
+  /** The singer left from their phone: off the list, and off the stage if they were being called. */
+  leaveFromPhone(singerId: string): void {
+    const singer = this.singer(singerId);
+    if (!singer) return;
+    const np = this.state.nowPlaying;
+    const called = np?.entry.singerId === singerId && np.stage === 'intro';
+    if (called) this.undoCall(np.playId);
+    this.removeSinger(singerId);
+    this.deps.onNotice?.(`${singer.name} left and was taken off the list.`);
+    if (called && this.state.settings.autoAdvance) this.callNext();
   }
 
   // --- reports from the display ---------------------------------------------
@@ -757,8 +803,11 @@ export class Show {
       case 'setAway':
         this.setSingerStatus(singerId, action.away ? 'away' : 'active');
         return null;
+      case 'notNow':
+        this.holdTurn(singerId);
+        return null;
       case 'leave':
-        this.removeSinger(singerId);
+        this.leaveFromPhone(singerId);
         return null;
       default:
         throw new UserError('Unknown action.');
@@ -837,6 +886,13 @@ export function freshShow(now: number): ShowState {
     nowPlaying: null,
     history: [],
   };
+}
+
+/** Give back the held turns an undone call-up counted down (holds asked for since then stay). */
+function restoreHolds(singers: Singer[], snap: CallSnapshot | undefined): Singer[] {
+  const holds = snap?.holds;
+  if (!holds) return singers;
+  return singers.map((s) => (holds[s.id] ? { ...s, holdTurns: Math.max(s.holdTurns ?? 0, holds[s.id]!) } : s));
 }
 
 export function sourceKey(song: Song): string {

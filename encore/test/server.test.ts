@@ -254,6 +254,16 @@ describe('server', () => {
     await expect(call((a) => phone.emit('searchYouTube', 'busy', a))).rejects.toThrow(/busy right now/);
   });
 
+  it('tells the KJ when a singer can’t sing right now', async () => {
+    const dj = client({ role: 'dj' });
+    const phone = client();
+    await call((a) => phone.emit('singer:join', 'Quinn', a));
+    await call((a) => phone.emit('singer:action', { type: 'request', song: { kind: 'youtube', videoId: 'qqqqqqqqqqq', title: 'Q' } }, a));
+    const notice = nextEvent<{ text: string }>(dj, 'dj:notice');
+    await call((a) => phone.emit('singer:action', { type: 'notNow' }, a));
+    expect((await notice).text).toMatch(/^Quinn can’t sing right now/);
+  });
+
   it('keeps phones out of the DJ console', async () => {
     const phone = client();
     await new Promise((r) => phone.on('connect', () => r(null)));

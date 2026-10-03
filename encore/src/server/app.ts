@@ -82,6 +82,7 @@ export async function createApp(opts: AppOptions) {
   const show = new Show({
     dataDir: opts.dataDir,
     isRefused: (videoId) => guard?.isRefused(videoId) ?? false,
+    onNotice: (text) => io?.to('dj').emit('dj:notice', { text }),
     resolveLocal: (id) => {
       const t = library.get(id);
       return t ? { title: t.title, artist: t.artist, source: { kind: 'local', trackId: t.id, format: t.format } } : undefined;

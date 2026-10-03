@@ -75,6 +75,8 @@ export type SingerAction =
   | { type: 'removeMyEntry'; entryId: string }
   | { type: 'moveMyEntry'; entryId: string; direction: -1 | 1 }
   | { type: 'setAway'; away: boolean }
+  /** "Can't sing right now": let the next couple of singers go first. */
+  | { type: 'notNow' }
   | { type: 'leave' };
 
 export interface ClientToServer {
@@ -97,6 +99,8 @@ export interface ClientToServer {
 export interface ServerToClient {
   'dj:view': (view: DjView) => void;
   'dj:progress': (p: { playId: string; position: number; duration?: number }) => void;
+  /** Something the KJ should see right away, e.g. a singer left from their phone. */
+  'dj:notice': (p: { text: string }) => void;
   'singer:view': (view: SingerView) => void;
   'singer:removed': () => void;
   'display:view': (view: DisplayView) => void;

@@ -30,6 +30,13 @@ export function DjApp() {
     return () => void socket.off('dj:view', setView);
   }, [socket]);
 
+  // Singers leaving or asking to wait, from their phones.
+  useEffect(() => {
+    const onNotice = (n: { text: string }) => toast(n.text, 'info');
+    socket.on('dj:notice', onNotice);
+    return () => void socket.off('dj:notice', onNotice);
+  }, [socket, toast]);
+
   const act = useCallback(
     async <T,>(action: DjAction, success?: string): Promise<T | undefined> => {
       try {

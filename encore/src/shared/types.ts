@@ -53,6 +53,11 @@ export interface Singer {
   /** True when the singer signed up from their phone (vs. added by the KJ). */
   fromPhone: boolean;
   /**
+   * "Can't sing right now": let this many performances by others go first.
+   * Counts down as others are called; the singer keeps their songs and place.
+   */
+  holdTurns?: number;
+  /**
    * 4-digit code that gets a singer back into their spot from another
    * phone or browser. Shown to the singer themselves and to the KJ only.
    */

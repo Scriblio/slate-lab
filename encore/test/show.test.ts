@@ -250,3 +250,65 @@ describe('Show', () => {
     expect(show.singerForToken(token)).toBeUndefined();
   });
 });
+
+describe('Phone turn alert actions', () => {
+  function night() {
+    const { show, commands } = makeShow();
+    const notices: string[] = [];
+    (show as unknown as { deps: { onNotice?: (t: string) => void } }).deps.onNotice = (t) => notices.push(t);
+    const [a, b, c] = ['Alex', 'Bea', 'Cam'].map((n) => show.join(n).singer);
+    for (const [s, t] of [
+      [a!, 'a1'],
+      [b!, 'b1'],
+      [c!, 'c1'],
+    ] as const)
+      show.addEntry(s.id, yt(t), { fromPhone: true });
+    return { show, commands, notices, a: a!, b: b!, c: c! };
+  }
+
+  it('“can’t sing right now” while up next lets two singers go first', () => {
+    const { show, notices, a } = night();
+    expect(show.upcoming()[0]!.singer.name).toBe('Alex');
+    show.singerAction(a.id, { type: 'notNow' });
+    expect(show.upcoming().map((u) => u.singer.name)).toEqual(['Bea', 'Cam', 'Alex']);
+    expect(notices).toEqual(['Alex can’t sing right now, so the next 2 singers go first.']);
+  });
+
+  it('“can’t sing right now” after being called undoes the call and brings up the next singer', () => {
+    const { show, a } = night();
+    show.callNext();
+    expect(show.state.nowPlaying!.singerName).toBe('Alex');
+    show.singerAction(a.id, { type: 'notNow' });
+    expect(show.state.nowPlaying!.singerName).toBe('Bea');
+    expect(show.state.entries.some((e) => e.singerId === a.id)).toBe(true);
+    expect(show.state.singers.find((s) => s.id === a.id)).toMatchObject({ songsSung: 0, status: 'active' });
+    expect(show.upcoming().map((u) => u.singer.name)).toEqual(['Cam', 'Alex']);
+  });
+
+  it('can’t be used mid-song', () => {
+    const { show, a } = night();
+    show.callNext();
+    show.play();
+    expect(() => show.singerAction(a.id, { type: 'notNow' })).toThrow(/already singing/);
+  });
+
+  it('“I left” takes the singer off the list, and off the stage if they were being called', () => {
+    const { show, notices, a } = night();
+    show.callNext();
+    show.singerAction(a.id, { type: 'leave' });
+    expect(show.singer(a.id)).toBeUndefined();
+    expect(show.state.entries.some((e) => e.singerId === a.id)).toBe(false);
+    expect(show.state.nowPlaying!.singerName).toBe('Bea');
+    expect(notices).toEqual(['Alex left and was taken off the list.']);
+  });
+
+  it('a no-show by someone else doesn’t eat a waiting singer’s turns', () => {
+    const { show, a } = night();
+    show.singerAction(a.id, { type: 'notNow' });
+    show.callNext(); // Bea, counting Alex down to 1
+    expect(show.singer(a.id)!.holdTurns).toBe(1);
+    show.noShow(); // Bea isn't here: her call is undone, Cam comes up
+    expect(show.state.nowPlaying!.singerName).toBe('Cam');
+    expect(show.singer(a.id)!.holdTurns).toBe(1);
+  });
+});

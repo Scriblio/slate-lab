@@ -206,6 +206,11 @@ function SingerRow({ singer: s, index, last, sung, expanded, onToggle, draggable
               <I.Coffee /> Away
             </span>
           )}
+          {!away && s.holdTurns && (
+            <span className="badge amber" title={`Can’t sing right now: ${s.holdTurns} more singer${s.holdTurns === 1 ? '' : 's'} go first`}>
+              <I.Clock /> Waiting
+            </span>
+          )}
           {roundBased && sung && !onStage && (
             <span className="badge violet" title="Sung this round">
               <I.Check /> Sung
