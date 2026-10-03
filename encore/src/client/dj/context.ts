@@ -11,6 +11,9 @@ export interface DjCtx {
   /** Singer the song finder adds to. */
   target: string | null;
   setTarget: (id: string | null) => void;
+  /** Request shown in the preview card. */
+  preview: string | null;
+  setPreview: (entryId: string | null) => void;
   focusFinder: () => void;
 }
 

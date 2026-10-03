@@ -7,7 +7,7 @@ import * as I from '../common/icons.tsx';
 import { useDj } from './context.ts';
 
 export function UpNext() {
-  const { view, act } = useDj();
+  const { view, act, preview, setPreview } = useDj();
   const list = view.upcoming;
   const roundBased = isRoundBased(view.show.mode);
   const shuffle = view.show.mode === 'shuffle';
@@ -41,9 +41,9 @@ export function UpNext() {
                     </span>
                   </li>
                 )}
-                <li className={`upnext-row ${i === 0 ? 'first' : ''}`}>
+                <li className={`upnext-row ${i === 0 ? 'first' : ''} ${preview === u.entry.id ? 'previewing' : ''}`}>
                   <span className="upnext-pos">{i + 1}</span>
-                  <div className="upnext-main ellipsis">
+                  <div className="upnext-main ellipsis" onClick={() => setPreview(u.entry.id)} title="Preview this song">
                     <div className="upnext-singer ellipsis">
                       {u.singer.name}
                       {u.pinned && (

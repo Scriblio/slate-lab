@@ -9,7 +9,7 @@ import { SongThumb, SourceBadge } from '../common/ui.tsx';
 import { useDj } from './context.ts';
 
 export function Rotation() {
-  const { view, act, setTarget, focusFinder } = useDj();
+  const { view, act, setTarget, setPreview, focusFinder } = useDj();
   const { show } = view;
   const [expanded, setExpanded] = useState<string | null>(null);
   const [name, setName] = useState('');
@@ -97,6 +97,9 @@ export function Rotation() {
               onToggle={() => {
                 setExpanded(expanded === s.id ? null : s.id);
                 setTarget(s.id);
+                // Opening a singer previews their next song.
+                const first = expanded === s.id ? undefined : show.entries.find((e) => e.singerId === s.id);
+                if (first) setPreview(first.id);
               }}
               draggable={draggable}
               dropBefore={drag?.over === i && drag.id !== s.id}
@@ -320,14 +323,14 @@ function SingerRow({ singer: s, index, last, sung, expanded, onToggle, draggable
 }
 
 function EntryRow({ entry: e, first, last, index }: { entry: Entry; first: boolean; last: boolean; index: number }) {
-  const { view, act } = useDj();
+  const { view, act, preview, setPreview } = useDj();
   const pinned = view.show.playNext.includes(e.id);
   const np = view.show.nowPlaying;
   const canCall = !np || np.stage === 'intro';
   return (
-    <li className={`entry ${first ? 'first' : ''}`}>
+    <li className={`entry ${first ? 'first' : ''} ${preview === e.id ? 'previewing' : ''}`}>
       <SongThumb song={e.song} size={36} />
-      <div className="entry-main ellipsis">
+      <div className="entry-main ellipsis" onClick={() => setPreview(e.id)} title="Preview this song">
         <div className="entry-title ellipsis">{e.song.title}</div>
         <div className="entry-sub ellipsis">
           {e.song.artist}

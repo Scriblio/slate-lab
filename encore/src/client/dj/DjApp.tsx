@@ -12,7 +12,7 @@ import { Rotation } from './Rotation.tsx';
 import { SettingsModal } from './Settings.tsx';
 import { Stage } from './Stage.tsx';
 import { UpNext } from './UpNext.tsx';
-import { YouTubeCheck } from './YouTubeCheck.tsx';
+import { PreviewCard } from './PreviewCard.tsx';
 
 export function DjApp() {
   const [pin, setPin] = useState(storedPin);
@@ -22,6 +22,7 @@ export function DjApp() {
   const [view, setView] = useState<DjView | null>(null);
   const toast = useToast();
   const [target, setTarget] = useState<string | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
   const finderInput = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -53,6 +54,13 @@ export function DjApp() {
     for (const id of ids) seen.current.add(id);
   }, [view, target]);
 
+  // Close the preview once its song is sung or removed.
+  useEffect(() => {
+    if (!view || !preview) return;
+    const np = view.show.nowPlaying;
+    if (!view.show.entries.some((e) => e.id === preview) && np?.entry.id !== preview) setPreview(null);
+  }, [view, preview]);
+
   if (conn === 'pin')
     return (
       <PinGate
@@ -78,6 +86,8 @@ export function DjApp() {
     act,
     target,
     setTarget,
+    preview,
+    setPreview,
     focusFinder: () => window.dispatchEvent(new Event('encore:find')),
   };
 
@@ -96,7 +106,7 @@ export function DjApp() {
           </section>
           <section className="col col-finder">
             <Finder inputRef={finderInput} />
-            <YouTubeCheck />
+            <PreviewCard />
           </section>
         </main>
       </div>
