@@ -197,6 +197,18 @@ describe('server', () => {
     await expect(call((a) => again.emit('singer:resume', 'bogus', a))).rejects.toThrow('not-found');
   });
 
+  it('sends a second sign-up under the same name to the reclaim flow', async () => {
+    const first = client();
+    const code = new Promise<string>((ok) => first.on('singer:view', (v: SingerView) => v.me && ok(v.me.code)));
+    await call((a) => first.emit('singer:join', 'Lily', a));
+    const second = client();
+    const err = await new Promise<{ ok: boolean; error?: string; code?: string }>((r) => second.emit('singer:join', 'lily', r as never));
+    expect(err).toMatchObject({ ok: false, code: 'name-taken' });
+    const back = await call<{ token: string; singerId: string }>(async (a) => second.emit('singer:reclaim', 'Lily', await code, a));
+    expect(app.show.singer(back.singerId)?.name).toBe('Lily');
+    expect(app.show.state.singers.filter((s) => s.name.toLowerCase().startsWith('lily'))).toHaveLength(1);
+  });
+
   it('looks up pasted YouTube links without an API key', async () => {
     const phone = client();
     const r = await call<SearchResult>((a) => phone.emit('lookupYouTube', 'https://youtu.be/abcdefghijk', a));

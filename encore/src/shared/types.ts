@@ -52,6 +52,11 @@ export interface Singer {
   lastSangAt?: number;
   /** True when the singer signed up from their phone (vs. added by the KJ). */
   fromPhone: boolean;
+  /**
+   * 4-digit code that gets a singer back into their spot from another
+   * phone or browser. Shown to the singer themselves and to the KJ only.
+   */
+  code: string;
 }
 
 export interface Entry {

@@ -21,7 +21,7 @@ import {
 } from '../shared/relay.ts';
 
 /** Events a phone may send. Never the DJ or display events. */
-const ALLOWED = new Set(['singer:join', 'singer:resume', 'singer:action', 'search', 'searchYouTube', 'lookupYouTube']);
+const ALLOWED = new Set(['singer:join', 'singer:resume', 'singer:reclaim', 'singer:action', 'search', 'searchYouTube', 'lookupYouTube']);
 /** Events forwarded from the server to the phone. */
 const FORWARD = ['singer:view', 'singer:removed'] as const;
 

@@ -28,7 +28,10 @@ export function connect(role: Role, pin?: string): AppSocket {
   });
 }
 
-type Acked<T> = { ok: true; data: T } | { ok: false; error: string };
+type Acked<T> = { ok: true; data: T } | { ok: false; error: string; code?: string };
+
+/** An error from the server, with its machine-readable code when it has one. */
+export type ServerError = Error & { code?: string };
 
 /** Emit an event with an ack and get a promise for the result. */
 export function request<T>(socket: AppSocket, event: keyof ClientToServer, ...args: unknown[]): Promise<T> {
@@ -37,7 +40,7 @@ export function request<T>(socket: AppSocket, event: keyof ClientToServer, ...ar
     (socket.emit as (...a: unknown[]) => void)(event, ...args, (res: Acked<T>) => {
       clearTimeout(timer);
       if (res?.ok) resolve(res.data);
-      else reject(new Error(res?.error ?? 'Something went wrong.'));
+      else reject(Object.assign(new Error(res?.error ?? 'Something went wrong.'), { code: res?.code }));
     });
   });
 }

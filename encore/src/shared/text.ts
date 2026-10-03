@@ -1,6 +1,11 @@
 // Text helpers: turning karaoke filenames and YouTube titles into
 // artist/title pairs, and normalising strings for search.
 
+/** What counts as "the same name" for sign-ups: "Matt", " matt ", "MATT (2)" all match. */
+export function nameKey(name: string): string {
+  return normalize(name.replace(/\s*\(\d+\)\s*$/, ''));
+}
+
 /** Lowercase, strip accents and punctuation, collapse whitespace. */
 export function normalize(s: string): string {
   return s

@@ -118,7 +118,7 @@ describe('Show', () => {
   it('cleans names and de-duplicates them', () => {
     const { show } = makeShow();
     expect(show.join('  Sam​ \n ').singer.name).toBe('Sam');
-    expect(show.join('sam').singer.name).toBe('sam (2)');
+    expect(() => show.join('sam')).toThrow(expect.objectContaining({ code: 'name-taken' }));
     expect(() => show.join('   ')).toThrow(/name/);
   });
 
@@ -173,7 +173,70 @@ describe('Show', () => {
     expect(view.upcoming[1]!.title).toBe('Bea Song');
     const json = JSON.stringify(view);
     expect(json).not.toContain('Alex Secret Pick');
+    expect(view.me?.code).toBe(show.singer(b.id)!.code);
+    expect(json).not.toContain(`"${show.singer(a.id)!.code}"`);
     expect(json).not.toContain('a1xxxxxxxxx');
+  });
+
+  it('gives each phone sign-up one spot per name; a second sign-up must reclaim it', () => {
+    const { show } = makeShow();
+    const first = show.join('Matt');
+    expect(first.singer.code).toMatch(/^\d{4}$/);
+    expect(() => show.join('  matt ')).toThrow(expect.objectContaining({ code: 'name-taken', message: 'Matt is already on the list.' }));
+    // The KJ can still add a second person with the same name.
+    expect(show.addSinger('Matt', false).name).toBe('Matt (2)');
+    expect(() => show.join('Matt (2)')).toThrow(expect.objectContaining({ code: 'name-taken' }));
+  });
+
+  it('lets a singer reclaim their spot from a new browser with their code', () => {
+    const { show } = makeShow();
+    const { singer, token } = show.join('Robin');
+    const again = show.reclaim('ROBIN', singer.code);
+    expect(again.singer.id).toBe(singer.id);
+    expect(again.token).not.toBe(token);
+    // Both browsers stay signed in as the same singer.
+    expect(show.singerForToken(token)?.id).toBe(singer.id);
+    expect(show.singerForToken(again.token)?.id).toBe(singer.id);
+    expect(() => show.reclaim('Nobody', '0000')).toThrow(expect.objectContaining({ code: 'not-on-list' }));
+  });
+
+  it('locks reclaiming after five wrong codes, then unlocks', () => {
+    let t = 0;
+    const show = new Show({ now: () => t, resolveLocal: () => undefined, onChange: () => {}, onPlayerCommand: () => {} });
+    const { singer } = show.join('Kim');
+    const wrong = singer.code === '0000' ? '1111' : '0000';
+    for (let i = 0; i < 4; i++) expect(() => show.reclaim('Kim', wrong)).toThrow(expect.objectContaining({ code: 'bad-code' }));
+    expect(() => show.reclaim('Kim', wrong)).toThrow(expect.objectContaining({ code: 'bad-code' }));
+    // Locked now, even with the right code.
+    expect(() => show.reclaim('Kim', singer.code)).toThrow(expect.objectContaining({ code: 'locked' }));
+    t += 10 * 60_000 + 1;
+    expect(show.reclaim('Kim', singer.code).singer.id).toBe(singer.id);
+  });
+
+  it('merges a duplicate: songs (without repeats), counts, round and phones move over', () => {
+    const { show } = makeShow();
+    show.updateSettings({ autoAdvance: false });
+    const real = show.join('Alex');
+    const dup = show.addSinger('Alex', false);
+    show.addEntry(real.singer.id, yt('shared', 'Same Song'), { fromPhone: false });
+    show.addEntry(dup.id, yt('shared', 'Same Song'), { fromPhone: false });
+    const extra = show.addEntry(dup.id, yt('extra', 'Extra Song'), { fromPhone: false });
+    show.pin(extra.id);
+    const dupToken = show.reclaim('Alex (2)', dup.code).token;
+    show.callEntry(extra.id);
+    expect(() => show.mergeSingers(dup.id, real.singer.id)).toThrow(/off stage/);
+    show.play();
+    show.skip();
+    show.addEntry(dup.id, yt('third', 'Third Song'), { fromPhone: false });
+
+    show.mergeSingers(dup.id, real.singer.id);
+    expect(show.singer(dup.id)).toBeUndefined();
+    const alex = show.singer(real.singer.id)!;
+    expect(alex.songsSung).toBe(1);
+    expect(show.state.entries.filter((e) => e.singerId === alex.id).map((e) => e.song.title).sort()).toEqual(['Same Song', 'Third Song']);
+    expect(show.state.sungThisRound).toContain(alex.id);
+    expect(show.state.sungThisRound).not.toContain(dup.id);
+    expect(show.singerForToken(dupToken)?.id).toBe(alex.id);
   });
 
   it('removing a singer drops their songs, pins and tokens', () => {

@@ -267,6 +267,14 @@ export async function createApp(opts: AppOptions) {
         return { token, singerId: singer.id };
       }),
     );
+    socket.on('singer:reclaim', (name, code, ack) =>
+      respond(ack, () => {
+        if (!rateOk(socket, 'join', 5, 60_000)) throw new UserError('Slow down a little and try again.');
+        const { token, singer } = show.reclaim(String(name ?? ''), String(code ?? ''));
+        bindSinger(socket, singer.id);
+        return { token, singerId: singer.id };
+      }),
+    );
     socket.on('singer:resume', (token, ack) =>
       respond(ack, () => {
         const singer = show.singerForToken(String(token ?? ''));
@@ -346,6 +354,15 @@ export async function createApp(opts: AppOptions) {
         return show.renameSinger(a.singerId, a.name);
       case 'removeSinger':
         return show.removeSinger(a.singerId);
+      case 'mergeSingers': {
+        show.mergeSingers(a.fromId, a.intoId);
+        // Phones signed in as the duplicate now act as the merged singer.
+        for (const raw of io.sockets.sockets.values()) {
+          const s = raw as IoSocket;
+          if (s.data.singerId === a.fromId) bindSinger(s, a.intoId);
+        }
+        return null;
+      }
       case 'setSingerStatus':
         return show.setSingerStatus(a.singerId, a.status === 'away' ? 'away' : 'active');
       case 'moveSinger':
@@ -563,7 +580,7 @@ async function respondAsync<T>(ack: Ack<T> | undefined, fn: () => Promise<T>): P
     reply({ ok: true, data: (await fn()) as T });
   } catch (err) {
     if (!(err instanceof UserError)) console.error(err);
-    reply({ ok: false, error: err instanceof Error ? err.message : 'Something went wrong.' });
+    reply({ ok: false, error: err instanceof Error ? err.message : 'Something went wrong.', code: err instanceof UserError ? err.code : undefined });
   }
 }
 

@@ -692,3 +692,64 @@ body {
   max-width: 320px;
   margin: 0;
 }
+
+/* ---- rejoin codes ---- */
+
+.claim-title {
+  font-size: 22px;
+  font-weight: 700;
+}
+.claim-copy {
+  margin: -4px 0 4px;
+  font-size: 14.5px;
+}
+.code-input {
+  text-align: center;
+  font-size: 28px;
+  letter-spacing: 0.5em;
+  font-variant-numeric: tabular-nums;
+}
+.link-btn {
+  justify-self: center;
+  border: 0;
+  background: none;
+  color: var(--cyan);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px;
+}
+.join-card .hint {
+  margin: 0;
+}
+.code-chip {
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.06em;
+}
+.code-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  margin-bottom: 14px;
+  border-radius: 14px;
+  background: var(--surface);
+  border: 1px dashed var(--line-2);
+}
+.code-card div {
+  flex: 1;
+  display: grid;
+  gap: 2px;
+}
+.code-card span.muted {
+  font-size: 13px;
+}
+.code-big {
+  font-family: var(--display);
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--cyan);
+  font-variant-numeric: tabular-nums;
+}

@@ -6,7 +6,7 @@ import { songRef, type SingerAction } from '../../shared/protocol.ts';
 import { formatWait, parseYouTubeId } from '../../shared/text.ts';
 import type { Entry, SearchResult, SingerView, Song } from '../../shared/types.ts';
 import * as I from '../common/icons.tsx';
-import { connect, request, safeGet, safeSet, useConnection, type AppSocket } from '../common/socket.ts';
+import { connect, request, safeGet, safeSet, useConnection, type AppSocket, type ServerError } from '../common/socket.ts';
 import { Eq, SongThumb, SourceBadge, useAction, useDebounced, useTick, useToast } from '../common/ui.tsx';
 
 type Tab = 'search' | 'mine' | 'line';
@@ -31,6 +31,7 @@ export function JoinApp({ socket: given, tokenKey = 'encore.token', offlineHint,
   const [notice, setNotice] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>('search');
   const [connError, setConnError] = useState<string | null>(null);
+  const toast = useToast();
 
   useEffect(() => {
     const onView = (v: SingerView) => {
@@ -92,6 +93,13 @@ export function JoinApp({ socket: given, tokenKey = 'encore.token', offlineHint,
             setNotice(null);
             setTab('search');
           }}
+          onReclaim={async (name, code) => {
+            const res = await request<{ token: string }>(socket, 'singer:reclaim', name, code);
+            safeSet(TOKEN_KEY, res.token);
+            setNotice(null);
+            toast('Welcome back! You’re in your old spot.');
+            setTab('mine');
+          }}
         />
       )}
     </>
@@ -111,19 +119,73 @@ function Splash({ offline, hint }: { offline: boolean; hint?: string }) {
 
 // --- join --------------------------------------------------------------------
 
-function JoinScreen({ view, notice, onJoin }: { view: SingerView; notice: string | null; onJoin: (name: string) => Promise<void> }) {
+function JoinScreen({
+  view,
+  notice,
+  onJoin,
+  onReclaim,
+}: {
+  view: SingerView;
+  notice: string | null;
+  onJoin: (name: string) => Promise<void>;
+  onReclaim: (name: string, code: string) => Promise<void>;
+}) {
   const [name, setName] = useState(() => safeGet('encore.name') ?? '');
+  const [code, setCode] = useState('');
+  /** 'claim' = getting back into a spot that's already on the list. */
+  const [mode, setMode] = useState<'join' | 'claim'>('join');
+  const [taken, setTaken] = useState<string | null>(null);
+  const [hint, setHint] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const run = useAction();
+  const toast = useToast();
 
-  async function submit(e: FormEvent) {
+  async function attempt(fn: () => Promise<void>) {
+    setBusy(true);
+    try {
+      await fn();
+    } catch (e) {
+      const err = e as ServerError;
+      if (err.code === 'name-taken') {
+        setTaken(err.message);
+        setMode('claim');
+        setCode('');
+      } else if (err.code === 'not-on-list') {
+        setMode('join');
+        setTaken(null);
+        setHint(err.message);
+      } else toast(err.message, 'error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function submitJoin(e: FormEvent) {
     e.preventDefault();
     if (!name.trim() || busy) return;
-    setBusy(true);
     safeSet('encore.name', name.trim());
-    await run(() => onJoin(name));
-    setBusy(false);
+    setHint(null);
+    void attempt(() => onJoin(name));
   }
+
+  function submitClaim(e: FormEvent) {
+    e.preventDefault();
+    if (!name.trim() || code.length !== 4 || busy) return;
+    safeSet('encore.name', name.trim());
+    void attempt(() => onReclaim(name, code));
+  }
+
+  const nameInput = (
+    <input
+      id="name"
+      className="input xl"
+      value={name}
+      onChange={(e) => setName(e.target.value)}
+      placeholder="Your name or stage name"
+      maxLength={32}
+      autoComplete="nickname"
+      enterKeyHint="go"
+    />
+  );
 
   return (
     <div className="join">
@@ -135,29 +197,72 @@ function JoinScreen({ view, notice, onJoin }: { view: SingerView; notice: string
         <h1>{view.showName}</h1>
       </div>
       {notice && <div className="notice">{notice}</div>}
-      {view.joinOpen ? (
-        <form className="join-card" onSubmit={submit}>
-          <label htmlFor="name">What should the KJ call you?</label>
+      {mode === 'claim' ? (
+        <form className="join-card" onSubmit={submitClaim}>
+          {taken ? (
+            <>
+              <h2 className="claim-title">{taken}</h2>
+              <p className="muted claim-copy">If that’s you, enter your 4-digit rejoin code to get your spot and songs back.</p>
+            </>
+          ) : (
+            <>
+              <h2 className="claim-title">Get back in</h2>
+              <p className="muted claim-copy">Already on the list from another phone or browser? Enter your name and rejoin code.</p>
+              <label htmlFor="name">Your name on the list</label>
+              {nameInput}
+            </>
+          )}
+          <label htmlFor="code">Rejoin code</label>
           <input
-            id="name"
-            className="input xl"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Your name or stage name"
-            maxLength={32}
-            autoComplete="nickname"
+            id="code"
+            className="input xl code-input"
+            value={code}
+            onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 4))}
+            placeholder="••••"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            autoFocus
             enterKeyHint="go"
           />
+          <button className="btn primary lg block" disabled={!name.trim() || code.length !== 4 || busy}>
+            {busy ? <I.Loader /> : <I.Check />} That’s me, get my spot back
+          </button>
+          <p className="fine">Your code is under “My songs” on the phone you joined with. Lost it? The KJ can look it up.</p>
+          {view.joinOpen && (
+            <button
+              type="button"
+              className="btn ghost block"
+              onClick={() => {
+                setMode('join');
+                setTaken(null);
+                setHint('Add something that tells you apart, like your last initial.');
+              }}
+            >
+              I’m someone else
+            </button>
+          )}
+        </form>
+      ) : view.joinOpen ? (
+        <form className="join-card" onSubmit={submitJoin}>
+          <label htmlFor="name">What should the KJ call you?</label>
+          {nameInput}
+          {hint && <p className="hint">{hint}</p>}
           <button className="btn primary lg block" disabled={!name.trim() || busy}>
             {busy ? <I.Loader /> : <I.Mic />} Get in line
           </button>
           <p className="fine">No app, no account. Your spot stays on this phone tonight.</p>
+          <button type="button" className="link-btn" onClick={() => (setTaken(null), setMode('claim'))}>
+            Already on the list from another phone? Get back in
+          </button>
         </form>
       ) : (
         <div className="join-card closed">
           <I.Clock />
           <h2>Sign-ups are closed</h2>
           <p className="muted">The KJ has stopped taking new singers for tonight. Thanks for coming out!</p>
+          <button type="button" className="link-btn" onClick={() => (setTaken(null), setMode('claim'))}>
+            Already on the list? Get back in
+          </button>
         </div>
       )}
     </div>
@@ -208,7 +313,9 @@ function Main({
           <div className="avatar">{initials(me.name)}</div>
           <div className="ellipsis">
             <div className="name ellipsis">{me.name}</div>
-            <div className="show ellipsis">{view.showName}</div>
+            <div className="show ellipsis">
+              {view.showName} · rejoin code <strong className="code-chip">{me.code}</strong>
+            </div>
           </div>
         </div>
         <StatusCard view={view} eta={eta} onBack={() => call({ type: 'setAway', away: false })} />
@@ -550,6 +657,13 @@ function MineTab({ view, call, goSearch }: { view: SingerView; call: (a: SingerA
   const [confirmLeave, setConfirmLeave] = useState(false);
   return (
     <div className="mine">
+      <div className="code-card">
+        <div>
+          <strong>Your rejoin code</strong>
+          <span className="muted">Switching phones or browsers? Join with the same name and this code to keep your spot.</span>
+        </div>
+        <span className="code-big">{me.code}</span>
+      </div>
       {view.myEntries.length === 0 ? (
         <div className="empty">
           <I.Music />

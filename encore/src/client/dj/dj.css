@@ -1172,3 +1172,24 @@ kbd {
     max-height: none;
   }
 }
+
+/* ---- duplicates & rejoin codes ---- */
+
+.singer-tools .badge .code {
+  margin-left: 4px;
+  color: var(--cyan);
+  letter-spacing: 0.08em;
+  font-variant-numeric: tabular-nums;
+}
+.merge-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+.merge-row select {
+  flex: 1;
+  max-width: 260px;
+}

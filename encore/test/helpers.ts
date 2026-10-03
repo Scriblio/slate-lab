@@ -20,7 +20,7 @@ let clock = 1000;
 
 export function singer(name: string, extra: Partial<Singer> = {}): Singer {
   clock += 1000;
-  return { id: name, name, joinedAt: clock, status: 'active', songsSung: 0, fromPhone: true, ...extra };
+  return { id: name, name, joinedAt: clock, status: 'active', songsSung: 0, fromPhone: true, code: '1234', ...extra };
 }
 
 export function entry(singerId: string, title: string, extra: Partial<Entry> = {}): Entry {

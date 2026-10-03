@@ -15,7 +15,7 @@ export function songRef(song: Song): SongRef {
     : { kind: 'youtube', videoId: song.source.videoId, title: song.title, artist: song.artist, durationSec: song.durationSec };
 }
 
-export type Ack<T = undefined> = (res: { ok: true; data: T } | { ok: false; error: string }) => void;
+export type Ack<T = undefined> = (res: { ok: true; data: T } | { ok: false; error: string; code?: string }) => void;
 
 export interface ServerConfigView {
   libraryFolders: string[];
@@ -40,6 +40,7 @@ export type DjAction =
   | { type: 'addSinger'; name: string }
   | { type: 'renameSinger'; singerId: string; name: string }
   | { type: 'removeSinger'; singerId: string }
+  | { type: 'mergeSingers'; fromId: string; intoId: string }
   | { type: 'setSingerStatus'; singerId: string; status: 'active' | 'away' }
   | { type: 'moveSinger'; singerId: string; toIndex: number }
   | { type: 'addEntry'; singerId: string; song: SongRef; note?: string }
@@ -75,6 +76,8 @@ export interface ClientToServer {
   'dj:config': (ack: Ack<ServerConfigView>) => void;
   'singer:join': (name: string, ack: Ack<{ token: string; singerId: string }>) => void;
   'singer:resume': (token: string, ack: Ack<{ singerId: string }>) => void;
+  /** Get back into an existing spot from another phone or browser. */
+  'singer:reclaim': (name: string, code: string, ack: Ack<{ token: string; singerId: string }>) => void;
   'singer:action': (action: SingerAction, ack: Ack<unknown>) => void;
   search: (query: string, ack: Ack<SearchResult[]>) => void;
   searchYouTube: (query: string, ack: Ack<SearchResult[]>) => void;

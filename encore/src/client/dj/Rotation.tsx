@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from 'react';
 import { isRoundBased } from '../../shared/rotation.ts';
-import { formatWait } from '../../shared/text.ts';
+import { formatWait, nameKey } from '../../shared/text.ts';
 import type { Entry, Singer } from '../../shared/types.ts';
 import * as I from '../common/icons.tsx';
 import { SongThumb, SourceBadge } from '../common/ui.tsx';
@@ -138,6 +138,9 @@ function SingerRow({ singer: s, index, last, sung, expanded, onToggle, draggable
   const [newName, setNewName] = useState(s.name);
   const [confirmRemove, setConfirmRemove] = useState(false);
   const roundBased = isRoundBased(show.mode);
+  // Others whose name matches this one ("Matt" / "matt (2)"): probably the same person.
+  const twins = show.singers.filter((o) => o.id !== s.id && nameKey(o.name) === nameKey(s.name));
+  const [mergeInto, setMergeInto] = useState('');
 
   return (
     <li
@@ -206,6 +209,11 @@ function SingerRow({ singer: s, index, last, sung, expanded, onToggle, draggable
             </span>
           )}
           {entries.some((e) => e.status === 'pending') && <span className="badge amber">Needs OK</span>}
+          {twins.length > 0 && (
+            <span className="badge red" title={`Same name as ${twins.map((t) => t.name).join(', ')}. Open to merge.`}>
+              Duplicate?
+            </span>
+          )}
           <span className="sung-count" title="Songs sung tonight">
             {s.songsSung}
             <I.Mic />
@@ -266,6 +274,9 @@ function SingerRow({ singer: s, index, last, sung, expanded, onToggle, draggable
                 <I.Edit />
               </button>
             )}
+            <span className="badge" title="The singer can use this to get back into their spot from another phone or browser">
+              Rejoin code <strong className="code">{s.code}</strong>
+            </span>
             <span className="spacer" />
             {confirmRemove ? (
               <button className="btn sm danger" onClick={() => act({ type: 'removeSinger', singerId: s.id }, `${s.name} removed`)} onBlur={() => setConfirmRemove(false)} autoFocus>
@@ -277,6 +288,31 @@ function SingerRow({ singer: s, index, last, sung, expanded, onToggle, draggable
               </button>
             )}
           </div>
+          {show.singers.length > 1 && (
+            <div className="merge-row">
+              <span className="muted small">Same person twice?</span>
+              <select className="input sm" value={mergeInto} onChange={(e) => setMergeInto(e.target.value)} aria-label="Merge into">
+                <option value="">Merge {s.name} into…</option>
+                {[...twins, ...show.singers.filter((o) => o.id !== s.id && !twins.includes(o))].map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.name}
+                    {twins.includes(o) ? ' (same name)' : ''}
+                  </option>
+                ))}
+              </select>
+              <button
+                className="btn sm"
+                disabled={!mergeInto}
+                onClick={async () => {
+                  const target = show.singers.find((o) => o.id === mergeInto);
+                  await act({ type: 'mergeSingers', fromId: s.id, intoId: mergeInto }, `Merged ${s.name} into ${target?.name ?? 'singer'}`);
+                  setMergeInto('');
+                }}
+              >
+                Merge
+              </button>
+            </div>
+          )}
         </div>
       )}
     </li>

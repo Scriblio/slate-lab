@@ -2,10 +2,11 @@
 // All mutations go through this class so they are validated, persisted and
 // broadcast the same way whether they came from the KJ or a phone.
 
-import { randomBytes, randomUUID } from 'node:crypto';
+import { randomBytes, randomInt, randomUUID } from 'node:crypto';
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import type { PlayerCommand, SingerAction, SongRef } from '../shared/protocol.ts';
+import { nameKey } from '../shared/text.ts';
 import {
   changeMode,
   chooseNext,
@@ -29,7 +30,15 @@ import {
   type UpcomingItem,
 } from '../shared/types.ts';
 
-export class UserError extends Error {}
+/** A problem to show the user as-is. `code` lets the client react (e.g. 'name-taken'). */
+export class UserError extends Error {
+  constructor(
+    message: string,
+    readonly code?: string,
+  ) {
+    super(message);
+  }
+}
 
 export interface ShowDeps {
   /** Where show.json lives; omit for an in-memory show (tests). */
@@ -63,6 +72,9 @@ const MAX_NAME = 32;
 const MAX_NOTE = 80;
 const MAX_TEXT = 140;
 const MAX_HISTORY = 500;
+const MAX_CLAIM_TRIES = 5;
+const CLAIM_LOCK_MS = 10 * 60_000;
+const CLAIM_WINDOW_MS = 10 * 60_000;
 
 export class Show {
   state: ShowState;
@@ -72,6 +84,8 @@ export class Show {
   private autoStartTimer: NodeJS.Timeout | undefined;
   private saveTimer: NodeJS.Timeout | undefined;
   private saving: Promise<void> = Promise.resolve();
+  /** Wrong rejoin-code attempts per name, so a 4-digit code can't be guessed. */
+  private claimFailures = new Map<string, { count: number; until: number }>();
   private readonly now: () => number;
   private readonly rng: Rng;
 
@@ -96,6 +110,8 @@ export class Show {
         settings: { ...DEFAULT_SETTINGS, ...raw.state.settings },
       };
       this.tokens = new Map(Object.entries(raw.tokens ?? {}));
+      // Shows saved before rejoin codes existed: give everyone one.
+      this.state.singers = this.state.singers.map((s) => (s.code ? s : { ...s, code: this.newCode() }));
       this.snapshot = raw.snapshot;
       // A show that was mid-song when the laptop restarted resumes paused.
       const np = this.state.nowPlaying;
@@ -187,28 +203,122 @@ export class Show {
 
   // --- singers ---------------------------------------------------------------
 
+  /** The singer already on the list under this name, if any (case, spacing and accents ignored). */
+  singerNamed(name: string): Singer | undefined {
+    const key = nameKey(name);
+    return key ? this.state.singers.find((s) => nameKey(s.name) === key) : undefined;
+  }
+
+  private newCode(): string {
+    const used = new Set(this.state.singers.map((s) => s.code));
+    for (;;) {
+      const code = String(randomInt(0, 10_000)).padStart(4, '0');
+      if (!used.has(code) || used.size > 5000) return code;
+    }
+  }
+
+  /**
+   * The KJ can add two people with the same name (it adds "(2)"). A phone
+   * can't: a second sign-up under a name that's already listed is almost
+   * always the same person on a fresh browser, so they're asked to reclaim
+   * their spot with their code instead.
+   */
   addSinger(rawName: string, fromPhone: boolean): Singer {
     let name = cleanText(rawName, MAX_NAME);
     if (!name) throw new UserError('Please enter a name.');
-    const taken = new Set(this.state.singers.map((s) => s.name.toLowerCase()));
-    if (taken.has(name.toLowerCase())) {
+    const existing = this.singerNamed(name);
+    if (existing && fromPhone) throw new UserError(`${existing.name} is already on the list.`, 'name-taken');
+    if (existing) {
+      const taken = new Set(this.state.singers.map((s) => s.name.toLowerCase()));
       let n = 2;
       while (taken.has(`${name} (${n})`.toLowerCase())) n++;
       name = `${name} (${n})`;
     }
-    const singer: Singer = { id: shortId(), name, joinedAt: this.now(), status: 'active', songsSung: 0, fromPhone };
+    const singer: Singer = { id: shortId(), name, joinedAt: this.now(), status: 'active', songsSung: 0, fromPhone, code: this.newCode() };
     this.state = { ...this.state, singers: placeNewSinger(this.state, singer, this.rng) };
     this.changed();
     return singer;
   }
 
+  private issueToken(singerId: string): string {
+    const token = randomBytes(18).toString('base64url');
+    this.tokens.set(token, singerId);
+    this.scheduleSave();
+    return token;
+  }
+
   join(name: string): { token: string; singer: Singer } {
     if (!this.state.settings.joinOpen) throw new UserError('Sign-ups are closed for tonight.');
     const singer = this.addSinger(name, true);
-    const token = randomBytes(18).toString('base64url');
-    this.tokens.set(token, singer.id);
-    this.scheduleSave();
-    return { token, singer };
+    return { token: this.issueToken(singer.id), singer };
+  }
+
+  /**
+   * Get back into an existing spot (new phone or browser) with the singer's
+   * code. If the KJ listed two people under one name ("Alex", "Alex (2)"),
+   * the code says which one you are.
+   */
+  reclaim(name: string, code: string): { token: string; singer: Singer } {
+    const key = nameKey(cleanText(name, MAX_NAME));
+    const candidates = key ? this.state.singers.filter((s) => nameKey(s.name) === key) : [];
+    if (!candidates.length) throw new UserError('Nobody by that name is on the list yet, so just join.', 'not-on-list');
+    const now = this.now();
+    const fails = this.claimFailures.get(key);
+    if (fails && fails.until > now) throw new UserError('Too many wrong codes. Ask the KJ for yours.', 'locked');
+    const digits = String(code ?? '').replace(/\D/g, '');
+    const singer = candidates.find((s) => s.code === digits);
+    if (!singer) {
+      const count = (fails && fails.until > now - CLAIM_WINDOW_MS ? fails.count : 0) + 1;
+      this.claimFailures.set(key, { count, until: count >= MAX_CLAIM_TRIES ? now + CLAIM_LOCK_MS : now });
+      throw new UserError('That code doesn’t match. It’s in “My songs” on the phone you joined with, or the KJ can tell you.', 'bad-code');
+    }
+    this.claimFailures.delete(key);
+    return { token: this.issueToken(singer.id), singer };
+  }
+
+  /**
+   * Fold a duplicate into the real singer: songs, counts, this round's turn
+   * and phone sessions all move over, then the duplicate is removed.
+   */
+  mergeSingers(fromId: string, intoId: string): void {
+    const from = this.singer(fromId);
+    const into = this.singer(intoId);
+    if (!from || !into) throw new UserError('That singer has left.');
+    if (from.id === into.id) throw new UserError('Pick a different singer to merge into.');
+    if (this.state.nowPlaying?.entry.singerId === from.id) throw new UserError(`Wait until ${from.name} is off stage.`);
+    const intoSongs = new Set(this.state.entries.filter((e) => e.singerId === into.id).map((e) => sourceKey(e.song)));
+    const dropped = new Set<string>();
+    const entries = this.state.entries.flatMap((e) => {
+      if (e.singerId !== from.id) return [e];
+      if (intoSongs.has(sourceKey(e.song))) {
+        dropped.add(e.id);
+        return [];
+      }
+      intoSongs.add(sourceKey(e.song));
+      return [{ ...e, singerId: into.id }];
+    });
+    const sung = new Set(this.state.sungThisRound);
+    const sungThisRound = sung.has(from.id) && !sung.has(into.id) ? [...this.state.sungThisRound, into.id] : this.state.sungThisRound;
+    this.state = {
+      ...this.state,
+      entries,
+      playNext: this.state.playNext.filter((id) => !dropped.has(id)),
+      sungThisRound: sungThisRound.filter((id) => id !== from.id),
+      singers: this.state.singers
+        .filter((s) => s.id !== from.id)
+        .map((s) =>
+          s.id === into.id
+            ? {
+                ...s,
+                songsSung: s.songsSung + from.songsSung,
+                lastSangAt: Math.max(s.lastSangAt ?? 0, from.lastSangAt ?? 0) || undefined,
+                fromPhone: s.fromPhone || from.fromPhone,
+              }
+            : s,
+        ),
+    };
+    for (const [token, singerId] of this.tokens) if (singerId === from.id) this.tokens.set(token, into.id);
+    this.changed();
   }
 
   renameSinger(id: string, name: string): void {
