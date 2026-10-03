@@ -309,6 +309,19 @@ describe('server', () => {
     // Next time Lena looks it up, it comes up in her key.
     const [again] = await call<SearchResult[]>((a) => phone.emit('search', 'adele hello', a));
     expect(again!.lastKey).toBe(1);
+
+    // The song's own key: detected by a console, then corrected by the KJ.
+    const detected = nextEvent<DjView>(dj, 'dj:view', (v) => v.songKeys[trackId]?.tonic === 9);
+    await call((a) => dj.emit('dj:action', { type: 'setSongKey', trackId, key: { tonic: 9, mode: 'minor' }, detected: true }, a));
+    expect((await detected).songKeys[trackId]).toEqual({ tonic: 9, mode: 'minor' });
+    const phoneSaw = nextEvent<SingerView>(phone, 'singer:view', (v) => v.songKeys?.[trackId]?.confirmed === true);
+    await call((a) => dj.emit('dj:action', { type: 'setSongKey', trackId, key: { tonic: 0, mode: 'major' } }, a));
+    expect((await phoneSaw).songKeys![trackId]).toEqual({ tonic: 0, mode: 'major', confirmed: true });
+    // A late detection doesn't overrule the KJ, and searches carry the key.
+    await call((a) => dj.emit('dj:action', { type: 'setSongKey', trackId, key: { tonic: 9, mode: 'minor' }, detected: true }, a));
+    const [withKey] = await call<SearchResult[]>((a) => phone.emit('search', 'adele hello', a));
+    expect(withKey!.songKey).toEqual({ tonic: 0, mode: 'major', confirmed: true });
+    await expect(call((a) => dj.emit('dj:action', { type: 'setSongKey', trackId: '0123456789abcdef', key: { tonic: 0, mode: 'major' } }, a))).rejects.toThrow(/not in the library/);
     await call((a) => phone.emit('singer:action', { type: 'removeMyEntry', entryId: id }, a));
   });
 

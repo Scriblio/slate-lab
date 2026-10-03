@@ -1494,3 +1494,92 @@ kbd {
 .entry-key {
   color: var(--cyan);
 }
+.key-control .key-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.key-control .key-steps {
+  font-size: 11px;
+  opacity: 0.75;
+}
+.key-control .key-caret {
+  width: 12px;
+  height: 12px;
+  opacity: 0.6;
+}
+.key-menu {
+  position: fixed;
+  z-index: 60;
+  width: 320px;
+  padding: 12px;
+  display: grid;
+  gap: 8px;
+  background: var(--surface-2);
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.5);
+}
+.key-menu-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-2);
+}
+.key-menu-note {
+  margin: 0;
+}
+.key-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 4px;
+}
+.key-cell {
+  display: grid;
+  justify-items: center;
+  gap: 1px;
+  padding: 5px 0;
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius-xs);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.key-cell small {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+.key-cell:hover {
+  background: var(--surface-3);
+}
+.key-cell.orig {
+  border-style: dashed;
+}
+.key-cell.on {
+  border-color: var(--cyan);
+  background: var(--cyan-soft);
+  color: var(--cyan);
+}
+.key-menu-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.key-menu-row select {
+  flex: 1;
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius-xs);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}

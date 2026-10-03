@@ -4,6 +4,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { MAX_SEMITONES } from '../../shared/pitch.ts';
 import { songRef, type SingerAction } from '../../shared/protocol.ts';
+import { keyLabel, keyName, transposeKey, type SongKey } from '../../shared/songkey.ts';
 import { formatKey, formatWait, parseYouTubeId } from '../../shared/text.ts';
 import type { Entry, SearchResult, SingerView, Song } from '../../shared/types.ts';
 import { chime, unlockChime } from '../common/chime.ts';
@@ -901,6 +902,7 @@ function AddSheet({
             <div>
               <strong>Key</strong>
               <span className="muted">
+                {result.songKey ? `It’s in ${keyLabel(0, result.songKey)}. ` : ''}
                 {result.lastKey ? `You sang it ${formatKey(result.lastKey)} last time. ` : ''}Too high or low? The speed stays the same.
               </span>
             </div>
@@ -910,6 +912,7 @@ function AddSheet({
               </button>
               <output className={key ? 'on' : ''} aria-live="polite">
                 {key ? formatKey(key) : 'Original'}
+                {key && result.songKey ? <small>{keyName(transposeKey(result.songKey, key))}</small> : null}
               </output>
               <button type="button" className="btn icon" disabled={key >= MAX_SEMITONES} onClick={() => setKey(key + 1)} aria-label="Raise the key">
                 +
@@ -996,6 +999,7 @@ function MineTab({
             <MyEntry
               key={e.id}
               entry={e}
+              songKey={e.song.source.kind === 'local' ? view.songKeys?.[e.song.source.trackId] : undefined}
               first={i === 0}
               last={i === view.myEntries.length - 1}
               onMove={(d) => act({ type: 'moveMyEntry', entryId: e.id, direction: d })}
@@ -1111,7 +1115,22 @@ function AlertsSetting({
   );
 }
 
-function MyEntry({ entry, first, last, onMove, onRemove }: { entry: Entry; first: boolean; last: boolean; onMove: (d: -1 | 1) => void; onRemove: () => void }) {
+function MyEntry({
+  entry,
+  first,
+  last,
+  onMove,
+  onRemove,
+  songKey,
+}: {
+  entry: Entry;
+  first: boolean;
+  last: boolean;
+  onMove: (d: -1 | 1) => void;
+  onRemove: () => void;
+  /** The song's original key, when Encore knows it. */
+  songKey?: SongKey;
+}) {
   return (
     <li className={`my-entry ${first ? 'next' : ''}`}>
       <SongThumb song={entry.song} />
@@ -1121,7 +1140,7 @@ function MyEntry({ entry, first, last, onMove, onRemove }: { entry: Entry; first
         <div className="tags">
           {first && <span className="badge accent">Next up for you</span>}
           {entry.status === 'pending' && <span className="badge amber">Waiting for approval</span>}
-          {entry.key ? <span className="badge accent">Key {formatKey(entry.key)}</span> : null}
+          {entry.key ? <span className="badge accent">Key {keyLabel(entry.key, songKey)}</span> : null}
           {entry.note && <span className="badge">“{entry.note}”</span>}
         </div>
         {entry.wontPlay ? (

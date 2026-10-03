@@ -2,6 +2,8 @@
 // the phone sign-up page. The server owns the one authoritative ShowState;
 // every client sees a view of it shaped for its role.
 
+import type { SongKey } from './songkey.ts';
+
 export type RotationMode = 'rotation' | 'fair' | 'fifo' | 'shuffle';
 
 export const ROTATION_MODES: { id: RotationMode; label: string; blurb: string }[] = [
@@ -199,6 +201,8 @@ export interface SearchResult {
   playedTonight?: boolean;
   /** On a phone: the key this singer sang this library song in last time. */
   lastKey?: number;
+  /** The library song's original key, when Encore knows it. */
+  songKey?: SongKey;
 }
 
 /** What a phone sees. Never includes other singers' private details. */
@@ -221,6 +225,8 @@ export interface SingerView {
    * with, and whether this singer has alerts on.
    */
   push?: { key: string; on: boolean };
+  /** Original keys of the library songs in my list, by track id. */
+  songKeys?: Record<string, SongKey>;
 }
 
 /** What the venue screen sees. */
@@ -271,4 +277,6 @@ export interface DjView {
   youtube: YouTubeEmbed;
   displays: number;
   mediaKey: string;
+  /** Original keys of the library songs in the queue and on stage, by track id. */
+  songKeys: Record<string, SongKey>;
 }

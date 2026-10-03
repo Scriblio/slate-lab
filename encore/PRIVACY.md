@@ -19,6 +19,7 @@ On the KJ's computer, in Encore's data folder:
 
 - **Singer names** that singers type when they join, or that the KJ enters.
 - **Song requests and tonight's history:** which singer sang which song, and when.
+- **Song keys:** the musical key of library songs, worked out from the KJ's own files on their computer or set by the KJ.
 - **Key preferences:** when a singer or the KJ changes a library song's key, the singer's name, the song and the key, so it comes up in their key next time. Each one is forgotten after a year without use.
 - **Settings:** the show name, the KJ's music folder locations, the DJ PIN, and a random installation ID (used only to share YouTube search limits fairly).
 - **Lock-screen alert subscriptions**, for singers who turn alerts on: the address the phone's push service gave their browser, and the keys to encrypt alerts to it. They're kept for tonight's show only and deleted when the singer leaves or the KJ starts a new show.

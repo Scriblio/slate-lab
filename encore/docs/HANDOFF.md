@@ -15,7 +15,7 @@ Encore is a karaoke hosting (KJ) app by Scriblio (Matthew Lancaster). It's being
 | --- | --- |
 | Install | `npm ci` (use `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci` if you don't need Electron) |
 | Typecheck | `npm run typecheck` |
-| Tests | `npm test` (166 tests) |
+| Tests | `npm test` (196 tests) |
 | Run with a demo library | `npm run demo`, then open http://localhost:4747/dj (venue screen at `/display`, phone page at `/join`) |
 | Desktop app | `npm run build:desktop && npm run desktop` |
 | Windows installer | built by GitHub Actions on every push to the branch: download the "Encore-Karaoke-Windows" artifact from the run; `npm run dist:win` needs Windows |
@@ -61,6 +61,10 @@ The YouTube API Services policies apply because Encore uses the search API. Brea
 
 ## Done recently (all on the branch, tested)
 
+- **Song keys by name:**
+  - The console detects each queued library song's original key (chroma plus Albrecht & Shanahan profiles: `src/shared/keydetect.ts`, run by `src/client/dj/KeyDetector.tsx`). It's stored per track in `data/song-keys.json` (`src/server/songkeys.ts`, DJ action `setSongKey`), and the KJ's word beats a detection.
+  - The stage card shows *≈C → G* and a *Play it in* grid; phones show the resulting key.
+  - On synthetic pop progressions it's 81% right, with misses mostly relative minor/major; your test track and the demo come out correct.
 - **Key change for library songs:**
   - Singers pick a key when adding a song, and the KJ has −/+ on the stage card (live mid-song).
   - Keys are remembered per singer and song across nights.

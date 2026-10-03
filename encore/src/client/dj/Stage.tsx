@@ -1,7 +1,9 @@
 // The stage card: who's on, transport controls, and calling the next singer.
 
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { MAX_SEMITONES } from '../../shared/pitch.ts';
+import { ALL_KEYS, keyName, transposeKey, type Mode, type SongKey } from '../../shared/songkey.ts';
 import { formatDuration, formatKey } from '../../shared/text.ts';
 import * as I from '../common/icons.tsx';
 import { Eq, SongThumb, SourceBadge, useTick } from '../common/ui.tsx';
@@ -44,6 +46,7 @@ function KeyControl() {
   const { view, act } = useDj();
   const entry = view.show.nowPlaying!.entry;
   const [key, setKey] = useState(entry.key ?? 0);
+  const [menu, setMenu] = useState<DOMRect | null>(null);
   useEffect(() => setKey(entry.key ?? 0), [entry.id, entry.key]);
   if (entry.song.source.kind !== 'local')
     return (
@@ -51,22 +54,137 @@ function KeyControl() {
         Original key only
       </span>
     );
+  const trackId = entry.song.source.trackId;
+  const original = view.songKeys[trackId];
   const set = (k: number) => {
     setKey(k);
     void act({ type: 'setKey', entryId: entry.id, key: k });
   };
+  const label = original
+    ? `${original.confirmed ? '' : '≈'}${keyName(original)}${key ? ` → ${keyName(transposeKey(original, key))}` : ''}`
+    : key
+      ? `Key ${formatKey(key)}`
+      : 'Key';
   return (
-    <span className={`key-control ${key ? 'on' : ''}`} title="Change the key without changing the speed. Encore remembers it for this singer and song.">
-      <button className="key-step" disabled={key <= -MAX_SEMITONES} onClick={() => set(key - 1)} aria-label="Key down a semitone">
-        −
-      </button>
-      <button className="key-value" disabled={!key} onClick={() => set(0)} title={key ? 'Back to the original key' : undefined}>
-        {key ? `Key ${formatKey(key)}` : 'Key'}
-      </button>
-      <button className="key-step" disabled={key >= MAX_SEMITONES} onClick={() => set(key + 1)} aria-label="Key up a semitone">
-        +
-      </button>
-    </span>
+    <>
+      <span className={`key-control ${key ? 'on' : ''}`} title="Change the key without changing the speed. Encore remembers it for this singer and song.">
+        <button className="key-step" disabled={key <= -MAX_SEMITONES} onClick={() => set(key - 1)} aria-label="Key down a semitone">
+          −
+        </button>
+        <button
+          className="key-value"
+          onClick={(e) => setMenu(menu ? null : e.currentTarget.getBoundingClientRect())}
+          aria-expanded={Boolean(menu)}
+          title="Pick a key by name, or set the song’s original key"
+        >
+          {label}
+          {original && key ? <span className="key-steps"> {formatKey(key)}</span> : null}
+          <I.ChevronDown className="key-caret" />
+        </button>
+        <button className="key-step" disabled={key >= MAX_SEMITONES} onClick={() => set(key + 1)} aria-label="Key up a semitone">
+          +
+        </button>
+      </span>
+      {menu && <KeyMenu at={menu} trackId={trackId} original={original} semitones={key} onPick={set} onClose={() => setMenu(null)} />}
+    </>
+  );
+}
+
+/**
+ * "Play it in G": every key the song can go to, by name, plus the song's
+ * original key, which Encore detects and the KJ can confirm or correct.
+ * Rendered on the page body so the stage card's edges don't clip it.
+ */
+function KeyMenu({
+  at,
+  trackId,
+  original,
+  semitones,
+  onPick,
+  onClose,
+}: {
+  at: DOMRect;
+  trackId: string;
+  original?: SongKey;
+  semitones: number;
+  onPick: (semitones: number) => void;
+  onClose: () => void;
+}) {
+  const { act } = useDj();
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const away = (e: PointerEvent) => !box.current?.contains(e.target as Node) && onClose();
+    const esc = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    // On the next tick, so the click that opened the menu doesn't close it.
+    const t = setTimeout(() => window.addEventListener('pointerdown', away));
+    window.addEventListener('keydown', esc);
+    return () => {
+      clearTimeout(t);
+      window.removeEventListener('pointerdown', away);
+      window.removeEventListener('keydown', esc);
+    };
+  }, [onClose]);
+  const setOriginal = (key: { tonic: number; mode: Mode }) => act({ type: 'setSongKey', trackId, key });
+  const value = original ? `${original.tonic}:${original.mode}` : '';
+  const left = Math.max(8, Math.min(at.left, window.innerWidth - 328));
+
+  return createPortal(
+    <div className="key-menu" ref={box} role="dialog" aria-label="Key" style={{ top: at.bottom + 6, left }}>
+      {original ? (
+        <>
+          <div className="key-menu-label">Play it in</div>
+          <div className="key-grid">
+            {Array.from({ length: 12 }, (_, i) => {
+              const s = i - 6;
+              return (
+                <button key={s} className={`key-cell ${s === semitones ? 'on' : ''} ${s === 0 ? 'orig' : ''}`} onClick={() => onPick(s)}>
+                  {keyName(transposeKey(original, s))}
+                  <small>{s ? formatKey(s) : 'original'}</small>
+                </button>
+              );
+            })}
+          </div>
+        </>
+      ) : (
+        <p className="muted small key-menu-note">Encore doesn’t know this song’s key yet. Set it below to pick keys by name.</p>
+      )}
+      <div className="key-menu-label">
+        Original key
+        {original && !original.confirmed && <span className="badge amber">detected, may be off</span>}
+      </div>
+      <div className="key-menu-row">
+        <select
+          value={value}
+          onChange={(e) => {
+            const [tonic, mode] = e.target.value.split(':');
+            void setOriginal({ tonic: Number(tonic), mode: mode as Mode });
+          }}
+          aria-label="Original key"
+        >
+          {!original && <option value="">Unknown</option>}
+          {(['major', 'minor'] as const).map((mode) => (
+            <optgroup key={mode} label={mode === 'major' ? 'Major' : 'Minor'}>
+              {ALL_KEYS.filter((k) => k.mode === mode).map((k) => (
+                <option key={`${k.tonic}:${k.mode}`} value={`${k.tonic}:${k.mode}`}>
+                  {keyName(k)}
+                </option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
+        {original && !original.confirmed && (
+          <button className="btn sm" onClick={() => void setOriginal(original)}>
+            <I.Check /> That’s right
+          </button>
+        )}
+      </div>
+      {semitones !== 0 && (
+        <button className="btn sm ghost block" onClick={() => onPick(0)}>
+          Back to the original key
+        </button>
+      )}
+    </div>,
+    document.body,
   );
 }
 

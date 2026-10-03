@@ -12,12 +12,13 @@ import sirv from 'sirv';
 import { Server, type Socket } from 'socket.io';
 import type { Ack, ClientToServer, DjAction, HandshakeAuth, Role, ServerToClient } from '../shared/protocol.ts';
 import { parseYouTubeId } from '../shared/text.ts';
-import type { DjView, SearchResult } from '../shared/types.ts';
+import type { DjView, Entry, SearchResult, Song } from '../shared/types.ts';
 import { CLOUD, cloudConfigured } from '../shared/cloud.ts';
 import { joinLink, supabaseTransport, type RelayTransport } from '../shared/relay.ts';
 import { loadConfig, saveConfig, type Config } from './config.ts';
 import { KeyMemory } from './keys.ts';
 import { Library } from './library.ts';
+import { SongKeys } from './songkeys.ts';
 import { serveMedia } from './media.ts';
 import { PushNotifier, turnAlerts } from './push.ts';
 import { loadIdentity, RelayHost, type RelayIdentity } from './relay.ts';
@@ -81,6 +82,10 @@ export async function createApp(opts: AppOptions) {
 
   const keys = new KeyMemory({ dataDir: opts.dataDir, log });
   await keys.load();
+  const songKeys = new SongKeys({ dataDir: opts.dataDir, log });
+  await songKeys.load();
+  const songKeyOf = (song: Song) => (song.source.kind === 'local' ? songKeys.get(song.source.trackId) : undefined);
+  const trackIds = (entries: Entry[]) => entries.flatMap((e) => (e.song.source.kind === 'local' ? [e.song.source.trackId] : []));
 
   // Created once the online settings are known (it needs the player page's address).
   let guard: YouTubeGuard | undefined;
@@ -369,7 +374,8 @@ export async function createApp(opts: AppOptions) {
         const me = !isDj && socket.data.singerId ? show.singer(socket.data.singerId)?.name : undefined;
         return results.map((r) => {
           const lastKey = me ? keys.get(me, r.song) : undefined;
-          return { ...r, playedTonight: show.playedTonight(r.song), ...(lastKey ? { lastKey } : {}) };
+          const songKey = songKeyOf(r.song);
+          return { ...r, playedTonight: show.playedTonight(r.song), ...(lastKey ? { lastKey } : {}), ...(songKey ? { songKey } : {}) };
         });
       }),
     );
@@ -429,6 +435,12 @@ export async function createApp(opts: AppOptions) {
         return show.addEntry(a.singerId, a.song, { note: a.note, fromPhone: false, key: a.key }).id;
       case 'setKey':
         return show.setKey(String(a.entryId), Number(a.key)).key ?? 0;
+      case 'setSongKey': {
+        const id = String(a.trackId);
+        if (!library.get(id)) throw new UserError('That track is not in the library any more.');
+        if (songKeys.set(id, a.key, { detected: Boolean(a.detected) })) scheduleBroadcast();
+        return songKeys.get(id) ?? null;
+      }
       case 'removeEntry':
         return show.removeEntry(a.entryId);
       case 'moveEntry':
@@ -578,6 +590,7 @@ export async function createApp(opts: AppOptions) {
       youtube: ytGuard.view(),
       displays: displays.length,
       mediaKey,
+      songKeys: songKeys.pick(trackIds(show.state.nowPlaying ? [show.state.nowPlaying.entry, ...show.state.entries] : show.state.entries)),
     };
     io.to('dj').emit('dj:view', dj);
     displays.forEach((s, i) => s.emit('display:view', show.displayView(list, joinUrl(), joinLabel(), i === 0, mediaKey, ytGuard.view())));
@@ -591,7 +604,12 @@ export async function createApp(opts: AppOptions) {
       }
       const view = show.singerView(s.data.singerId, list, youtube.canSearch);
       const id = s.data.singerId;
-      s.emit('singer:view', push ? { ...view, push: { key: push.publicKey, on: Boolean(id && push.has(id)) } } : view);
+      const mine = songKeys.pick(trackIds(view.myEntries));
+      s.emit('singer:view', {
+        ...view,
+        ...(push ? { push: { key: push.publicKey, on: Boolean(id && push.has(id)) } } : {}),
+        ...(Object.keys(mine).length ? { songKeys: mine } : {}),
+      });
     }
   }
 
@@ -627,6 +645,7 @@ export async function createApp(opts: AppOptions) {
     await push?.settle();
     await push?.flush();
     await keys.flush();
+    await songKeys.flush();
     io.disconnectSockets(true);
     await new Promise<void>((ok) => io.close(() => ok()));
     await vite?.close();

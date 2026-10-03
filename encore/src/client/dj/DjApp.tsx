@@ -13,6 +13,7 @@ import { SettingsModal } from './Settings.tsx';
 import { Stage } from './Stage.tsx';
 import { UpNext } from './UpNext.tsx';
 import { PreviewCard } from './PreviewCard.tsx';
+import { KeyDetector } from './KeyDetector.tsx';
 
 export function DjApp() {
   const [pin, setPin] = useState(storedPin);
@@ -104,6 +105,7 @@ export function DjApp() {
   return (
     <DjContext.Provider value={ctx}>
       <Shortcuts />
+      <KeyDetector />
       <div className="dj">
         <TopBar offline={conn !== 'online'} />
         <main className="dj-grid">

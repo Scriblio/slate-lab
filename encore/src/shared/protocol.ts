@@ -50,6 +50,11 @@ export type DjAction =
   | { type: 'addEntry'; singerId: string; song: SongRef; note?: string; key?: number }
   /** Key change for a library song, queued or on stage (semitones, −6 to +6). */
   | { type: 'setKey'; entryId: string; key: number }
+  /**
+   * A library track's original key: detected by the console from the audio,
+   * or set by the KJ (which always wins). null forgets it.
+   */
+  | { type: 'setSongKey'; trackId: string; key: { tonic: number; mode: 'major' | 'minor' } | null; detected?: boolean }
   | { type: 'removeEntry'; entryId: string }
   | { type: 'moveEntry'; entryId: string; toIndex: number }
   | { type: 'approveEntry'; entryId: string }
