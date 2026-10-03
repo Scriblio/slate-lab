@@ -289,3 +289,52 @@ describe('server', () => {
     await again.close();
   });
 });
+
+describe('YouTube videos that won’t play here', () => {
+  it('swaps them for another version, before showtime and on stage, and hides them from search', async () => {
+    const dataDir = await mkdtemp(join(tmpdir(), 'encore-refused-'));
+    const own = await createApp({ port: 0, host: '127.0.0.1', dataDir, quiet: true, fetchImpl: fakeFetch, cloud: false, youtubeProxy: { url: SEARCH_URL, key: 'pk_test' } });
+    const url = await own.listen();
+    const conn = (auth: Record<string, string> = {}) => {
+      const s: Client = connect(url, { auth, transports: ['websocket'], forceNew: true });
+      sockets.push(s);
+      return s;
+    };
+    const dj = conn({ role: 'dj' });
+    const display = conn({ role: 'display' });
+    const phone = conn();
+    await nextEvent<DisplayView>(display, 'display:view');
+    await call((a) => phone.emit('singer:join', 'Robin', a));
+    const request = (videoId: string, title: string) =>
+      call<unknown>((a) => phone.emit('singer:action', { type: 'request', song: { kind: 'youtube', videoId, title } }, a)) as Promise<string>;
+
+    // The console's preview player finds that YouTube refuses the video here.
+    const id = await request('bbbbbbbbbbb', 'Toto - Africa (Karaoke)');
+    const swapped = nextEvent<SingerView>(phone, 'singer:view', (v) => v.myEntries[0]?.swappedFrom !== undefined);
+    await call((a) => dj.emit('dj:action', { type: 'youtubeCheck', videoId: 'bbbbbbbbbbb', ok: false }, a));
+    const mine = (await swapped).myEntries[0]!;
+    expect(mine).toMatchObject({ id, swappedFrom: 'Toto - Africa (Karaoke)', song: { title: 'Toto - Africa (Karaoke Version)', source: { videoId: 'aaaaaaaaaaa' } } });
+    await expect(request('bbbbbbbbbbb', 'again')).rejects.toThrow(/won’t play/);
+
+    // The replacement checks out, and the venue screen is told how it played.
+    const checked = nextEvent<DisplayView>(display, 'display:view', (v) => v.youtube.modes.aaaaaaaaaaa === 'direct');
+    await call((a) => dj.emit('dj:action', { type: 'youtubeCheck', videoId: 'aaaaaaaaaaa', ok: true, mode: 'direct' }, a));
+    expect((await checked).youtube.status).toEqual({ aaaaaaaaaaa: 'ok' });
+
+    // At showtime YouTube refuses it after all: another version goes on instead.
+    await call((a) => dj.emit('dj:action', { type: 'callEntry', entryId: id }, a));
+    await call((a) => dj.emit('dj:action', { type: 'play' }, a));
+    const playId = own.show.state.nowPlaying!.playId;
+    const back = nextEvent<DisplayView>(display, 'display:view', (v) => v.nowPlaying?.entry.wontPlay === true || (v.nowPlaying?.playId !== playId && v.nowPlaying?.stage === 'playing'));
+    display.emit('display:error', { playId, message: 'refused', code: 150 });
+    const np = (await back).nowPlaying!;
+    // The fake search only knows two versions and both are refused now, so it's flagged.
+    expect(np).toMatchObject({ entry: { wontPlay: true }, error: expect.stringMatching(/no other version/) });
+
+    // Refused videos no longer show up in YouTube search on this laptop.
+    const results = await call<SearchResult[]>((a) => phone.emit('searchYouTube', 'toto africa', a));
+    expect(results.map((r) => r.song.source.kind === 'youtube' && r.song.source.videoId)).not.toContain('aaaaaaaaaaa');
+    await own.close();
+    await rm(dataDir, { recursive: true, force: true });
+  });
+});

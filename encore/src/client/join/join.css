@@ -753,3 +753,14 @@ body {
   color: var(--cyan);
   font-variant-numeric: tabular-nums;
 }
+
+.swap-note {
+  margin: 6px 0 0;
+  font-size: 12.5px;
+  line-height: 1.35;
+  color: var(--text-2);
+  white-space: normal;
+}
+.swap-note.warn {
+  color: var(--amber);
+}

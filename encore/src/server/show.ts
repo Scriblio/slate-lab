@@ -28,6 +28,7 @@ import {
   type SingerView,
   type Song,
   type UpcomingItem,
+  type YouTubeEmbed,
 } from '../shared/types.ts';
 
 /** A problem to show the user as-is. `code` lets the client react (e.g. 'name-taken'). */
@@ -49,6 +50,8 @@ export interface ShowDeps {
   resolveLocal: (trackId: string) => Song | undefined;
   onChange: () => void;
   onPlayerCommand: (playId: string, cmd: PlayerCommand) => void;
+  /** YouTube videos known not to play here are turned away when requested. */
+  isRefused?: (videoId: string) => boolean;
 }
 
 /** What the KJ needs to undo a call-up when the singer doesn't show. */
@@ -399,6 +402,9 @@ export class Show {
       }
     }
     if (mine.some((e) => sourceKey(e.song) === sourceKey(song))) throw new UserError('That song is already on your list.');
+    if (song.source.kind === 'youtube' && this.deps.isRefused?.(song.source.videoId)) {
+      throw new UserError('YouTube won’t play that video here. Pick another version of the song.');
+    }
     const entry: Entry = {
       id: shortId(),
       singerId,
@@ -410,6 +416,47 @@ export class Show {
     this.state = { ...this.state, entries: [...this.state.entries, entry] };
     this.changed();
     return entry;
+  }
+
+  /** Where a request lives now: waiting in the queue, or on stage. */
+  findEntry(id: string): Entry | undefined {
+    return this.state.entries.find((e) => e.id === id) ?? (this.state.nowPlaying?.entry.id === id ? this.state.nowPlaying.entry : undefined);
+  }
+
+  /**
+   * Swap the video of a request for another version, because YouTube won't
+   * play the one that was picked here. On stage, the new video starts in
+   * place of the old one.
+   */
+  replaceSong(entryId: string, song: Song, swappedFrom: string): boolean {
+    const old = this.findEntry(entryId);
+    if (!old) return false;
+    const entry: Entry = { ...old, song, swappedFrom, swaps: (old.swaps ?? 0) + 1, wontPlay: undefined };
+    const np = this.state.nowPlaying;
+    if (np?.entry.id === entryId) {
+      // Pick up where the singer was: playing if the song had started.
+      const stage = np.stage === 'intro' ? 'intro' : np.startedAt !== undefined ? 'playing' : np.stage;
+      this.state.nowPlaying = { ...np, entry, playId: shortId(), stage, position: 0, duration: song.durationSec, error: undefined };
+    } else {
+      this.state = { ...this.state, entries: this.state.entries.map((e) => (e.id === entryId ? entry : e)) };
+    }
+    this.changed();
+    return true;
+  }
+
+  /** YouTube won't play this request's video and no other version turned up. */
+  markWontPlay(entryId: string): void {
+    const old = this.findEntry(entryId);
+    if (!old || old.wontPlay) return;
+    const entry: Entry = { ...old, wontPlay: true };
+    const np = this.state.nowPlaying;
+    if (np?.entry.id === entryId) {
+      // Already failed on stage: say what the KJ can do now.
+      const error = np.error ? 'YouTube won’t play this video here, and no other version turned up. Skip, or pick another version.' : undefined;
+      this.state.nowPlaying = { ...np, entry, error };
+    }
+    else this.state = { ...this.state, entries: this.state.entries.map((e) => (e.id === entryId ? entry : e)) };
+    this.changed();
   }
 
   removeEntry(id: string): void {
@@ -759,7 +806,7 @@ export class Show {
     };
   }
 
-  displayView(list: UpcomingItem[], joinUrl: string, joinLabel: string, primary: boolean, mediaKey: string): DisplayView {
+  displayView(list: UpcomingItem[], joinUrl: string, joinLabel: string, primary: boolean, mediaKey: string, youtube: YouTubeEmbed): DisplayView {
     return {
       showName: this.state.settings.showName,
       joinUrl,
@@ -769,6 +816,7 @@ export class Show {
       volume: this.state.settings.volume,
       primary,
       mediaKey,
+      youtube,
     };
   }
 }

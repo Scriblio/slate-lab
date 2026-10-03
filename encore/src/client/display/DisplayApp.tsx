@@ -135,8 +135,8 @@ function Show({ socket, view }: { socket: AppSocket; view: DisplayView }) {
     if (report && playId) socket.emit('display:ended', { playId });
   }, [socket, playId, report]);
   const onError = useCallback(
-    (message: string) => {
-      if (report && playId) socket.emit('display:error', { playId, message });
+    (message: string, code?: number) => {
+      if (report && playId) socket.emit('display:error', { playId, message, code });
     },
     [socket, playId, report],
   );
@@ -160,6 +160,10 @@ function Show({ socket, view }: { socket: AppSocket; view: DisplayView }) {
             volume={view.volume}
             muted={!view.primary}
             startAt={startAt}
+            youtube={{
+              frameUrl: view.youtube.frameUrl,
+              mode: np.entry.song.source.kind === 'youtube' ? view.youtube.modes[np.entry.song.source.videoId] : undefined,
+            }}
             onProgress={onProgress}
             onEnded={onEnded}
             onError={onError}

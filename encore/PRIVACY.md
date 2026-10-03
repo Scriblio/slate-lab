@@ -30,13 +30,14 @@ On a singer's phone, the browser keeps a random code so the singer keeps their p
 - **Online join link:** the QR code may open a page at [sing.scriblio.co], hosted by Vercel. The phone and the KJ's computer then exchange messages through Supabase Realtime. Those messages are encrypted end to end with a key that exists only in the QR code and on the two devices, so neither [Scriblio], Vercel nor Supabase can read names or song requests. Like any website, Vercel and Supabase see connection details such as IP addresses and timing, under their own privacy policies. The KJ can turn the online link off in Settings.
 - **On the venue's local network:** with the Wi-Fi link, phones connect directly to the KJ's computer to join the list and request songs. Other singers' phones see singer names in the queue and the song currently being performed. They see upcoming song titles only if the KJ turns that on.
 - **With YouTube (Google), only when YouTube features are used:**
-  - YouTube videos play through YouTube's embedded player.
+  - YouTube videos play through YouTube's embedded player, which loads inside a page on [sing.scriblio.co] (hosted by Vercel) so YouTube can tell which site is embedding it. Vercel sees that the page was loaded, like any website. Nothing about the show is sent to it.
+  - Encore remembers, on the KJ's computer only, the ids of YouTube videos that wouldn't play there, for 30 days.
   - Searches made from Encore go to [Scriblio]'s YouTube search service (hosted by Supabase), which sends the search text to the YouTube Data API. The service receives the search text, the installation ID and the KJ computer's IP address. It keeps the search text and YouTube's results for up to 30 days so repeat searches don't use up the daily quota, and keeps a daily count of searches per installation ID and per IP address (the address only as a one-way hash that changes every day) for a few days. Singer names and song requests are never sent to it.
   - Thumbnails load from YouTube's servers.
 
   YouTube's use of this information is covered by the [Google Privacy Policy](https://policies.google.com/privacy). By using YouTube features, users are also bound by the [YouTube Terms of Service](https://www.youtube.com/t/terms).
 
-Apart from YouTube searches described above, Encore sends nothing to [Scriblio].
+Apart from YouTube searches and the player page described above, Encore sends nothing to [Scriblio].
 
 ## Children
 

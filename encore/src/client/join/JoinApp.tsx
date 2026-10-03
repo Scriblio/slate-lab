@@ -740,6 +740,15 @@ function MyEntry({ entry, first, last, onMove, onRemove }: { entry: Entry; first
           {entry.status === 'pending' && <span className="badge amber">Waiting for approval</span>}
           {entry.note && <span className="badge">“{entry.note}”</span>}
         </div>
+        {entry.wontPlay ? (
+          <p className="swap-note warn">YouTube won’t play this video here. Remove it and pick another version.</p>
+        ) : (
+          entry.swappedFrom && (
+            <p className="swap-note">
+              YouTube won’t play “{entry.swappedFrom}” here, so Encore picked this version for you.
+            </p>
+          )
+        )}
       </div>
       <div className="my-entry-actions">
         <button className="btn ghost icon sm" disabled={first} onClick={() => onMove(-1)} aria-label="Move up">

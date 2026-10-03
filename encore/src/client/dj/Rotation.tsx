@@ -336,6 +336,17 @@ function EntryRow({ entry: e, first, last, index }: { entry: Entry; first: boole
       </div>
       <div className="entry-badges">
         <SourceBadge song={e.song} />
+        {e.wontPlay ? (
+          <span className="badge red" title="YouTube won’t play this video here and Encore found no other version">
+            won’t play
+          </span>
+        ) : (
+          e.swappedFrom && (
+            <span className="badge amber" title={`YouTube wouldn’t play “${e.swappedFrom}” here, so Encore swapped in this version`}>
+              swapped
+            </span>
+          )
+        )}
         {pinned && (
           <span className="badge accent">
             <I.Pin /> next

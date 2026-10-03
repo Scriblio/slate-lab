@@ -1,6 +1,6 @@
 // Socket.IO event contracts between the server and the three clients.
 
-import type { DisplayView, DjView, RotationMode, SearchResult, Settings, SingerView, Song } from './types.ts';
+import type { DisplayView, DjView, RotationMode, SearchResult, Settings, SingerView, Song, YouTubeMode } from './types.ts';
 import type { FilenameOrder } from './text.ts';
 
 /** What a client may send to describe a song; the server rebuilds the rest. */
@@ -14,6 +14,9 @@ export function songRef(song: Song): SongRef {
     ? { kind: 'local', trackId: song.source.trackId }
     : { kind: 'youtube', videoId: song.source.videoId, title: song.title, artist: song.artist, durationSec: song.durationSec };
 }
+
+/** YouTube player errors meaning a video won't play here: bad id, removed, or embedding refused. */
+export const YOUTUBE_REFUSALS: readonly number[] = [2, 100, 101, 150, 152];
 
 export type Ack<T = undefined> = (res: { ok: true; data: T } | { ok: false; error: string; code?: string }) => void;
 
@@ -63,6 +66,8 @@ export type DjAction =
   | { type: 'setVolume'; volume: number }
   | { type: 'newShow' }
   | { type: 'rescanLibrary' }
+  /** From the console's preview player: whether a queued YouTube video plays here. */
+  | { type: 'youtubeCheck'; videoId: string; ok: boolean; mode?: YouTubeMode }
   | { type: 'setConfig'; libraryFolders?: string[]; filenameOrder?: FilenameOrder; onlineJoin?: boolean };
 
 export type SingerAction =
@@ -85,7 +90,8 @@ export interface ClientToServer {
   lookupYouTube: (urlOrId: string, ack: Ack<SearchResult>) => void;
   'display:progress': (p: { playId: string; position: number; duration?: number }) => void;
   'display:ended': (p: { playId: string }) => void;
-  'display:error': (p: { playId: string; message: string }) => void;
+  /** code: the YouTube player's error code, when it was a YouTube error. */
+  'display:error': (p: { playId: string; message: string; code?: number }) => void;
 }
 
 export interface ServerToClient {

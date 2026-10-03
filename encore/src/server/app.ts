@@ -21,6 +21,7 @@ import { serveMedia } from './media.ts';
 import { loadIdentity, RelayHost, type RelayIdentity } from './relay.ts';
 import { Show, UserError } from './show.ts';
 import { YouTube } from './youtube.ts';
+import { REFUSAL_CODES, YouTubeGuard } from './ytguard.ts';
 
 export interface AppOptions {
   port: number;
@@ -76,8 +77,11 @@ export async function createApp(opts: AppOptions) {
     });
   };
 
+  // Created once the online settings are known (it needs the player page's address).
+  let guard: YouTubeGuard | undefined;
   const show = new Show({
     dataDir: opts.dataDir,
+    isRefused: (videoId) => guard?.isRefused(videoId) ?? false,
     resolveLocal: (id) => {
       const t = library.get(id);
       return t ? { title: t.title, artist: t.artist, source: { kind: 'local', trackId: t.id, format: t.format } } : undefined;
@@ -96,6 +100,18 @@ export async function createApp(opts: AppOptions) {
   // --- online join link ----------------------------------------------------------
 
   const cloud = resolveCloud(opts.cloud);
+  guard = new YouTubeGuard({
+    dataDir: opts.dataDir,
+    show,
+    search: (q) => youtube.search(q),
+    // The YouTube player runs from a page on Encore's site, so YouTube sees a
+    // real https website as the embedder rather than this laptop's address.
+    frameUrl: cloud ? `${cloud.joinOrigin.replace(/\/$/, '')}/yt-frame` : undefined,
+    log,
+  });
+  guard.onUpdate = scheduleBroadcast;
+  await guard.load();
+  const ytGuard = guard;
   let relay: RelayHost | undefined;
   let identity: RelayIdentity | undefined;
   const onlineJoinUrl = () => (cloud && identity ? joinLink(cloud.joinOrigin, { room: identity.room, hostKey: identity.publicKey }) : undefined);
@@ -312,7 +328,18 @@ export async function createApp(opts: AppOptions) {
       }
     });
     socket.on('display:ended', (p) => fromPrimary() && p && show.ended(String(p.playId)));
-    socket.on('display:error', (p) => fromPrimary() && p && show.playbackError(String(p.playId), String(p.message)));
+    socket.on('display:error', (p) => {
+      if (!fromPrimary() || !p) return;
+      const np = show.state.nowPlaying;
+      const code = Number(p.code);
+      if (np?.playId === String(p.playId) && np.entry.song.source.kind === 'youtube' && REFUSAL_CODES.has(code)) {
+        // Refused at showtime: find another version and carry on with it.
+        show.playbackError(np.playId, 'YouTube won’t play this version here. Finding another one…');
+        void ytGuard.report(np.entry.song.source.videoId, false);
+        return;
+      }
+      show.playbackError(String(p.playId), String(p.message));
+    });
   }
 
   function wireSearch(socket: IoSocket) {
@@ -330,7 +357,9 @@ export async function createApp(opts: AppOptions) {
         const q = String(query ?? '').trim();
         if (!q) return [];
         const results = await youtube.search(q);
-        return results.map((r) => ({ ...r, playedTonight: show.playedTonight(r.song) }));
+        return results
+          .filter((r) => r.song.source.kind !== 'youtube' || !ytGuard.isRefused(r.song.source.videoId))
+          .map((r) => ({ ...r, playedTonight: show.playedTonight(r.song) }));
       }),
     );
     socket.on('lookupYouTube', (input, ack) =>
@@ -338,6 +367,7 @@ export async function createApp(opts: AppOptions) {
         if (!isDj && !show.state.settings.allowYouTube) throw new UserError('YouTube requests are off tonight.');
         const id = parseYouTubeId(String(input ?? ''));
         if (!id) throw new UserError('That doesn’t look like a YouTube link.');
+        if (ytGuard.isRefused(id)) throw new UserError('YouTube won’t play that video here. Pick another version of the song.');
         const result = await youtube.lookup(id);
         return { ...result, playedTonight: show.playedTonight(result.song) } satisfies SearchResult;
       }),
@@ -412,6 +442,9 @@ export async function createApp(opts: AppOptions) {
       }
       case 'rescanLibrary':
         void rescan();
+        return null;
+      case 'youtubeCheck':
+        await ytGuard.report(String(a.videoId), Boolean(a.ok), a.mode);
         return null;
       case 'setConfig':
         return updateConfig(a);
@@ -496,11 +529,12 @@ export async function createApp(opts: AppOptions) {
       },
       library: library.getStatus(),
       youtubeSearch: youtube.canSearch,
+      youtube: ytGuard.view(),
       displays: displays.length,
       mediaKey,
     };
     io.to('dj').emit('dj:view', dj);
-    displays.forEach((s, i) => s.emit('display:view', show.displayView(list, joinUrl(), joinLabel(), i === 0, mediaKey)));
+    displays.forEach((s, i) => s.emit('display:view', show.displayView(list, joinUrl(), joinLabel(), i === 0, mediaKey, ytGuard.view())));
     for (const raw of io.sockets.sockets.values()) {
       const s = raw as IoSocket;
       if (s.data.role !== 'singer') continue;

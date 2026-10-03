@@ -60,6 +60,15 @@ Configuration can also come from the environment: `PORT`, `ENCORE_LIBRARY` (fold
 
 Searching YouTube is built in; KJs don't need a key. YouTube's developer policies allow one API project per app and forbid sharing its key, so every copy of Encore asks Encore's search service (`supabase/functions/youtube-search`), which holds the one key, caches results for everyone, and caps daily use so the shared quota lasts. Pasting a YouTube link never uses the quota. See [supabase/README.md](supabase/README.md) to set it up.
 
+### YouTube videos that won't play here
+
+Some videos YouTube lists as embeddable still refuse to play inside other apps (an uploader's or label's choice). Encore works around that without extra steps for the KJ:
+
+- **The player loads from Encore's site.** YouTube's player runs inside a small page at `sing.scriblio.co/yt-frame` (`src/ytframe/`), so YouTube sees a real website as the embedder rather than the laptop's local address, as YouTube asks of embedders. If that page can't load, or a video only plays the other way, Encore embeds the player directly instead.
+- **Queued songs are checked ahead of time.** The console's *YouTube check* card loads each upcoming YouTube song, without playing it, in a small preview player.
+- **Refused videos are swapped.** Encore swaps the request for another version of the same song that plays (matching titles so a different song is never substituted) and tells the singer on their phone. That also happens if a video is refused on stage. If no other version turns up, the console and the phone say so.
+- **Refusals are remembered** for 30 days on that laptop (`data/youtube-refused.json`, video ids only), and hidden from YouTube search.
+
 ## Rotation modes
 
 Switch modes at any time from the top bar.
@@ -108,7 +117,7 @@ On the Wi-Fi link, if phones can't connect, the venue Wi-Fi is probably isolatin
 
 ## Honest limitations
 
-- **YouTube** needs internet. Some uploaders block their videos from playing outside YouTube; search only returns embeddable videos, and if one still fails the console says so and offers a skip. YouTube may show ads in embedded videos. YouTube's terms and your local performance licensing (ASCAP, BMI, SOCAN, PRS and so on) apply to public playback. Check what your venue is covered for.
+- **YouTube** needs internet. Some uploaders block their videos from playing outside YouTube; search only returns embeddable videos, and Encore swaps any that still refuse (see above). YouTube may show ads in embedded videos. YouTube's terms and your local performance licensing (ASCAP, BMI, SOCAN, PRS and so on) apply to public playback. Check what your venue is covered for.
 - **No key or pitch change yet.** That needs a real-time pitch shifter, which is on the list below.
 - **Wait times are estimates.** Local files don't report their length until they've played once, so a default length is used until then.
 - **Encore doesn't store or download YouTube media.** It embeds YouTube's player.

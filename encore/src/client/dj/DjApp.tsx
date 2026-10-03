@@ -12,6 +12,7 @@ import { Rotation } from './Rotation.tsx';
 import { SettingsModal } from './Settings.tsx';
 import { Stage } from './Stage.tsx';
 import { UpNext } from './UpNext.tsx';
+import { YouTubeCheck } from './YouTubeCheck.tsx';
 
 export function DjApp() {
   const [pin, setPin] = useState(storedPin);
@@ -89,6 +90,7 @@ export function DjApp() {
           <section className="col col-stage">
             <Stage />
             <UpNext />
+            <YouTubeCheck />
           </section>
           <section className="col col-rotation">
             <Rotation />

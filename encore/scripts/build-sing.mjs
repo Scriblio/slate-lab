@@ -38,11 +38,21 @@ ico.writeUInt32LE(22, 18); // image data offset
 await writeFile(join(out, 'favicon.ico'), Buffer.concat([ico, png256]));
 await copyFile(join(root, 'build/appx/Square150x150Logo.scale-200.png'), join(out, 'apple-touch-icon.png'));
 
+// The YouTube player page Encore embeds (see src/client/common/youtube-embed.ts).
+await copyFile(join(root, 'src/ytframe/yt-frame.html'), join(out, 'yt-frame.html'));
+await copyFile(join(root, 'src/ytframe/yt-frame.js'), join(out, 'yt-frame.js'));
+
 // Hosting headers (strict CSP) come from vercel.json, which Vercel uses when
 // it builds from the repo. Copy them next to the page for other deploys, and
 // make sure the CSP allows the Supabase project the page talks to.
 const vercel = JSON.parse(await readFile(join(root, 'vercel.json'), 'utf8'));
 const csp = vercel.headers[0].headers.find((h) => h.key === 'Content-Security-Policy').value;
+// The player page needs its own rule: YouTube must get a Referer, and Encore must be able to frame it.
+const frameRule = vercel.headers.find((r) => r.source.startsWith('/yt-frame'));
+const frameHeader = (k) => frameRule?.headers.find((h) => h.key === k)?.value ?? '';
+if (!frameRule || frameHeader('Referrer-Policy') === 'no-referrer' || !frameHeader('Content-Security-Policy').includes('frame-ancestors http: https:')) {
+  throw new Error('vercel.json needs a /yt-frame rule that sends a Referer and allows framing.');
+}
 if (supabaseUrl && !csp.includes(supabaseUrl)) {
   throw new Error(`vercel.json's Content-Security-Policy must allow ${supabaseUrl} (connect-src https and wss).`);
 }

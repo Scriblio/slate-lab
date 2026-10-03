@@ -1193,3 +1193,63 @@ kbd {
   flex: 1;
   max-width: 260px;
 }
+
+/* ---- YouTube check ---- */
+
+.yt-check-card {
+  flex: none;
+}
+/* YouTube's player must be at least 200px in each direction. */
+.yt-preview {
+  position: relative;
+  margin: 0 16px;
+  aspect-ratio: 16 / 9;
+  min-height: 200px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #000;
+}
+.yt-preview iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+.yt-check-list {
+  list-style: none;
+  margin: 0;
+  padding: 8px 8px 10px;
+  max-height: 180px;
+  overflow: auto;
+}
+.yt-check-row {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  font-size: 13px;
+}
+.yt-check-row > svg {
+  width: 16px;
+  height: 16px;
+}
+.yt-check-row .good {
+  color: var(--green);
+}
+.yt-check-row .bad {
+  color: var(--red);
+}
+.dot-wait {
+  width: 8px;
+  height: 8px;
+  margin: 0 4px;
+  border-radius: 50%;
+  background: var(--text-3);
+}
+.yt-check-card .card-head h3 svg {
+  width: 18px;
+  height: 18px;
+  color: var(--red);
+}

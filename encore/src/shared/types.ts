@@ -67,7 +67,16 @@ export interface Entry {
   /** Phone requests wait in "pending" when the KJ requires approval. */
   status: 'pending' | 'queued';
   note?: string;
+  /** Title of the YouTube video Encore swapped out because YouTube wouldn't play it here. */
+  swappedFrom?: string;
+  /** How many times Encore has swapped this request's video. */
+  swaps?: number;
+  /** YouTube won't play this video here and Encore found no other version. */
+  wontPlay?: boolean;
 }
+
+/** How the YouTube player is embedded: from Encore's site, or straight into the page. */
+export type YouTubeMode = 'site' | 'direct';
 
 export type Stage = 'intro' | 'playing' | 'paused';
 
@@ -209,6 +218,17 @@ export interface DisplayView {
   primary: boolean;
   /** Appended to /media URLs; only the KJ and displays are given it. */
   mediaKey: string;
+  youtube: YouTubeEmbed;
+}
+
+/** Where YouTube players load from, and what Encore knows about tonight's videos. */
+export interface YouTubeEmbed {
+  /** Page on Encore's site that hosts the player (absent when offline features are off). */
+  frameUrl?: string;
+  /** Results of checking videos in the queue: 'ok' plays here, 'refused' doesn't. */
+  status: Record<string, 'ok' | 'refused'>;
+  /** The embedding that worked for each video that plays. */
+  modes: Record<string, YouTubeMode>;
 }
 
 /** What the KJ console sees. */
@@ -231,6 +251,7 @@ export interface DjView {
   };
   library: LibraryStatus;
   youtubeSearch: boolean;
+  youtube: YouTubeEmbed;
   displays: number;
   mediaKey: string;
 }

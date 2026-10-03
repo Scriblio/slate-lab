@@ -7,20 +7,59 @@
   "cleanUrls": true,
   "headers": [
     {
-      "source": "/(.*)",
+      "source": "/((?!yt-frame).*)",
       "headers": [
         {
           "key": "Content-Security-Policy",
           "value": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: https://i.ytimg.com; connect-src 'self' https://oohgawkfnwhjlqlihhju.supabase.co wss://oohgawkfnwhjlqlihhju.supabase.co; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
         },
-        { "key": "Referrer-Policy", "value": "no-referrer" },
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=()" }
+        {
+          "key": "Referrer-Policy",
+          "value": "no-referrer"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(), microphone=(), geolocation=()"
+        }
+      ]
+    },
+    {
+      "source": "/yt-frame(.*)",
+      "headers": [
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'none'; script-src 'self' https://www.youtube.com https://s.ytimg.com; frame-src https://www.youtube.com https://www.youtube-nocookie.com; style-src 'unsafe-inline'; img-src https://i.ytimg.com; frame-ancestors http: https:; base-uri 'none'; form-action 'none'"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(), microphone=(), geolocation=()"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=300"
+        }
       ]
     },
     {
       "source": "/assets/(.*)",
-      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
     }
   ]
 }
