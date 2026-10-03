@@ -45,7 +45,7 @@ In Partner Center, create a submission:
 - **Store listing:** a description and screenshots (at least one, 1366×768 or larger). The PNGs in `docs/` are a starting point; take real ones from the app at full size.
 - **Submission options → Notes for certification:** testers need to know how to try the app. Suggested text:
 
-  > Encore is a karaoke hosting app. It opens a DJ console window. Demo songs are included, so no library is needed: type a name in "Add a walk-up singer", search "step", click +, then "Call up" and "Start song". The venue screen opens from "Open screen" (top right) and plays the song with lyrics. Singers normally join from phones on the same network using the QR code; that part is optional for testing. The app runs a small local web server on port 4747 for those phones, which is why it needs network server capabilities.
+  > Encore is a karaoke hosting app. It opens a DJ console window. Demo songs are included, so no library is needed: type a name in "Add a walk-up singer", search "step", click +, then "Call up" and "Start song". The venue screen opens from "Open screen" (top right) and plays the song with lyrics. Singers normally join from their phones by scanning the QR code, which opens a secure web page; that part is optional for testing. The app also runs a small local web server on port 4747 so phones on the same Wi-Fi can join without internet, which is why it needs network server capabilities.
 
 - **Restricted capability `runFullTrust`:** Partner Center will ask why the app needs it. Every Electron (Win32) desktop app requires it; say it is "a desktop app packaged with the Desktop Bridge".
 

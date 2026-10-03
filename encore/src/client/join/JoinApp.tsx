@@ -6,14 +6,22 @@ import { songRef, type SingerAction } from '../../shared/protocol.ts';
 import { formatWait, parseYouTubeId } from '../../shared/text.ts';
 import type { Entry, SearchResult, SingerView, Song } from '../../shared/types.ts';
 import * as I from '../common/icons.tsx';
-import { connect, request, safeGet, safeSet, useConnection } from '../common/socket.ts';
+import { connect, request, safeGet, safeSet, useConnection, type AppSocket } from '../common/socket.ts';
 import { Eq, SongThumb, SourceBadge, useAction, useDebounced, useTick, useToast } from '../common/ui.tsx';
 
-const TOKEN_KEY = 'encore.token';
 type Tab = 'search' | 'mine' | 'line';
 
-export function JoinApp() {
-  const socket = useMemo(() => connect('singer'), []);
+export interface JoinAppProps {
+  /** Defaults to a Socket.IO connection to this page's own server (the Wi-Fi link). */
+  socket?: AppSocket;
+  /** Where this phone keeps its spot; the online link keeps one per room. */
+  tokenKey?: string;
+  offlineHint?: string;
+}
+
+export function JoinApp({ socket: given, tokenKey = 'encore.token', offlineHint }: JoinAppProps = {}) {
+  const TOKEN_KEY = tokenKey;
+  const socket = useMemo(() => given ?? connect('singer'), [given]);
   const conn = useConnection(socket);
   const [view, setView] = useState<SingerView | null>(null);
   const [receivedAt, setReceivedAt] = useState(Date.now());
@@ -54,7 +62,7 @@ export function JoinApp() {
     document.title = view ? `${view.showName} · Karaoke` : 'Join the Karaoke List';
   }, [view?.showName]);
 
-  if (!view || resuming) return <Splash offline={conn === 'offline'} />;
+  if (!view || resuming) return <Splash offline={conn === 'offline'} hint={offlineHint} />;
 
   return (
     <>
@@ -81,13 +89,13 @@ export function JoinApp() {
   );
 }
 
-function Splash({ offline }: { offline: boolean }) {
+function Splash({ offline, hint }: { offline: boolean; hint?: string }) {
   return (
     <div className="splash">
       <div className="logo-mark">
         <I.Mic />
       </div>
-      <p className="muted">{offline ? 'Can’t reach the KJ’s laptop. Are you on the venue Wi-Fi?' : 'Connecting…'}</p>
+      <p className="muted">{offline ? (hint ?? 'Can’t reach the KJ’s laptop. Are you on the venue Wi-Fi?') : 'Connecting…'}</p>
     </div>
   );
 }

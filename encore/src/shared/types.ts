@@ -196,6 +196,8 @@ export interface SingerView {
 export interface DisplayView {
   showName: string;
   joinUrl: string;
+  /** Short, readable form of the join link for the screen. */
+  joinLabel: string;
   nowPlaying: NowPlaying | null;
   upNext: { singerName: string; title: string; artist: string }[];
   volume: number;
@@ -209,6 +211,14 @@ export interface DjView {
   show: ShowState;
   upcoming: UpcomingItem[];
   joinUrl: string;
+  joinLabel: string;
+  relay: {
+    /** 'off' when the online link is turned off or not configured. */
+    state: 'off' | 'connecting' | 'online' | 'offline';
+    lanUrl: string;
+    /** Phones currently connected through the online link. */
+    phones: number;
+  };
   library: LibraryStatus;
   youtubeSearch: boolean;
   displays: number;

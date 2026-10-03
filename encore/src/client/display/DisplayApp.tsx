@@ -195,7 +195,7 @@ function Idle({ view }: { view: DisplayView }) {
             <div className="qr-copy">
               <h2>Scan to sing</h2>
               <p>Point your phone camera at the code, pick a song, and you’re in line.</p>
-              <p className="join-url">{view.joinUrl.replace(/^https?:\/\//, '')}</p>
+              <p className="join-url">{view.joinLabel}</p>
             </div>
           </div>
         </div>

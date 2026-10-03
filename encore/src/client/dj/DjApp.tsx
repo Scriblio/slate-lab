@@ -171,9 +171,10 @@ function TopBar({ offline }: { offline: boolean }) {
         )}
         {!view.show.settings.joinOpen && <span className="badge amber">Sign-ups closed</span>}
         {pending > 0 && <span className="badge amber">{pending} to approve</span>}
-        <button className="join-pill" onClick={() => setQr(true)} title="Show the join QR code">
+        <button className={`join-pill ${view.relay.state === 'online' ? 'online' : ''}`} onClick={() => setQr(true)} title="Show the join QR code">
           <I.QrCode />
-          <span className="ellipsis">{view.joinUrl.replace(/^https?:\/\//, '')}</span>
+          <span className="ellipsis">{view.joinLabel}</span>
+          {view.relay.state === 'online' && <I.Lock className="pill-lock" aria-label="secure online link" />}
         </button>
         <button
           className={`btn sm ${view.displays ? 'screen-on' : 'screen-off'}`}
@@ -193,8 +194,20 @@ function TopBar({ offline }: { offline: boolean }) {
         <Modal title="Scan to join the list" onClose={() => setQr(false)} width={460}>
           <div className="qr-modal">
             <img src="/api/qr.svg" alt="Join QR code" />
-            <p className="qr-url">{view.joinUrl}</p>
-            <p className="muted">Phones must be on the same Wi-Fi as this laptop. Print it, put it on the venue screen, or hold this up.</p>
+            <p className="qr-url">{view.joinLabel}</p>
+            {view.relay.state === 'online' ? (
+              <p className="muted">
+                Secure online link: phones can join on any network, including cellular data. If this laptop loses its internet connection,
+                the code switches to the Wi-Fi link automatically.
+              </p>
+            ) : (
+              <p className="muted">
+                Wi-Fi link: phones must be on the same network as this laptop.
+                {view.relay.state === 'offline' || view.relay.state === 'connecting'
+                  ? ' The secure online link comes back on its own when the internet does.'
+                  : ''}
+              </p>
+            )}
           </div>
         </Modal>
       )}

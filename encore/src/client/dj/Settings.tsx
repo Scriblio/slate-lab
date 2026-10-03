@@ -166,9 +166,28 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           </p>
         </Section>
 
+        {config?.onlineJoinAvailable && (
+          <Section title="How phones join">
+            <Switch
+              label="Secure online link"
+              hint="The QR code opens a secure https page, so phones don't show a 'not secure' warning and can join on any network, even cellular data. Messages are encrypted end to end. Needs internet; without it, Encore uses the Wi-Fi link automatically."
+              checked={config.onlineJoin}
+              onChange={async (onlineJoin) => {
+                await act({ type: 'setConfig', onlineJoin });
+                setConfig((c) => c && { ...c, onlineJoin });
+              }}
+            />
+            <p className="muted small">
+              Status:{' '}
+              {{ online: 'online', connecting: 'connecting…', offline: 'offline (using the Wi-Fi link)', off: 'off (using the Wi-Fi link)' }[view.relay.state]}
+              {view.relay.state === 'online' && view.relay.phones > 0 && ` · ${view.relay.phones} phone${view.relay.phones > 1 ? 's' : ''} connected`}
+            </p>
+          </Section>
+        )}
+
         <Section title="Other devices">
           <p className="muted small">
-            Phones join at <span className="mono">{view.joinUrl}</span>. To run the console or a venue screen from another device on the same network, open{' '}
+            On the same Wi-Fi, phones can also join at <span className="mono">{view.relay.lanUrl}</span>. To run the console or a venue screen from another device on the same network, open{' '}
             <span className="mono">/dj</span> or <span className="mono">/display</span> there and enter this PIN:
           </p>
           <div className="pin-display">{config?.djPin ?? '······'}</div>

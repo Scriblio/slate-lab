@@ -23,6 +23,9 @@ export interface ServerConfigView {
   hasYouTubeKey: boolean;
   djPin: string;
   publicUrl?: string;
+  /** This build has an online join link configured. */
+  onlineJoinAvailable: boolean;
+  onlineJoin: boolean;
 }
 
 export type PlayerCommand =
@@ -58,7 +61,7 @@ export type DjAction =
   | { type: 'setVolume'; volume: number }
   | { type: 'newShow' }
   | { type: 'rescanLibrary' }
-  | { type: 'setConfig'; libraryFolders?: string[]; filenameOrder?: FilenameOrder; youtubeApiKey?: string };
+  | { type: 'setConfig'; libraryFolders?: string[]; filenameOrder?: FilenameOrder; youtubeApiKey?: string; onlineJoin?: boolean };
 
 export type SingerAction =
   | { type: 'request'; song: SongRef; note?: string }

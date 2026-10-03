@@ -86,11 +86,22 @@ The **Up next** panel shows the running order with estimated wait times, and pho
 
 Click the progress bar to seek. The venue screen shows "Now singing" for the first few seconds of each song and "Up next" in the last 30.
 
+## How phones join
+
+There are two ways in, and Encore picks one automatically:
+
+- **Secure online link (default when the laptop is online).** The QR code opens `https://sing.scriblio.co/#…`. Because it's a normal secure (https) page, phones don't show a "not secure" warning. Singers can join on any network, including cellular data, so venue Wi-Fi that blocks devices from each other doesn't matter. The phone and the laptop talk through Supabase Realtime, and every message is end-to-end encrypted. The key travels only inside the QR code (in the part of the link after `#`, which browsers never send to a server), so the relay carries scrambled data it can't read.
+- **Wi-Fi link (fallback).** With no internet, or with the online link turned off in Settings, the QR code points straight at the laptop (`http://192.168.x.x:4747/join`). Phones then need to be on the same Wi-Fi, and some browsers warn that the page isn't secure; tapping *Continue* is safe on your own network.
+
+The online link's room and key are saved in the data folder, so a printed QR code keeps working from night to night.
+
+To host the online join page yourself, set `supabaseUrl` and `supabaseKey` in `src/shared/cloud.ts` (a Supabase project's URL and publishable key). Then run `npm run build:sing` and deploy `dist-sing/` to any static host (it includes a `vercel.json`). Point `joinOrigin` at that address.
+
 ## Other devices
 
 Phones only ever reach the sign-up page. To run the console or a venue screen from another device, such as a smart TV browser, open `/dj` or `/display` there and enter the **DJ PIN**. The PIN is printed at startup and shown in Settings.
 
-If phones can't connect, the venue Wi-Fi is probably isolating clients from each other, which is common on guest networks. Run your own hotspot or router, or put Encore behind a tunnel and set `PUBLIC_URL`. Tunnel traffic is recognized by its forwarding headers and treated as a phone, not the KJ.
+On the Wi-Fi link, if phones can't connect, the venue Wi-Fi is probably isolating clients from each other, which is common on guest networks. Use the online link, run your own hotspot or router, or put Encore behind a tunnel and set `PUBLIC_URL`. Tunnel traffic is recognized by its forwarding headers and treated as a phone, not the KJ.
 
 ## Honest limitations
 
@@ -113,6 +124,7 @@ How the code is organized:
 - `src/server/show.ts` validates and applies every action and saves the show. `src/server/app.ts` is the HTTP and Socket.IO layer, and each client gets a view of the state shaped for its role. Phones never see other singers' private details.
 - `src/client/cdg/decoder.ts` is a CD+G decoder written from scratch, so MP3+G lyrics render on a canvas in sync with the audio.
 - `src/server/zip.ts` reads zipped MP3+G tracks with no dependencies.
+- `src/shared/relay.ts`, `src/server/relay.ts` and `src/client/common/relay-socket.ts` make up the encrypted online join link (P-256 ECDH, HKDF and AES-GCM over Supabase Realtime). On the laptop, each phone becomes an ordinary singer connection, so the online and Wi-Fi links follow the same rules.
 - `src/desktop/` is the Electron shell. It runs the same server in-process and adds native windows, the folder picker and menus. `scripts/build-desktop.mjs` bundles it, `electron-builder.yml` packages it, and `npm run icons` redraws the icons in `build/`.
 
 ## Ideas for next

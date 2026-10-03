@@ -9,6 +9,7 @@ Encore Karaoke ("Encore") is software that a karaoke host (KJ) runs on their own
 ## The short version
 
 - Everything Encore stores stays on the KJ's computer. [Scriblio] does not receive it.
+- When singers join through the online link, their messages are end-to-end encrypted between their phone and the KJ's computer. The relay in between can't read them.
 - Encore has no accounts, no advertising and no analytics or tracking.
 - If the KJ uses YouTube features, YouTube (Google) receives the requests involved.
 
@@ -26,7 +27,8 @@ On a singer's phone, the browser keeps a random code so the singer keeps their p
 
 ## What is shared over the network
 
-- **On the venue's local network:** phones connect directly to the KJ's computer to join the list and request songs. Other singers' phones see singer names in the queue and the song currently being performed. They see upcoming song titles only if the KJ turns that on.
+- **Online join link:** the QR code may open a page at [sing.scriblio.co], hosted by Vercel. The phone and the KJ's computer then exchange messages through Supabase Realtime. Those messages are encrypted end to end with a key that exists only in the QR code and on the two devices, so neither [Scriblio], Vercel nor Supabase can read names or song requests. Like any website, Vercel and Supabase see connection details such as IP addresses and timing, under their own privacy policies. The KJ can turn the online link off in Settings.
+- **On the venue's local network:** with the Wi-Fi link, phones connect directly to the KJ's computer to join the list and request songs. Other singers' phones see singer names in the queue and the song currently being performed. They see upcoming song titles only if the KJ turns that on.
 - **With YouTube (Google), only when YouTube features are used:**
   - YouTube videos play through YouTube's embedded player.
   - Searches made from Encore send the search text to the YouTube Data API using the KJ's own API key.

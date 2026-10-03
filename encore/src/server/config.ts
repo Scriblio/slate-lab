@@ -14,6 +14,8 @@ export interface Config {
   djPin: string;
   /** Base URL phones should use, when the LAN address isn't right (tunnels). */
   publicUrl?: string;
+  /** Use the secure online join link when the internet is available (default on). */
+  onlineJoin?: boolean;
 }
 
 export async function loadConfig(dataDir: string, env = process.env): Promise<Config> {
@@ -29,6 +31,7 @@ export async function loadConfig(dataDir: string, env = process.env): Promise<Co
     youtubeApiKey: saved.youtubeApiKey,
     djPin: saved.djPin ?? String(randomInt(100000, 1000000)),
     publicUrl: saved.publicUrl,
+    onlineJoin: saved.onlineJoin,
   };
   if (!saved.djPin) await saveConfig(dataDir, config);
   // Environment wins over the file, but is not written back to it.

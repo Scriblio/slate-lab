@@ -13,9 +13,12 @@ import { Server, type Socket } from 'socket.io';
 import type { Ack, ClientToServer, DjAction, HandshakeAuth, Role, ServerToClient } from '../shared/protocol.ts';
 import { parseYouTubeId } from '../shared/text.ts';
 import type { DjView, SearchResult } from '../shared/types.ts';
+import { CLOUD, cloudConfigured } from '../shared/cloud.ts';
+import { joinLink, supabaseTransport, type RelayTransport } from '../shared/relay.ts';
 import { loadConfig, saveConfig, type Config } from './config.ts';
 import { Library } from './library.ts';
 import { serveMedia } from './media.ts';
+import { loadIdentity, RelayHost, type RelayIdentity } from './relay.ts';
 import { Show, UserError } from './show.ts';
 import { YouTube } from './youtube.ts';
 
@@ -35,6 +38,8 @@ export interface AppOptions {
   fallbackLibraryFolder?: string;
   /** If the port is taken, take any free one instead of failing. */
   portFallback?: boolean;
+  /** The online join link. Defaults to shared/cloud.ts (plus env overrides); false turns it off. */
+  cloud?: false | { joinOrigin: string; transport: () => RelayTransport };
   quiet?: boolean;
 }
 
@@ -83,7 +88,31 @@ export async function createApp(opts: AppOptions) {
 
   let port = opts.port;
   const baseUrl = () => (config.publicUrl ? config.publicUrl.replace(/\/$/, '') : `http://${lanAddress()}:${port}`);
-  const joinUrl = () => `${baseUrl()}/join`;
+  const lanJoinUrl = () => `${baseUrl()}/join`;
+
+  // --- online join link ----------------------------------------------------------
+
+  const cloud = resolveCloud(opts.cloud);
+  let relay: RelayHost | undefined;
+  let identity: RelayIdentity | undefined;
+  const onlineJoinUrl = () => (cloud && identity ? joinLink(cloud.joinOrigin, { room: identity.room, hostKey: identity.publicKey }) : undefined);
+  /** The link in the QR code: the secure online one while it works, else the Wi-Fi one. */
+  const joinUrl = () => (relay?.state === 'online' ? onlineJoinUrl()! : lanJoinUrl());
+  const joinLabel = () => (relay?.state === 'online' ? new URL(cloud!.joinOrigin).host : lanJoinUrl().replace(/^https?:\/\//, ''));
+
+  async function startRelay() {
+    if (!cloud || relay || config.onlineJoin === false) return;
+    identity ??= await loadIdentity(opts.dataDir);
+    relay = new RelayHost({ transport: cloud.transport(), identity, localUrl: `http://127.0.0.1:${port}`, onState: scheduleBroadcast });
+    relay.start();
+    scheduleBroadcast();
+  }
+
+  function stopRelay() {
+    relay?.stop();
+    relay = undefined;
+    scheduleBroadcast();
+  }
 
   // --- HTTP ------------------------------------------------------------------
 
@@ -203,6 +232,8 @@ export async function createApp(opts: AppOptions) {
         hasYouTubeKey: youtube.canSearch,
         djPin: config.djPin,
         publicUrl: config.publicUrl,
+        onlineJoinAvailable: Boolean(cloud),
+        onlineJoin: config.onlineJoin !== false,
       })),
     );
   }
@@ -371,7 +402,15 @@ export async function createApp(opts: AppOptions) {
       saved.youtubeApiKey = config.youtubeApiKey;
       youtube.setApiKey(config.youtubeApiKey);
     }
-    await saveConfig(opts.dataDir, { ...config, ...saved } as Config);
+    if (a.onlineJoin !== undefined) {
+      config.onlineJoin = Boolean(a.onlineJoin);
+      saved.onlineJoin = config.onlineJoin;
+      if (config.onlineJoin) await startRelay();
+      else stopRelay();
+    }
+    // Save only what is in the file plus this change, so values that came
+    // from environment variables are never written to disk.
+    await saveConfig(opts.dataDir, saved as Config);
     if (a.libraryFolders || a.filenameOrder) void rescan();
     scheduleBroadcast();
     return null;
@@ -413,13 +452,19 @@ export async function createApp(opts: AppOptions) {
       show: show.state,
       upcoming: list,
       joinUrl: joinUrl(),
+      joinLabel: joinLabel(),
+      relay: {
+        state: relay ? relay.state : cloud && config.onlineJoin !== false ? 'connecting' : 'off',
+        lanUrl: lanJoinUrl(),
+        phones: relay?.sessionCount ?? 0,
+      },
       library: library.getStatus(),
       youtubeSearch: youtube.canSearch,
       displays: displays.length,
       mediaKey,
     };
     io.to('dj').emit('dj:view', dj);
-    displays.forEach((s, i) => s.emit('display:view', show.displayView(list, joinUrl(), i === 0, mediaKey)));
+    displays.forEach((s, i) => s.emit('display:view', show.displayView(list, joinUrl(), joinLabel(), i === 0, mediaKey)));
     for (const raw of io.sockets.sockets.values()) {
       const s = raw as IoSocket;
       if (s.data.role !== 'singer') continue;
@@ -452,10 +497,12 @@ export async function createApp(opts: AppOptions) {
     const addr = server.address();
     if (addr && typeof addr === 'object') port = addr.port;
     void rescan();
+    await startRelay().catch((err) => console.warn('Online join link unavailable:', (err as Error).message));
     return `http://localhost:${port}`;
   }
 
   async function close(): Promise<void> {
+    relay?.stop();
     show.dispose();
     await show.flush().catch(() => {});
     io.disconnectSockets(true);
@@ -463,7 +510,23 @@ export async function createApp(opts: AppOptions) {
     await vite?.close();
   }
 
-  return { server, io, show, library, youtube, config, listen, close, joinUrl, get port() { return port; } };
+  return {
+    server,
+    io,
+    show,
+    library,
+    youtube,
+    config,
+    listen,
+    close,
+    joinUrl,
+    get relay() {
+      return relay;
+    },
+    get port() {
+      return port;
+    },
+  };
 }
 
 // --- helpers -----------------------------------------------------------------
@@ -516,6 +579,19 @@ function safeEqual(a: string, b: string): boolean {
 function notFound(res: ServerResponse): void {
   res.writeHead(404, { 'content-type': 'text/plain' });
   res.end('Not found');
+}
+
+/** The online join link's settings: explicit option, else shared/cloud.ts with env overrides. */
+function resolveCloud(opt: AppOptions['cloud']): { joinOrigin: string; transport: () => RelayTransport } | undefined {
+  if (opt === false) return undefined;
+  if (opt) return opt;
+  const c = {
+    joinOrigin: process.env.ENCORE_JOIN_ORIGIN || CLOUD.joinOrigin,
+    supabaseUrl: process.env.ENCORE_SUPABASE_URL || CLOUD.supabaseUrl,
+    supabaseKey: process.env.ENCORE_SUPABASE_KEY || CLOUD.supabaseKey,
+  };
+  if (!cloudConfigured(c) || process.env.ENCORE_ONLINE_JOIN === '0') return undefined;
+  return { joinOrigin: c.joinOrigin, transport: () => supabaseTransport(c.supabaseUrl, c.supabaseKey) };
 }
 
 /** The address phones on the same Wi-Fi can reach this laptop at. */

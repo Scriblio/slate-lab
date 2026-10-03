@@ -649,10 +649,11 @@ export class Show {
     };
   }
 
-  displayView(list: UpcomingItem[], joinUrl: string, primary: boolean, mediaKey: string): DisplayView {
+  displayView(list: UpcomingItem[], joinUrl: string, joinLabel: string, primary: boolean, mediaKey: string): DisplayView {
     return {
       showName: this.state.settings.showName,
       joinUrl,
+      joinLabel,
       nowPlaying: this.state.nowPlaying,
       upNext: list.slice(0, 3).map((u) => ({ singerName: u.singer.name, title: u.entry.song.title, artist: u.entry.song.artist })),
       volume: this.state.settings.volume,
