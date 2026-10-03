@@ -2,7 +2,7 @@
 // https://sing.scriblio.co) into dist-sing/, ready for any static host.
 
 import react from '@vitejs/plugin-react';
-import { readFile, rename, writeFile } from 'node:fs/promises';
+import { copyFile, readFile, rename, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { build } from 'vite';
 
@@ -22,6 +22,21 @@ await build({
   build: { outDir: out, emptyOutDir: true, rollupOptions: { input: { sing: join(client, 'sing.html') } } },
 });
 await rename(join(out, 'sing.html'), join(out, 'index.html'));
+
+// Icons from the app's artwork (see scripts/make-icons.mjs): a favicon.ico
+// wrapping the 256px PNG (ICO files may embed PNGs), and the home-screen icon.
+const png256 = await readFile(join(root, 'build/appx/Square44x44Logo.targetsize-256_altform-unplated.png'));
+const ico = Buffer.alloc(22);
+ico.writeUInt16LE(1, 2); // type: icon
+ico.writeUInt16LE(1, 4); // one image
+ico.writeUInt8(0, 6); // width 256
+ico.writeUInt8(0, 7); // height 256
+ico.writeUInt16LE(1, 10); // planes
+ico.writeUInt16LE(32, 12); // bits per pixel
+ico.writeUInt32LE(png256.length, 14);
+ico.writeUInt32LE(22, 18); // image data offset
+await writeFile(join(out, 'favicon.ico'), Buffer.concat([ico, png256]));
+await copyFile(join(root, 'build/appx/Square150x150Logo.scale-200.png'), join(out, 'apple-touch-icon.png'));
 
 // Hosting headers (strict CSP) come from vercel.json, which Vercel uses when
 // it builds from the repo. Copy them next to the page for other deploys, and

@@ -99,7 +99,7 @@ export async function createApp(opts: AppOptions) {
   // Only advertise the online link once its page actually loads, so a site
   // that's down (or not set up yet) can never strand singers.
   let joinPageOk = false;
-  let joinPageTimer: ReturnType<typeof setInterval> | undefined;
+  let joinPageTimer: ReturnType<typeof setTimeout> | undefined;
   async function checkJoinPage() {
     if (!cloud) return;
     const ok = await (cloud.checkJoinPage ?? (() => pageLoads(cloud.joinOrigin)))().catch(() => false);
@@ -107,6 +107,12 @@ export async function createApp(opts: AppOptions) {
       joinPageOk = ok;
       scheduleBroadcast();
     }
+  }
+  /** Check now, then again in a minute while the page is down, or in 15 while it's up. */
+  async function watchJoinPage() {
+    await checkJoinPage();
+    joinPageTimer = setTimeout(() => void watchJoinPage(), (joinPageOk ? 15 : 1) * 60_000);
+    joinPageTimer.unref?.();
   }
   const onlineReady = () => relay?.state === 'online' && joinPageOk;
   /** The link in the QR code: the secure online one while it works, else the Wi-Fi one. */
@@ -118,9 +124,7 @@ export async function createApp(opts: AppOptions) {
     identity ??= await loadIdentity(opts.dataDir);
     relay = new RelayHost({ transport: cloud.transport(), identity, localUrl: `http://127.0.0.1:${port}`, onState: scheduleBroadcast });
     relay.start();
-    await checkJoinPage();
-    joinPageTimer ??= setInterval(() => void checkJoinPage(), (joinPageOk ? 10 : 1) * 60_000);
-    joinPageTimer.unref?.();
+    if (!joinPageTimer) await watchJoinPage();
     scheduleBroadcast();
   }
 
@@ -519,7 +523,7 @@ export async function createApp(opts: AppOptions) {
   }
 
   async function close(): Promise<void> {
-    clearInterval(joinPageTimer);
+    clearTimeout(joinPageTimer);
     relay?.stop();
     show.dispose();
     await show.flush().catch(() => {});
