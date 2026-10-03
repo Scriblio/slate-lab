@@ -74,6 +74,13 @@ export type DjAction =
   | { type: 'youtubeCheck'; videoId: string; ok: boolean; mode?: YouTubeMode }
   | { type: 'setConfig'; libraryFolders?: string[]; filenameOrder?: FilenameOrder; onlineJoin?: boolean };
 
+/** A Web Push subscription, as the browser's PushSubscription.toJSON() gives it. */
+export interface PushSubscriptionRef {
+  endpoint: string;
+  expirationTime?: number | null;
+  keys: { p256dh: string; auth: string };
+}
+
 export type SingerAction =
   | { type: 'request'; song: SongRef; note?: string }
   | { type: 'removeMyEntry'; entryId: string }
@@ -83,6 +90,9 @@ export type SingerAction =
   | { type: 'notNow' }
   /** Once called up: sing this instead (one of my songs, or a new one). */
   | { type: 'changeMySong'; song: SongRef }
+  /** Lock-screen alerts: send "you're up" to this phone even when it's locked. */
+  | { type: 'pushSubscribe'; subscription: PushSubscriptionRef }
+  | { type: 'pushUnsubscribe' }
   | { type: 'leave' };
 
 export interface ClientToServer {

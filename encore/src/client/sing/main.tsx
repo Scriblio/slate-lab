@@ -13,6 +13,7 @@ import { RelaySocket } from '../common/relay-socket.ts';
 import * as I from '../common/icons.tsx';
 import { ToastProvider } from '../common/ui.tsx';
 import { JoinApp } from '../join/JoinApp.tsx';
+import { browserAlerts } from './alerts.ts';
 
 const target = parseJoinFragment(location.hash);
 const root = createRoot(document.getElementById('root')!);
@@ -36,6 +37,7 @@ if (!target || !CLOUD.supabaseUrl) {
         tokenKey={`encore.token.${target.room}`}
         showConnectionErrors
         offlineHint="Can’t reach the KJ right now. Their laptop may be offline. Keep this page open; it reconnects on its own."
+        alerts={browserAlerts()}
       />
     </ToastProvider>,
   );

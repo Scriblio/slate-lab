@@ -18,6 +18,7 @@ import { joinLink, supabaseTransport, type RelayTransport } from '../shared/rela
 import { loadConfig, saveConfig, type Config } from './config.ts';
 import { Library } from './library.ts';
 import { serveMedia } from './media.ts';
+import { PushNotifier, turnAlerts } from './push.ts';
 import { loadIdentity, RelayHost, type RelayIdentity } from './relay.ts';
 import { blockedMessage, Show, UserError } from './show.ts';
 import { YouTube } from './youtube.ts';
@@ -101,6 +102,10 @@ export async function createApp(opts: AppOptions) {
   // --- online join link ----------------------------------------------------------
 
   const cloud = resolveCloud(opts.cloud);
+  // Lock-screen alerts work only on the online join page (push needs https),
+  // and this laptop sends them itself, signed with its own key.
+  const push = cloud ? new PushNotifier({ dataDir: opts.dataDir, subject: cloud.joinOrigin, fetchImpl: opts.fetchImpl, log }) : undefined;
+  await push?.load(show.state.id);
   guard = new YouTubeGuard({
     dataDir: opts.dataDir,
     show,
@@ -308,6 +313,13 @@ export async function createApp(opts: AppOptions) {
         const id = socket.data.singerId;
         if (!id || !show.singer(id)) throw new UserError('Join the list first.');
         if (!rateOk(socket, 'action', 30, 60_000)) throw new UserError('Slow down a little and try again.');
+        if (action?.type === 'pushSubscribe' || action?.type === 'pushUnsubscribe') {
+          if (!push) throw new UserError('Lock-screen alerts aren’t available here.');
+          if (action.type === 'pushSubscribe') push.subscribe(id, action.subscription);
+          else push.unsubscribe(id);
+          scheduleBroadcast();
+          return null;
+        }
         return show.singerAction(id, action);
       }),
     );
@@ -391,6 +403,7 @@ export async function createApp(opts: AppOptions) {
         return show.removeSinger(a.singerId);
       case 'mergeSingers': {
         show.mergeSingers(a.fromId, a.intoId);
+        push?.transfer(a.fromId, a.intoId);
         // Phones signed in as the duplicate now act as the merged singer.
         for (const raw of io.sockets.sockets.values()) {
           const s = raw as IoSocket;
@@ -452,6 +465,7 @@ export async function createApp(opts: AppOptions) {
         return show.updateSettings({ volume: Number(a.volume) });
       case 'newShow': {
         const old = show.newShow();
+        push?.reset(show.state.id);
         await archive(old);
         io.to('singer').emit('singer:removed');
         return null;
@@ -532,6 +546,10 @@ export async function createApp(opts: AppOptions) {
   function broadcast() {
     const list = show.upcoming(50);
     const displays = displaySockets();
+    if (push) {
+      push.retain(new Set(show.state.singers.map((s) => s.id)));
+      push.update(turnAlerts(show.state, list), onlineJoinUrl());
+    }
     const dj: DjView = {
       show: show.state,
       upcoming: list,
@@ -559,7 +577,9 @@ export async function createApp(opts: AppOptions) {
         void s.leave(`singer:${s.data.singerId}`);
         s.data.singerId = undefined;
       }
-      s.emit('singer:view', show.singerView(s.data.singerId, list, youtube.canSearch));
+      const view = show.singerView(s.data.singerId, list, youtube.canSearch);
+      const id = s.data.singerId;
+      s.emit('singer:view', push ? { ...view, push: { key: push.publicKey, on: Boolean(id && push.has(id)) } } : view);
     }
   }
 
@@ -592,6 +612,8 @@ export async function createApp(opts: AppOptions) {
     relay?.stop();
     show.dispose();
     await show.flush().catch(() => {});
+    await push?.settle();
+    await push?.flush();
     io.disconnectSockets(true);
     await new Promise<void>((ok) => io.close(() => ok()));
     await vite?.close();
@@ -604,6 +626,7 @@ export async function createApp(opts: AppOptions) {
     library,
     youtube,
     config,
+    push,
     listen,
     close,
     joinUrl,

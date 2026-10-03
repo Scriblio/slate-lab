@@ -107,6 +107,15 @@ There are two ways in, and Encore picks one automatically:
 
 The online link's room and key are saved in the data folder, so a printed QR code keeps working from night to night.
 
+### Lock-screen alerts
+
+With the online link, singers can turn on **Alerts when my phone is locked** under *My songs*. Their phone then gets a notification when they're next and again when they're called up, even with the page closed or the phone in a pocket. Notifications collapse into one, so "you're up next" becomes "it's your turn".
+
+- **The laptop sends the alerts itself** through the phone browser's own push service (Web Push). It signs them with a key made on that laptop (`data/push.json`) and encrypts them end to end, so there's no shared secret, and the push services see only ciphertext.
+- **They work on Android and desktop browsers** right away. iPhones (iOS 16.4 or newer) allow them only from a home-screen web app, so the page explains how: *Share → Add to Home Screen*, then get back in with the rejoin code.
+- **The Wi-Fi link can't offer alerts.** Browsers allow push only on secure (https) pages.
+- **Subscriptions last for tonight only.** They're forgotten when the singer leaves or a new show starts.
+
 To host the online join page yourself, set `supabaseUrl` and `supabaseKey` in `src/shared/cloud.ts` (a Supabase project's URL and publishable key). Then run `npm run build:sing` and deploy `dist-sing/` to any static host (it includes a `vercel.json`). Point `joinOrigin` at that address.
 
 ## Other devices
@@ -137,6 +146,7 @@ How the code is organized:
 - `src/client/cdg/decoder.ts` is a CD+G decoder written from scratch, so MP3+G lyrics render on a canvas in sync with the audio.
 - `src/server/zip.ts` reads zipped MP3+G tracks with no dependencies.
 - `src/shared/relay.ts`, `src/server/relay.ts` and `src/client/common/relay-socket.ts` make up the encrypted online join link (P-256 ECDH, HKDF and AES-GCM over Supabase Realtime). On the laptop, each phone becomes an ordinary singer connection, so the online and Wi-Fi links follow the same rules.
+- `src/server/webpush.ts` and `src/server/push.ts` send the lock-screen alerts: VAPID signing and RFC 8291 encryption with Node's own crypto, and the turn tracking that decides who to alert. `src/sw/sw.js` is the join page's service worker that shows them, and `src/client/sing/alerts.ts` subscribes the phone.
 - `src/desktop/` is the Electron shell. It runs the same server in-process and adds native windows, the folder picker and menus. `scripts/build-desktop.mjs` bundles it, `electron-builder.yml` packages it, and `npm run icons` redraws the icons in `build/`.
 
 ## Ideas for next

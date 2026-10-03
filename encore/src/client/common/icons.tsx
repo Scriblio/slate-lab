@@ -16,6 +16,12 @@ export const Mic = (p: P) => (
     <path d="M5 11a7 7 0 0 0 14 0M12 18v4M8 22h8" />
   </Svg>
 );
+export const Bell = (p: P) => (
+  <Svg {...p}>
+    <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+    <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+  </Svg>
+);
 export const Play = (p: P) => (
   <Svg {...p}>
     <path d="M7 4.5v15a1 1 0 0 0 1.5.86l12.5-7.5a1 1 0 0 0 0-1.72L8.5 3.64A1 1 0 0 0 7 4.5Z" fill="currentColor" stroke="none" />

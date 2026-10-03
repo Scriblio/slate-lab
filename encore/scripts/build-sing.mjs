@@ -37,6 +37,12 @@ ico.writeUInt32LE(png256.length, 14);
 ico.writeUInt32LE(22, 18); // image data offset
 await writeFile(join(out, 'favicon.ico'), Buffer.concat([ico, png256]));
 await copyFile(join(root, 'build/appx/Square150x150Logo.scale-200.png'), join(out, 'apple-touch-icon.png'));
+await writeFile(join(out, 'icon-256.png'), png256);
+
+// Lock-screen alerts: the service worker that shows them, and the web app
+// manifest iPhones need before they allow alerts (from the home screen).
+await copyFile(join(root, 'src/sw/sw.js'), join(out, 'sw.js'));
+await copyFile(join(root, 'src/sw/manifest.webmanifest'), join(out, 'manifest.webmanifest'));
 
 // The YouTube player page Encore embeds (see src/client/common/youtube-embed.ts).
 await copyFile(join(root, 'src/ytframe/yt-frame.html'), join(out, 'yt-frame.html'));
@@ -52,6 +58,11 @@ const frameRule = vercel.headers.find((r) => r.source.startsWith('/yt-frame'));
 const frameHeader = (k) => frameRule?.headers.find((h) => h.key === k)?.value ?? '';
 if (!frameRule || frameHeader('Referrer-Policy') === 'no-referrer' || !frameHeader('Content-Security-Policy').includes('frame-ancestors http: https:')) {
   throw new Error('vercel.json needs a /yt-frame rule that sends a Referer and allows framing.');
+}
+// Phones must always fetch the latest service worker, or a fix could take a day to reach them.
+const swRule = vercel.headers.find((r) => r.source === '/sw.js');
+if (!swRule?.headers.some((h) => h.key === 'Cache-Control' && /no-cache|max-age=0/.test(h.value))) {
+  throw new Error('vercel.json needs a /sw.js rule with Cache-Control: no-cache.');
 }
 if (supabaseUrl && !csp.includes(supabaseUrl)) {
   throw new Error(`vercel.json's Content-Security-Policy must allow ${supabaseUrl} (connect-src https and wss).`);

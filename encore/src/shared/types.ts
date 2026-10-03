@@ -209,6 +209,11 @@ export interface SingerView {
   nowPlaying: { singerName: string; title?: string; artist?: string; stage: Stage; isMe: boolean } | null;
   upcoming: { singerName: string; title?: string; artist?: string; isMe: boolean; etaSec: number }[];
   mode: RotationMode;
+  /**
+   * Lock-screen alerts (only with the online link): the key phones subscribe
+   * with, and whether this singer has alerts on.
+   */
+  push?: { key: string; on: boolean };
 }
 
 /** What the venue screen sees. */

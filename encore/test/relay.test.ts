@@ -16,7 +16,8 @@ import {
   seal,
   type JoinTarget,
 } from '../src/shared/relay.ts';
-import type { DjView, SearchResult } from '../src/shared/types.ts';
+import type { DjView, SearchResult, SingerView } from '../src/shared/types.ts';
+import { phoneKeys, pushService } from './pushkit.ts';
 
 describe('relay crypto', () => {
   it('gives both ends the same keys, and nobody else', async () => {
@@ -62,6 +63,7 @@ describe('online join link, end to end', () => {
   let target: JoinTarget;
   let pageUp = true;
   const cleanup: (() => void)[] = [];
+  const pushSvc = pushService();
 
   const ack = <T,>(s: { emit(ev: string, ...a: unknown[]): unknown }, ev: string, ...args: unknown[]) =>
     new Promise<T>((ok, fail) => s.emit(ev, ...args, (r: { ok: boolean; data?: T; error?: string }) => (r.ok ? ok(r.data as T) : fail(new Error(r.error)))));
@@ -84,6 +86,7 @@ describe('online join link, end to end', () => {
       quiet: true,
       cloud: { joinOrigin: 'https://sing.example', transport: () => hub.transport(), checkJoinPage: async () => pageUp },
       youtubeProxy: false,
+      fetchImpl: pushSvc.fetch,
     });
     await app.listen();
     await until(() => app.relay?.state === 'online');
@@ -139,6 +142,40 @@ describe('online join link, end to end', () => {
     await new Promise((r) => dj.on('connect', () => r(null)));
     await ack(dj, 'dj:action', { type: 'notKaraoke', entryId: id });
     expect((await told).text).toMatch(/isn’t a karaoke version/);
+  });
+
+  it('sends a lock-screen alert from the laptop when the singer is called up', async () => {
+    const p = phone();
+    await new Promise((r) => p.on('connect', r));
+    let view: SingerView | undefined;
+    p.on('singer:view', (v) => (view = v as SingerView));
+    await ack(p, 'singer:join', 'Marshall');
+    await until(() => Boolean(view?.me && view.push));
+    expect(view!.push).toEqual({ key: app.push!.publicKey, on: false });
+
+    const keys = phoneKeys();
+    const endpoint = 'https://fcm.googleapis.com/fcm/send/marshall-eriksen';
+    await ack(p, 'singer:action', { type: 'pushSubscribe', subscription: { endpoint, expirationTime: null, keys: keys.keys } });
+    await until(() => view!.push?.on === true);
+    const id = await ack<string>(p, 'singer:action', { type: 'request', song: { kind: 'youtube', videoId: 'pushpushpus', title: 'Push It' } });
+
+    const dj = connect(`http://127.0.0.1:${app.port}`, { auth: { role: 'dj' }, transports: ['websocket'], forceNew: true });
+    cleanup.push(() => dj.disconnect());
+    await new Promise((r) => dj.on('connect', () => r(null)));
+    await ack(dj, 'dj:action', { type: 'callEntry', entryId: id });
+    await until(() => pushSvc.messages(endpoint, keys).some((m) => m.kind === 'called'));
+    expect(pushSvc.messages(endpoint, keys).find((m) => m.kind === 'called')).toEqual({
+      kind: 'called',
+      title: 'It’s your turn!',
+      body: 'Head to the stage for “Push It”.',
+      url: app.joinUrl(),
+    });
+    // The subscription reached the laptop through the encrypted relay, like everything else.
+    expect(JSON.stringify(hub.log)).not.toContain('marshall-eriksen');
+
+    await ack(dj, 'dj:action', { type: 'stop' });
+    await ack(p, 'singer:action', { type: 'pushUnsubscribe' });
+    await until(() => view!.push?.on === false);
   });
 
   it('only allows singer events through the relay', async () => {

@@ -15,7 +15,7 @@ Encore is a karaoke hosting (KJ) app by Scriblio (Matthew Lancaster). It's being
 | --- | --- |
 | Install | `npm ci` (use `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci` if you don't need Electron) |
 | Typecheck | `npm run typecheck` |
-| Tests | `npm test` (123 tests) |
+| Tests | `npm test` (143 tests) |
 | Run with a demo library | `npm run demo`, then open http://localhost:4747/dj (venue screen at `/display`, phone page at `/join`) |
 | Desktop app | `npm run build:desktop && npm run desktop` |
 | Windows installer | built by GitHub Actions on every push to the branch: download the "Encore-Karaoke-Windows" artifact from the run; `npm run dist:win` needs Windows |
@@ -31,6 +31,7 @@ Encore is a karaoke hosting (KJ) app by Scriblio (Matthew Lancaster). It's being
 - **Online join link:** phones on `https://sing.scriblio.co/#<room>.<key>` (Vercel) reach the laptop through an end-to-end encrypted relay over Supabase Realtime (`src/shared/relay.ts`, `src/server/relay.ts`).
 - **YouTube search:** goes through one Supabase Edge Function that holds the only API key (`supabase/functions/youtube-search`). YouTube's policies allow one API project per app, and KJs never need a key.
 - **YouTube playback:** uses YouTube's own player, loaded from `https://sing.scriblio.co/yt-frame` (`src/ytframe/`), falling back to a direct embed (`src/client/common/youtube-embed.ts`).
+- **Lock-screen alerts:** on the online link only, a phone can subscribe to Web Push (`src/client/sing/alerts.ts`, service worker `src/sw/sw.js`). The laptop sends the alerts itself when a singer is next and when they're called (`src/server/push.ts`, `src/server/webpush.ts`). They're signed with a key made per installation (`data/push.json`), so there's no cloud piece and no shared secret. The laptop only sends to the browsers' own push services (an allowlist), so a phone can't point it anywhere else.
 - **Refused videos:** `src/server/ytguard.ts` remembers videos YouTube refuses to play here, and ones the KJ marked "Not karaoke" (30 days, ids only). It swaps refused requests for another version of the same song.
 
 ## Infrastructure (set up by Matthew; never commit secrets)
@@ -59,6 +60,11 @@ The YouTube API Services policies apply because Encore uses the search API. Brea
 
 ## Done recently (all on the branch, tested)
 
+- **Lock-screen alerts (Web Push):** "Alerts when my phone is locked" in My songs, on the online link.
+  - The laptop pushes "You're up next!" and then "It's your turn!", once per turn, with a 2-minute cooldown if the KJ rearranges the list.
+  - If the laptop restarts, phones quietly subscribe again.
+  - iPhones get Add to Home Screen steps.
+  - The encryption is tested against RFC 8291's worked example.
 - **Online join link, and one spot per singer:** rejoin codes, reclaim, and a KJ merge.
 - **Built-in YouTube search:** a shared cache, daily caps, and Terms/Privacy links.
 - **Refused-video handling:**
@@ -77,12 +83,13 @@ The YouTube API Services policies apply because Encore uses the search API. Brea
 1. **Real-world checks** (the cloud sandbox couldn't reach YouTube):
    - YouTube playback through the site-hosted player;
    - whether it plays more videos than before;
-   - vibration, chime and wake lock on real iPhone and Android phones.
+   - vibration, chime and wake lock on real iPhone and Android phones;
+   - lock-screen alerts on a real Android phone (Chrome), and on an iPhone from the home screen. Check whether the home-screen app reopens straight into the show: the manifest has no `start_url`, so it should keep the link from the QR code. If it doesn't, the singer can still get back in with their rejoin code.
 2. **YouTube quota extension:** apply through the YouTube API Services audit before launch. The free quota is about 99 uncached searches a day across all customers. Caps can be raised with the Supabase secrets `YT_DAILY_SEARCHES`, `YT_DAILY_PER_INSTALL` and `YT_DAILY_PER_IP`.
 3. **Terms of Use:** say that users of YouTube features agree to the YouTube Terms of Service. Finish `PRIVACY.md` (placeholders in brackets) and host it.
 4. **Microsoft Store:** fill in the Partner Center identity values in `electron-builder.yml` (see `STORE.md`).
 5. **Ideas Matthew liked but didn't build yet:**
    - a tighter YouTube query using YouTube's own NOT operators (e.g. `-reaction -tutorial`);
-   - an "Approve YouTube requests only" setting;
-   - web push, so locked phones get the "you're up" alert (on iPhone, only for home-screen web apps).
+   - an "Approve YouTube requests only" setting.
+   - **Next up (agreed):** key change for library songs (not YouTube, which the policies and YouTube's player rule out). The KJ gets a −/+ semitone control on the stage card, and singers can ask for a key with their request, remembered per singer and song.
 6. **After merging PR #4:** switch Vercel's production branch back to `main`.

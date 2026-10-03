@@ -9,6 +9,7 @@ import { chime, unlockChime } from '../common/chime.ts';
 import * as I from '../common/icons.tsx';
 import { connect, request, safeGet, safeSet, useConnection, type AppSocket, type ServerError } from '../common/socket.ts';
 import { Eq, SongThumb, SourceBadge, useAction, useDebounced, useTick, useToast, YouTubeTerms } from '../common/ui.tsx';
+import type { LockScreenAlerts } from '../sing/alerts.ts';
 
 type Tab = 'search' | 'mine' | 'line';
 
@@ -20,10 +21,14 @@ export interface JoinAppProps {
   offlineHint?: string;
   /** Show the connection's own error messages (the online link's are written for people). */
   showConnectionErrors?: boolean;
+  /** Lock-screen alerts (the online link only: push needs https). */
+  alerts?: LockScreenAlerts;
 }
 
-export function JoinApp({ socket: given, tokenKey = 'encore.token', offlineHint, showConnectionErrors }: JoinAppProps = {}) {
+export function JoinApp({ socket: given, tokenKey = 'encore.token', offlineHint, showConnectionErrors, alerts }: JoinAppProps = {}) {
   const TOKEN_KEY = tokenKey;
+  /** Set while this phone wants lock-screen alerts for tonight's spot. */
+  const ALERTS_KEY = `${tokenKey}.alerts`;
   const socket = useMemo(() => given ?? connect('singer'), [given]);
   const conn = useConnection(socket);
   const [view, setView] = useState<SingerView | null>(null);
@@ -51,6 +56,7 @@ export function JoinApp({ socket: given, tokenKey = 'encore.token', offlineHint,
       request(socket, 'singer:resume', token)
         .catch(() => {
           safeSet(TOKEN_KEY, null);
+          safeSet(ALERTS_KEY, null);
           setNotice('Your spot from last time has ended. Join again to sing!');
         })
         .finally(() => setResuming(false));
@@ -58,6 +64,7 @@ export function JoinApp({ socket: given, tokenKey = 'encore.token', offlineHint,
     const onRemoved = () => {
       if (safeGet(TOKEN_KEY)) setNotice('The KJ cleared the list. Join again to sing!');
       safeSet(TOKEN_KEY, null);
+      safeSet(ALERTS_KEY, null);
     };
     const onError = (e: Error) => setConnError(e.message);
     const onUp = () => setConnError(null);
@@ -92,7 +99,7 @@ export function JoinApp({ socket: given, tokenKey = 'encore.token', offlineHint,
         </div>
       )}
       {view.me ? (
-        <Main socket={socket} view={view} receivedAt={receivedAt} tab={tab} setTab={setTab} />
+        <Main socket={socket} view={view} receivedAt={receivedAt} tab={tab} setTab={setTab} alerts={alerts} alertsKey={ALERTS_KEY} />
       ) : (
         <JoinScreen
           view={view}
@@ -287,12 +294,16 @@ function Main({
   receivedAt,
   tab,
   setTab,
+  alerts,
+  alertsKey,
 }: {
   socket: ReturnType<typeof connect>;
   view: SingerView;
   receivedAt: number;
   tab: Tab;
   setTab: (t: Tab) => void;
+  alerts?: LockScreenAlerts;
+  alertsKey: string;
 }) {
   const me = view.me!;
   const now = useTick(15_000);
@@ -344,6 +355,22 @@ function Main({
 
   const call = (action: SingerAction) => request(socket, 'singer:action', action);
 
+  // The laptop forgot this phone's alerts (it restarted, say): quietly hand it
+  // the subscription again, once, if this phone turned alerts on tonight.
+  const resent = useRef(false);
+  const pushOn = view.push?.on;
+  const pushKey = view.push?.key;
+  useEffect(() => {
+    if (pushOn) resent.current = false;
+    if (!alerts || alerts.support !== 'ready' || !pushKey || pushOn !== false || resent.current) return;
+    if (safeGet(alertsKey) !== '1' || alerts.permission() !== 'granted') return;
+    resent.current = true;
+    alerts
+      .current(pushKey)
+      .then((subscription) => (subscription ? call({ type: 'pushSubscribe', subscription }) : safeSet(alertsKey, null)))
+      .catch(() => {});
+  }, [pushOn, pushKey]);
+
   return (
     <div className="app">
       <header className="app-head">
@@ -369,7 +396,7 @@ function Main({
             onReplaceDone={() => setReplacing(false)}
           />
         )}
-        {tab === 'mine' && <MineTab view={view} call={call} goSearch={() => setTab('search')} />}
+        {tab === 'mine' && <MineTab view={view} call={call} goSearch={() => setTab('search')} alerts={alerts} alertsKey={alertsKey} />}
         {tab === 'line' && <LineTab view={view} elapsed={elapsed} />}
       </main>
 
@@ -902,7 +929,19 @@ function AddSheet({
 
 // --- my songs ----------------------------------------------------------------
 
-function MineTab({ view, call, goSearch }: { view: SingerView; call: (a: SingerAction) => Promise<unknown>; goSearch: () => void }) {
+function MineTab({
+  view,
+  call,
+  goSearch,
+  alerts,
+  alertsKey,
+}: {
+  view: SingerView;
+  call: (a: SingerAction) => Promise<unknown>;
+  goSearch: () => void;
+  alerts?: LockScreenAlerts;
+  alertsKey: string;
+}) {
   const run = useAction();
   const me = view.me!;
   const act = (a: SingerAction, ok?: string) => run(() => call(a), ok);
@@ -941,6 +980,7 @@ function MineTab({ view, call, goSearch }: { view: SingerView; call: (a: SingerA
       )}
       {view.myEntries.length > 1 && <p className="fine center">Your top song is the one you’ll sing next. Use the arrows to change it.</p>}
       <div className="mine-actions">
+        <AlertsSetting view={view} call={call} alerts={alerts} alertsKey={alertsKey} />
         <div className="row-setting">
           <div>
             <strong>Taking a break</strong>
@@ -971,6 +1011,76 @@ function MineTab({ view, call, goSearch }: { view: SingerView; call: (a: SingerA
           </button>
         )}
       </div>
+    </div>
+  );
+}
+
+/** Lock-screen alerts: a buzz when you're next and when it's your turn, even with the phone locked. */
+function AlertsSetting({
+  view,
+  call,
+  alerts,
+  alertsKey,
+}: {
+  view: SingerView;
+  call: (a: SingerAction) => Promise<unknown>;
+  alerts?: LockScreenAlerts;
+  alertsKey: string;
+}) {
+  const run = useAction();
+  const [busy, setBusy] = useState(false);
+  const push = view.push;
+  if (!alerts || !push || alerts.support === 'none') return null;
+
+  if (alerts.support === 'home-screen')
+    return (
+      <div className="row-setting alerts-howto">
+        <I.Bell />
+        <div>
+          <strong>Want a buzz when it’s your turn?</strong>
+          <span className="muted">
+            On iPhone, alerts work from your home screen: tap Share, then “Add to Home Screen”. Open it from your home screen, tap “Get back in” with your
+            rejoin code <b className="code-chip">{view.me!.code}</b>, then turn on alerts in My songs.
+          </span>
+        </div>
+      </div>
+    );
+
+  const blocked = !push.on && alerts.permission() === 'denied';
+  // Called straight from the switch, so the browser sees the permission request come from a tap.
+  const toggle = async (on: boolean) => {
+    setBusy(true);
+    await run(
+      async () => {
+        if (on) {
+          const subscription = await alerts.enable(push.key);
+          await call({ type: 'pushSubscribe', subscription });
+          safeSet(alertsKey, '1');
+        } else {
+          safeSet(alertsKey, null);
+          await call({ type: 'pushUnsubscribe' });
+          await alerts.disable().catch(() => {});
+        }
+      },
+      on ? 'Alerts are on. We’ll buzz you when you’re up.' : 'Alerts are off',
+    );
+    setBusy(false);
+  };
+
+  return (
+    <div className="row-setting">
+      <div>
+        <strong>Alerts when my phone is locked</strong>
+        <span className="muted">
+          {blocked
+            ? 'Alerts are blocked for this site. Allow them in your browser’s settings to turn this on.'
+            : 'A buzz when you’re next and when it’s your turn, even with your phone in your pocket.'}
+        </span>
+      </div>
+      <label className="switch">
+        <input type="checkbox" checked={push.on} disabled={busy || blocked} onChange={(e) => void toggle(e.target.checked)} aria-label="Alerts when my phone is locked" />
+        <span />
+      </label>
     </div>
   );
 }

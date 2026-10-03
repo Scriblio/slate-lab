@@ -20,14 +20,16 @@ On the KJ's computer, in Encore's data folder:
 - **Singer names** that singers type when they join, or that the KJ enters.
 - **Song requests and tonight's history:** which singer sang which song, and when.
 - **Settings:** the show name, the KJ's music folder locations, the DJ PIN, and a random installation ID (used only to share YouTube search limits fairly).
+- **Lock-screen alert subscriptions**, for singers who turn alerts on: the address the phone's push service gave their browser, and the keys to encrypt alerts to it. They're kept for tonight's show only and deleted when the singer leaves or the KJ starts a new show.
 
 When the KJ starts a new show, the previous show's list is archived in the same data folder. The KJ can delete the folder at any time; menu **Show → Open Data Folder** opens it.
 
-On a singer's phone, the browser keeps a random code so the singer keeps their place if the page reloads, plus the name they last used. Nothing else is stored on the phone.
+On a singer's phone, the browser keeps a random code so the singer keeps their place if the page reloads, plus the name they last used. If they turn on lock-screen alerts, it also keeps their browser's push subscription and a note that alerts are on. Nothing else is stored on the phone.
 
 ## What is shared over the network
 
 - **Online join link:** the QR code may open a page at [sing.scriblio.co], hosted by Vercel. The phone and the KJ's computer then exchange messages through Supabase Realtime. Those messages are encrypted end to end with a key that exists only in the QR code and on the two devices, so neither [Scriblio], Vercel nor Supabase can read names or song requests. Like any website, Vercel and Supabase see connection details such as IP addresses and timing, under their own privacy policies. The KJ can turn the online link off in Settings.
+- **Lock-screen alerts (only if a singer turns them on):** the KJ's computer sends "you're up" notifications through the push service of the singer's browser (Apple, Google, Mozilla or Microsoft, depending on the browser). Each notification is encrypted end to end, so the push service can't read it. Like any delivery service, it sees that a notification was sent, when, and its size, under its own privacy policy. [Scriblio] isn't involved.
 - **On the venue's local network:** with the Wi-Fi link, phones connect directly to the KJ's computer to join the list and request songs. Other singers' phones see singer names in the queue and the song currently being performed. They see upcoming song titles only if the KJ turns that on.
 - **With YouTube (Google), only when YouTube features are used:**
   - YouTube videos play through YouTube's embedded player, which loads inside a page on [sing.scriblio.co] (hosted by Vercel) so YouTube can tell which site is embedding it. Vercel sees that the page was loaded, like any website. Nothing about the show is sent to it.
