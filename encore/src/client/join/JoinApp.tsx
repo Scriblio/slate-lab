@@ -791,6 +791,41 @@ function ResultRow({ r, onPick, disabled }: { r: SearchResult; onPick: () => voi
   );
 }
 
+/**
+ * Try a YouTube song on your phone before picking it. Loads only when tapped,
+ * to save data, in YouTube's own player (privacy-enhanced embed).
+ */
+function PhonePreview({ videoId, thumbnail }: { videoId: string; thumbnail?: string }) {
+  const [on, setOn] = useState(false);
+  // A new song in the sheet starts unloaded again.
+  useEffect(() => setOn(false), [videoId]);
+  if (!on)
+    return (
+      <button
+        className="phone-preview idle"
+        style={thumbnail ? { backgroundImage: `url(${thumbnail})` } : undefined}
+        onClick={() => setOn(true)}
+        aria-label="Preview this song"
+      >
+        <span>
+          <I.Play /> Preview
+        </span>
+      </button>
+    );
+  return (
+    <div className="phone-preview">
+      <iframe
+        src={`https://www.youtube-nocookie.com/embed/${encodeURIComponent(videoId)}?autoplay=1&playsinline=1&rel=0`}
+        title="Song preview"
+        allow="autoplay; encrypted-media; picture-in-picture"
+        allowFullScreen
+        // This page sends no referrer, but YouTube needs one to know which site is embedding it.
+        referrerPolicy="strict-origin-when-cross-origin"
+      />
+    </div>
+  );
+}
+
 function AddSheet({
   result,
   onClose,
@@ -820,6 +855,11 @@ function AddSheet({
             <SourceBadge song={song} />
           </div>
         </div>
+        {song.source.kind === 'youtube' ? (
+          <PhonePreview videoId={song.source.videoId} thumbnail={song.thumbnail} />
+        ) : (
+          <p className="muted small preview-note">From the KJ’s own library. Previews are available for YouTube songs.</p>
+        )}
         {result.playedTonight && <div className="hint warn">Someone already sang or picked this tonight. You can still add it.</div>}
         {!replacing && (
           <>

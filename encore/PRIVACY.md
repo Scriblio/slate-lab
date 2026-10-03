@@ -32,6 +32,7 @@ On a singer's phone, the browser keeps a random code so the singer keeps their p
 - **With YouTube (Google), only when YouTube features are used:**
   - YouTube videos play through YouTube's embedded player, which loads inside a page on [sing.scriblio.co] (hosted by Vercel) so YouTube can tell which site is embedding it. Vercel sees that the page was loaded, like any website. Nothing about the show is sent to it.
   - Encore remembers, on the KJ's computer only, the ids of YouTube videos that wouldn't play there, for 30 days.
+  - When a singer taps **Preview** on a YouTube song, their phone loads YouTube's player (the privacy-enhanced youtube-nocookie.com version) directly from YouTube.
   - Searches made from Encore go to [Scriblio]'s YouTube search service (hosted by Supabase), which sends the search text to the YouTube Data API. The service receives the search text, the installation ID and the KJ computer's IP address. It keeps the search text and YouTube's results for up to 30 days so repeat searches don't use up the daily quota, and keeps a daily count of searches per installation ID and per IP address (the address only as a one-way hash that changes every day) for a few days. Singer names and song requests are never sent to it.
   - Thumbnails load from YouTube's servers.
 
