@@ -36,6 +36,15 @@ describe('relay crypto', () => {
     await expect(open(b.up, flipped)).rejects.toThrow();
   });
 
+  it('reports a broken link to listeners that attach late', async () => {
+    const hub = new MemoryHub();
+    const sock = new RelaySocket(hub.transport(), { room: 'abc234defg', hostKey: 'A'.repeat(87) });
+    await new Promise((r) => setTimeout(r, 50));
+    const err = await new Promise<Error>((r) => sock.on('connect_error', (e) => r(e as Error)));
+    expect(err.message).toMatch(/damaged/);
+    sock.disconnect();
+  });
+
   it('round-trips join links', async () => {
     const { publicKey } = await generateKeyPair();
     const link = joinLink('https://sing.example/', { room: 'abc234defg', hostKey: publicKey });

@@ -9,8 +9,9 @@
 
 export const CLOUD = {
   joinOrigin: 'https://sing.scriblio.co',
-  supabaseUrl: '',
-  supabaseKey: '',
+  // Supabase project "encore" (Scriblio org). Publishable key: safe to ship.
+  supabaseUrl: 'https://oohgawkfnwhjlqlihhju.supabase.co',
+  supabaseKey: 'sb_publishable_izlrNWtAjB1ilWhDeArfqA_p80ODhal',
 };
 
 export function cloudConfigured(c: { supabaseUrl: string; supabaseKey: string } = CLOUD): boolean {

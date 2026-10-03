@@ -31,7 +31,12 @@ if (!target || !CLOUD.supabaseUrl) {
   const socket = new RelaySocket(supabaseTransport(CLOUD.supabaseUrl, CLOUD.supabaseKey), target) as unknown as AppSocket;
   root.render(
     <ToastProvider>
-      <JoinApp socket={socket} tokenKey={`encore.token.${target.room}`} offlineHint="Can’t reach the KJ right now. Their laptop may be offline. Keep this page open; it reconnects on its own." />
+      <JoinApp
+        socket={socket}
+        tokenKey={`encore.token.${target.room}`}
+        showConnectionErrors
+        offlineHint="Can’t reach the KJ right now. Their laptop may be offline. Keep this page open; it reconnects on its own."
+      />
     </ToastProvider>,
   );
 }

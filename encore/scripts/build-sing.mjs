@@ -1,6 +1,5 @@
 // Builds the secure online join page (the site at the join origin, e.g.
 // https://sing.scriblio.co) into dist-sing/, ready for any static host.
-// It includes vercel.json with security headers for Vercel.
 
 import react from '@vitejs/plugin-react';
 import { readFile, rename, writeFile } from 'node:fs/promises';
@@ -24,33 +23,14 @@ await build({
 });
 await rename(join(out, 'sing.html'), join(out, 'index.html'));
 
-const realtime = supabaseUrl ? `${supabaseUrl} ${supabaseUrl.replace(/^https/, 'wss')}` : '';
-const csp = [
-  "default-src 'self'",
-  "script-src 'self'",
-  "style-src 'self' 'unsafe-inline'",
-  "font-src 'self'",
-  "img-src 'self' data: https://i.ytimg.com",
-  `connect-src 'self' ${realtime}`.trim(),
-  "frame-ancestors 'none'",
-  "base-uri 'none'",
-  "form-action 'none'",
-].join('; ');
-
-const vercel = {
-  cleanUrls: true,
-  headers: [
-    {
-      source: '/(.*)',
-      headers: [
-        { key: 'Content-Security-Policy', value: csp },
-        { key: 'Referrer-Policy', value: 'no-referrer' },
-        { key: 'X-Content-Type-Options', value: 'nosniff' },
-        { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
-      ],
-    },
-    { source: '/assets/(.*)', headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }] },
-  ],
-};
-await writeFile(join(out, 'vercel.json'), JSON.stringify(vercel, null, 2));
+// Hosting headers (strict CSP) come from vercel.json, which Vercel uses when
+// it builds from the repo. Copy them next to the page for other deploys, and
+// make sure the CSP allows the Supabase project the page talks to.
+const vercel = JSON.parse(await readFile(join(root, 'vercel.json'), 'utf8'));
+const csp = vercel.headers[0].headers.find((h) => h.key === 'Content-Security-Policy').value;
+if (supabaseUrl && !csp.includes(supabaseUrl)) {
+  throw new Error(`vercel.json's Content-Security-Policy must allow ${supabaseUrl} (connect-src https and wss).`);
+}
+const { headers, cleanUrls } = vercel;
+await writeFile(join(out, 'vercel.json'), JSON.stringify({ cleanUrls, headers }, null, 2));
 console.log('Built dist-sing/ (online join page)');

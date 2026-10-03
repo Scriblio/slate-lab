@@ -17,9 +17,11 @@ export interface JoinAppProps {
   /** Where this phone keeps its spot; the online link keeps one per room. */
   tokenKey?: string;
   offlineHint?: string;
+  /** Show the connection's own error messages (the online link's are written for people). */
+  showConnectionErrors?: boolean;
 }
 
-export function JoinApp({ socket: given, tokenKey = 'encore.token', offlineHint }: JoinAppProps = {}) {
+export function JoinApp({ socket: given, tokenKey = 'encore.token', offlineHint, showConnectionErrors }: JoinAppProps = {}) {
   const TOKEN_KEY = tokenKey;
   const socket = useMemo(() => given ?? connect('singer'), [given]);
   const conn = useConnection(socket);
@@ -28,6 +30,7 @@ export function JoinApp({ socket: given, tokenKey = 'encore.token', offlineHint 
   const [resuming, setResuming] = useState(() => Boolean(safeGet(TOKEN_KEY)));
   const [notice, setNotice] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>('search');
+  const [connError, setConnError] = useState<string | null>(null);
 
   useEffect(() => {
     const onView = (v: SingerView) => {
@@ -48,13 +51,19 @@ export function JoinApp({ socket: given, tokenKey = 'encore.token', offlineHint 
       if (safeGet(TOKEN_KEY)) setNotice('The KJ cleared the list. Join again to sing!');
       safeSet(TOKEN_KEY, null);
     };
+    const onError = (e: Error) => setConnError(e.message);
+    const onUp = () => setConnError(null);
     socket.on('singer:view', onView);
     socket.on('connect', onConnect);
+    socket.on('connect', onUp);
     socket.on('singer:removed', onRemoved);
+    socket.on('connect_error', onError);
     return () => {
       socket.off('singer:view', onView);
       socket.off('connect', onConnect);
+      socket.off('connect', onUp);
       socket.off('singer:removed', onRemoved);
+      socket.off('connect_error', onError);
     };
   }, [socket]);
 
@@ -62,7 +71,7 @@ export function JoinApp({ socket: given, tokenKey = 'encore.token', offlineHint 
     document.title = view ? `${view.showName} · Karaoke` : 'Join the Karaoke List';
   }, [view?.showName]);
 
-  if (!view || resuming) return <Splash offline={conn === 'offline'} hint={offlineHint} />;
+  if (!view || resuming) return <Splash offline={conn === 'offline'} hint={(showConnectionErrors && connError) || offlineHint} />;
 
   return (
     <>

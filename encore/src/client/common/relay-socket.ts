@@ -42,6 +42,8 @@ export class RelaySocket {
   private unsubscribe: (() => void) | undefined;
   private closed = false;
   private reportedOffline = false;
+  /** Last connection error, replayed to listeners that attach after it fired. */
+  private lastError: Error | undefined;
 
   constructor(
     private transport: RelayTransport,
@@ -51,12 +53,16 @@ export class RelaySocket {
   }
 
   private async start(): Promise<void> {
+    if (!globalThis.crypto?.subtle) {
+      this.fail(new Error('This browser can’t open the secure link. Update it, or join on the venue Wi-Fi instead.'));
+      return;
+    }
     try {
       const pair = await generateKeyPair();
       this.publicKey = pair.publicKey;
       this.keys = await deriveSessionKeys(pair.privateKey, this.target.hostKey, this.target.room);
     } catch {
-      this.fire('connect_error', new Error('This QR code link is damaged. Scan it again.'));
+      this.fail(new Error('This QR code link is damaged. Scan it again.'));
       return;
     }
     this.unsubscribe = this.transport.subscribe(
@@ -80,8 +86,13 @@ export class RelaySocket {
     if (now - this.lastSent > HELLO_EVERY) void this.post({ t: 'hello' });
     if (!this.reportedOffline && now - this.startedAt > GIVE_UP_FIRST) {
       this.reportedOffline = true;
-      this.fire('connect_error', new Error('The KJ’s laptop isn’t answering.'));
+      this.fail(new Error('The KJ’s laptop isn’t answering.'));
     }
+  }
+
+  private fail(err: Error): void {
+    this.lastError = err;
+    this.fire('connect_error', err);
   }
 
   private async post(msg: Record<string, unknown>): Promise<void> {
@@ -119,6 +130,7 @@ export class RelaySocket {
         if (this.connected) this.fire('disconnect', 'server restart');
         this.connected = true;
         this.reportedOffline = false;
+        this.lastError = undefined;
         this.fire('connect');
         const queued = this.queue.splice(0);
         for (const q of queued) this.send(q.ev, q.args, q.ack);
@@ -157,6 +169,10 @@ export class RelaySocket {
     let set = this.listeners.get(event);
     if (!set) this.listeners.set(event, (set = new Set()));
     set.add(fn);
+    // The app may attach its listeners after an early failure; don't let
+    // that leave it showing "Connecting…" forever.
+    const err = this.lastError;
+    if (event === 'connect_error' && err && !this.connected) queueMicrotask(() => set!.has(fn) && fn(err));
     return this;
   }
 
