@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { Song } from '../../shared/types.ts';
+import { CLOUD } from '../../shared/cloud.ts';
 import { Alert, Check, Disc, Film, Music, X, YouTube } from './icons.tsx';
 
 // --- toasts ------------------------------------------------------------------
@@ -171,7 +172,15 @@ export function YouTubeTerms({ short }: { short?: boolean }) {
     </span>
   ) : (
     <span className="yt-terms">
-      YouTube search is provided by YouTube; using it means agreeing to the {tos}. See also the {privacy}.
+      YouTube search is provided by YouTube; using it means agreeing to the {tos}. See also the {privacy}, and Encore's{' '}
+      <a href={`${CLOUD.joinOrigin}/privacy`} target="_blank" rel="noreferrer">
+        Privacy Policy
+      </a>{' '}
+      and{' '}
+      <a href={`${CLOUD.joinOrigin}/terms`} target="_blank" rel="noreferrer">
+        Terms of Use
+      </a>
+      .
     </span>
   );
 }

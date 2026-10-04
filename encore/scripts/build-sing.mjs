@@ -5,6 +5,7 @@ import react from '@vitejs/plugin-react';
 import { copyFile, readFile, rename, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { build } from 'vite';
+import { encorePage, page, renderMarkdown } from './site.mjs';
 
 const root = resolve(import.meta.dirname, '..');
 const client = join(root, 'src/client');
@@ -47,6 +48,18 @@ await copyFile(join(root, 'src/sw/manifest.webmanifest'), join(out, 'manifest.we
 // The YouTube player page Encore embeds (see src/client/common/youtube-embed.ts).
 await copyFile(join(root, 'src/ytframe/yt-frame.html'), join(out, 'yt-frame.html'));
 await copyFile(join(root, 'src/ytframe/yt-frame.js'), join(out, 'yt-frame.js'));
+
+// Encore's public page and its Privacy Policy and Terms of Use (see site.mjs).
+await writeFile(join(out, 'encore.html'), encorePage());
+await copyFile(join(root, 'src/site/encore-console.png'), join(out, 'encore-console.png'));
+for (const [file, name, title] of [
+  ['PRIVACY.md', 'privacy', 'Privacy Policy'],
+  ['TERMS.md', 'terms', 'Terms of Use'],
+]) {
+  const md = await readFile(join(root, file), 'utf8');
+  if (/\[(?:Scriblio|date|support email)[^\]]*\](?!\()/.test(md)) throw new Error(`${file} still has a placeholder in brackets.`);
+  await writeFile(join(out, `${name}.html`), page({ title: `Encore Karaoke: ${title}`, description: `Encore Karaoke's ${title}.`, body: renderMarkdown(md) }));
+}
 
 // Hosting headers (strict CSP) come from vercel.json, which Vercel uses when
 // it builds from the repo. Copy them next to the page for other deploys, and
