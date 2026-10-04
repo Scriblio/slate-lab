@@ -5,6 +5,11 @@ Encore runs on the KJ's laptop. It does three things:
 - **DJ console** (`/dj`): runs the rotation, the stage and song search.
 - **Venue screen** (`/display`): plays the song on the TV or projector, introduces each singer, and shows a QR code between songs.
 - **Phone sign-up** (`/join`): singers scan the code, type a name, pick a song and watch their place in line. They don't need an app or an account.
+- **Break music:** a folder of music and videos that plays between singers (Settings → *Break music*, separate from your karaoke library).
+  - Music-only files play over moving graphics that follow the sound; videos play full screen with a strip along the bottom for the QR code and the queue.
+  - It plays whenever nothing is on stage: between songs, while the next singer walks up, and with an empty list. It fades out when a song starts and comes back after.
+  - Tracks are shuffled, and nothing repeats until everything has played. The console's *Break music* card has Skip, Pause and its own volume, and a switch to turn it off.
+  - Encore doesn't bundle any music. Use your own, or royalty-free libraries (check each track's licence); commercial music in a venue needs the venue's public-performance licences.
 - **The song list on the phone:** under the search box, singers can scroll through your whole library, by artist or by title, and jump with an A–Z bar. Each song shows once, even if you have it in several formats. It loads a page at a time, so a library of tens of thousands of songs is fine. Turn it off in Settings (*Let singers browse the song list*) if you'd rather they only search.
 
 Songs come from your own library (MP4/MKV/WebM video, MP3+G, zipped MP3+G) or from YouTube, so a request the library doesn't have can still be played.

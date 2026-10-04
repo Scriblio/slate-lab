@@ -17,6 +17,7 @@ import { CLOUD, cloudConfigured } from '../shared/cloud.ts';
 import { joinLink, supabaseTransport, type RelayTransport } from '../shared/relay.ts';
 import { loadConfig, saveConfig, type Config } from './config.ts';
 import { KeyMemory } from './keys.ts';
+import { BreakMusic } from './breakmusic.ts';
 import { Library } from './library.ts';
 import { SongKeys } from './songkeys.ts';
 import type { SongKey } from '../shared/songkey.ts';
@@ -66,6 +67,7 @@ export async function createApp(opts: AppOptions) {
   await mkdir(opts.dataDir, { recursive: true });
   const config = await loadConfig(opts.dataDir);
   const library = new Library(config.filenameOrder);
+  const breakMusic = new BreakMusic();
   const proxy = resolveYouTubeProxy(opts.youtubeProxy);
   const youtube = new YouTube(config.youtubeApiKey, opts.fetchImpl, proxy && { ...proxy, installId: config.installId });
   const mediaKey = randomBytes(12).toString('base64url');
@@ -244,7 +246,9 @@ export async function createApp(opts: AppOptions) {
         res.writeHead(403);
         return void res.end();
       }
-      return serveMedia(library, media[1]!, media[2] as 'main' | 'cdg', req, res);
+      // Library songs, or a file from the break music folder.
+      const from = library.get(media[1]!) ? library : breakMusic.library;
+      return serveMedia(from, media[1]!, media[2] as 'main' | 'cdg', req, res);
     }
 
     const page = PAGES[path.replace(/\/$/, '')];
@@ -318,6 +322,7 @@ export async function createApp(opts: AppOptions) {
     socket.on('dj:config', (ack) =>
       respond(ack, () => ({
         libraryFolders: config.libraryFolders,
+        breakFolders: config.breakFolders,
         filenameOrder: config.filenameOrder,
         youtubeSearch: youtube.mode,
         djPin: config.djPin,
@@ -386,6 +391,14 @@ export async function createApp(opts: AppOptions) {
       }
     });
     socket.on('display:ended', (p) => fromPrimary() && p && show.ended(String(p.playId)));
+    socket.on('display:breakEnded', (p) => fromPrimary() && p && breakMusic.ended(Number(p.nonce)) && scheduleBroadcast());
+    socket.on('display:breakError', (p) => {
+      if (!fromPrimary() || !p) return;
+      if (breakMusic.failed(Number(p.nonce))) {
+        if (p.message) log(`  Break music: ${String(p.message).slice(0, 120)}`);
+        scheduleBroadcast();
+      }
+    });
     socket.on('display:error', (p) => {
       if (!fromPrimary() || !p) return;
       const np = show.state.nowPlaying;
@@ -566,6 +579,14 @@ export async function createApp(opts: AppOptions) {
       case 'rescanLibrary':
         void rescan();
         return null;
+      case 'breakSkip':
+        breakMusic.skip();
+        scheduleBroadcast();
+        return null;
+      case 'breakPause':
+        breakMusic.setPaused(typeof a.paused === 'boolean' ? a.paused : undefined);
+        scheduleBroadcast();
+        return null;
       case 'youtubeCheck':
         await ytGuard.report(String(a.videoId), Boolean(a.ok), a.mode);
         return null;
@@ -588,6 +609,10 @@ export async function createApp(opts: AppOptions) {
       config.libraryFolders = a.libraryFolders.map((f) => String(f).trim()).filter(Boolean).slice(0, 20);
       saved.libraryFolders = config.libraryFolders;
     }
+    if (a.breakFolders) {
+      config.breakFolders = a.breakFolders.map((f) => String(f).trim()).filter(Boolean).slice(0, 20);
+      saved.breakFolders = config.breakFolders;
+    }
     if (a.filenameOrder) {
       config.filenameOrder = a.filenameOrder === 'title-artist' ? 'title-artist' : 'artist-title';
       saved.filenameOrder = config.filenameOrder;
@@ -603,6 +628,7 @@ export async function createApp(opts: AppOptions) {
     // from environment variables are never written to disk.
     await saveConfig(opts.dataDir, saved as Config);
     if (a.libraryFolders || a.filenameOrder) void rescan();
+    if (a.breakFolders) void rescanBreak();
     scheduleBroadcast();
     return null;
   }
@@ -623,6 +649,30 @@ export async function createApp(opts: AppOptions) {
     log(`  Library: ${library.getStatus().trackCount} tracks from ${folders.length} folder(s)`);
   }
 
+  async function rescanBreak() {
+    if (breakMusic.library.getStatus().scanning) return;
+    await breakMusic.scan(config.breakFolders, scheduleBroadcast);
+    if (config.breakFolders.length) log(`  Break music: ${breakMusic.count} tracks from ${config.breakFolders.length} folder(s)`);
+    scheduleBroadcast();
+  }
+
+  /** Music plays whenever nothing is on stage: between songs, while the next singer walks up, and with an empty list. */
+  function breakIsOn(): boolean {
+    const np = show.state.nowPlaying;
+    return show.state.settings.breakMusic && breakMusic.count > 0 && (!np || np.stage === 'intro');
+  }
+  let breakWasOn = false;
+  /** Starts a fresh track when a break begins, and lets go of the pause when it ends. */
+  function updateBreak(): boolean {
+    const on = breakIsOn();
+    if (on !== breakWasOn) {
+      breakWasOn = on;
+      if (on) breakMusic.startBreak();
+      else breakMusic.endBreak();
+    } else if (on) breakMusic.ensureTrack();
+    return on;
+  }
+
   // --- views -----------------------------------------------------------------
 
   function displaySockets(): IoSocket[] {
@@ -638,6 +688,7 @@ export async function createApp(opts: AppOptions) {
 
   function broadcast() {
     const list = show.upcoming(50);
+    const breakOn = updateBreak();
     const displays = displaySockets();
     if (push) {
       push.retain(new Set(show.state.singers.map((s) => s.id)));
@@ -662,9 +713,15 @@ export async function createApp(opts: AppOptions) {
       displays: displays.length,
       mediaKey,
       songKeys: songKeys.pick(trackIds(show.state.nowPlaying ? [show.state.nowPlaying.entry, ...show.state.entries] : show.state.entries)),
+      breakMusic: breakMusic.status(breakOn),
     };
     io.to('dj').emit('dj:view', dj);
-    displays.forEach((s, i) => s.emit('display:view', show.displayView(list, joinUrl(), joinLabel(), i === 0, mediaKey, ytGuard.view())));
+    const breakView = breakMusic.count
+      ? { on: breakOn, paused: breakMusic.paused, volume: show.state.settings.breakVolume, nonce: breakMusic.nonce, track: breakMusic.current() }
+      : undefined;
+    displays.forEach((s, i) =>
+      s.emit('display:view', { ...show.displayView(list, joinUrl(), joinLabel(), i === 0, mediaKey, ytGuard.view()), ...(breakView ? { breakMusic: breakView } : {}) }),
+    );
     for (const raw of io.sockets.sockets.values()) {
       const s = raw as IoSocket;
       if (s.data.role !== 'singer') continue;
@@ -704,6 +761,7 @@ export async function createApp(opts: AppOptions) {
     const addr = server.address();
     if (addr && typeof addr === 'object') port = addr.port;
     void rescan();
+    void rescanBreak();
     await startRelay().catch((err) => console.warn('Online join link unavailable:', (err as Error).message));
     return `http://localhost:${port}`;
   }

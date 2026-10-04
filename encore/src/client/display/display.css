@@ -526,3 +526,108 @@ kbd {
     align-content: center;
   }
 }
+
+/* ---- break music ---- */
+
+.break-layer {
+  position: absolute;
+  inset: 0;
+  background: #07060c;
+  opacity: 0;
+  transition: opacity 0.9s;
+  pointer-events: none;
+}
+.break-layer.on {
+  opacity: 1;
+}
+.break-layer video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #000;
+}
+.break-layer audio {
+  display: none;
+}
+.break-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.break-layer.paused .break-canvas {
+  opacity: 0.45;
+}
+/* Music-only break: the idle and walk-up screens let the graphics show through. */
+.show-root.break-audio .idle,
+.show-root.break-audio .intro {
+  background: transparent;
+}
+.show-root.break-audio .blobs {
+  display: none;
+}
+/* A video break: the idle screen shrinks to a strip along the bottom. */
+.show-root.break-video .idle {
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.82), rgba(0, 0, 0, 0) 42%);
+}
+.show-root.break-video .blobs,
+.show-root.break-video .show-title,
+.show-root.break-video .idle-join .eyebrow,
+.show-root.break-video .qr-copy p {
+  display: none;
+}
+.show-root.break-video .idle-grid {
+  grid-template-columns: auto auto;
+  align-items: end;
+  justify-content: space-between;
+  padding: 3vh 3vw;
+}
+.show-root.break-video .qr-card {
+  width: 7.5em;
+  height: 7.5em;
+  padding: 0.5em;
+}
+.show-root.break-video .qr-copy h2 {
+  font-size: 1.7em;
+}
+.show-root.break-video .upnext-panel {
+  padding: 1em 1.4em;
+}
+.show-root.break-video .upnext-name {
+  font-size: 1.3em;
+}
+.show-root.break-video .upnext-song,
+.show-root.break-video .upnext-n {
+  display: none;
+}
+.break-now {
+  position: absolute;
+  z-index: 3;
+  top: 3.5vh;
+  left: 3.5vw;
+  display: grid;
+  gap: 0.15em;
+  max-width: 40vw;
+  padding: 0.7em 1.1em;
+  border-radius: 1em;
+  background: rgba(10, 10, 18, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(14px);
+  animation: fade 0.8s;
+}
+.break-title {
+  font-family: var(--display);
+  font-size: 1.5em;
+  font-weight: 650;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+.break-artist {
+  color: rgba(255, 255, 255, 0.65);
+}
+.show-root.break-video .upnext-panel {
+  align-self: end;
+}

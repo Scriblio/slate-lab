@@ -478,4 +478,90 @@ describe('YouTube videos that won’t play here', () => {
     await own.close();
     await rm(dataDir, { recursive: true, force: true });
   });
+
+  it('plays break music whenever nothing is on stage, and gets out of the way for songs', async () => {
+    const dataDir = await mkdtemp(join(tmpdir(), 'encore-break-'));
+    const breakDir = join(dir, 'break-music');
+    await mkdir(breakDir, { recursive: true });
+    for (const f of ['Lounge Cat - Velvet Hour.mp3', 'Lounge Cat - Slow Jam.mp3', 'Neon Loop.mp4']) await writeFile(join(breakDir, f), Buffer.alloc(300, 5));
+    const own = await createApp({ port: 0, host: '127.0.0.1', dataDir, quiet: true, cloud: false, youtubeProxy: false, extraLibraryFolders: [join(dir, 'library')] });
+    const url = await own.listen();
+    const conn = (auth: Record<string, string> = {}) => {
+      const s: Client = connect(url, { auth, transports: ['websocket'], forceNew: true });
+      sockets.push(s);
+      return s;
+    };
+    const dj = conn({ role: 'dj' });
+    const display = conn({ role: 'display' });
+    const act = <T = unknown>(action: object) => call<T>((a) => dj.emit('dj:action', action as never, a as never));
+    const view = (pred: (v: DisplayView) => boolean = () => true) => nextEvent<DisplayView>(display, 'display:view', pred);
+    for (let i = 0; i < 50 && own.library.getStatus().trackCount < 3; i++) await new Promise((r) => setTimeout(r, 20));
+
+    // No break folder yet: the screen is told nothing about break music.
+    expect((await view()).breakMusic).toBeUndefined();
+    expect((await call<{ breakFolders: string[] }>((a) => dj.emit('dj:config', a))).breakFolders).toEqual([]);
+
+    // The KJ points Encore at the folder: with nothing on stage, music starts.
+    const started = view((v) => v.breakMusic?.on === true && v.breakMusic.track !== null);
+    const djSaw = nextEvent<DjView>(dj, 'dj:view', (v) => v.breakMusic.tracks === 3 && v.breakMusic.on);
+    await act({ type: 'setConfig', breakFolders: [breakDir] });
+    const startedView = await started;
+    const first = startedView.breakMusic!;
+    expect(first).toMatchObject({ on: true, paused: false, volume: 60 });
+    expect(['audio', 'video']).toContain(first.track!.kind);
+    expect((await djSaw).breakMusic).toMatchObject({ on: true, folders: [breakDir], tracks: 3 });
+    expect((await call<{ breakFolders: string[] }>((a) => dj.emit('dj:config', a))).breakFolders).toEqual([breakDir]);
+
+    // The track plays from /media like a library song, but only with the screen's key.
+    const mediaKey = startedView.mediaKey;
+    const fetchTrack = (key: string) => fetch(`${url}/media/${first.track!.id}/main?k=${encodeURIComponent(key)}`);
+    expect((await fetchTrack(mediaKey)).status).toBe(200);
+    expect((await fetchTrack('wrong')).status).toBe(403);
+
+    // It ends: the screen asks for the next one. A late report about an old track changes nothing.
+    const next = view((v) => v.breakMusic!.nonce > first.nonce);
+    display.emit('display:breakEnded', { nonce: first.nonce - 1 });
+    display.emit('display:breakEnded', { nonce: first.nonce });
+    const second = (await next).breakMusic!;
+    expect(second.track!.id).not.toBe(first.track!.id);
+    // Skip and pause come from the console.
+    const skipped = view((v) => v.breakMusic!.nonce > second.nonce);
+    await act({ type: 'breakSkip' });
+    await skipped;
+    const paused = view((v) => v.breakMusic!.paused === true);
+    await act({ type: 'breakPause' });
+    expect((await paused).breakMusic).toMatchObject({ on: true, paused: true });
+
+    // A singer is called up: the walk-up is still a break, and the pause is kept.
+    const singer = await act<string>({ type: 'addSinger', name: 'Robin' });
+    const [hello] = own.library.search('adele hello');
+    if (hello!.song.source.kind !== 'local') throw new Error('expected local');
+    await act({ type: 'addEntry', singerId: singer, song: { kind: 'local', trackId: hello!.song.source.trackId } });
+    const intro = view((v) => v.nowPlaying?.stage === 'intro');
+    await act({ type: 'callNext' });
+    expect((await intro).breakMusic).toMatchObject({ on: true });
+    // The song starts: the music is off. When it ends and the stage is empty again, a new break starts, unpaused.
+    const playing = view((v) => v.nowPlaying?.stage === 'playing');
+    await act({ type: 'play' });
+    expect((await playing).breakMusic).toMatchObject({ on: false });
+    const playId = own.show.state.nowPlaying!.playId;
+    const again = view((v) => v.nowPlaying === null && v.breakMusic?.on === true);
+    display.emit('display:ended', { playId });
+    expect((await again).breakMusic).toMatchObject({ on: true, paused: false });
+
+    // The KJ switches it off in Settings, and turns the volume down for next time.
+    const off = view((v) => v.breakMusic?.on === false && v.breakMusic.volume === 30);
+    await act({ type: 'updateSettings', patch: { breakMusic: false, breakVolume: 30 } });
+    await off;
+
+    // A track that won't play is skipped over, quietly.
+    const liveAgain = view((v) => v.breakMusic?.on === true);
+    await act({ type: 'updateSettings', patch: { breakMusic: true } });
+    const live = (await liveAgain).breakMusic!;
+    const moved = view((v) => v.breakMusic!.nonce > live.nonce);
+    display.emit('display:breakError', { nonce: live.nonce, message: 'decode error' });
+    await moved;
+    await own.close();
+    await rm(dataDir, { recursive: true, force: true });
+  });
 });

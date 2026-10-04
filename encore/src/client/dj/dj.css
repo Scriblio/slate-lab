@@ -1583,3 +1583,59 @@ kbd {
   color: var(--text);
   font: inherit;
 }
+
+/* ---- break music card ---- */
+
+.break-card {
+  flex: none;
+  padding-bottom: 12px;
+}
+.break-card .card-head {
+  padding-bottom: 6px;
+}
+.break-empty {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+}
+.break-empty > svg {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  color: var(--text-3);
+}
+.break-empty > div {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+.break-body {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 16px 8px;
+}
+.break-track {
+  flex: 1;
+  min-width: 0;
+}
+.break-name {
+  font-weight: 600;
+}
+.break-name .badge {
+  margin-left: 8px;
+}
+.break-actions {
+  display: flex;
+  gap: 6px;
+}
+.break-volume {
+  padding: 0 16px;
+}
+.break-card .card-head h3 svg {
+  width: 18px;
+  height: 18px;
+  color: var(--text-3);
+}

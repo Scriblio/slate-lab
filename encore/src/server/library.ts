@@ -35,6 +35,11 @@ export class Library {
     return this.byId.get(id);
   }
 
+  /** Every track in one of these formats (the break music folder only wants video and audio). */
+  playable(formats: LocalFormat[]): LibraryTrack[] {
+    return this.tracks.filter((t) => formats.includes(t.format));
+  }
+
   setOrder(order: FilenameOrder): void {
     this.order = order;
   }

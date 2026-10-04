@@ -8,6 +8,7 @@ import * as I from '../common/icons.tsx';
 import { desktop } from '../common/desktop.ts';
 import { connect, savePin, storedPin, useConnection, type AppSocket } from '../common/socket.ts';
 import { useTick } from '../common/ui.tsx';
+import { BreakLayer } from './BreakLayer.tsx';
 import { Player, type PlayerHandle } from './players.tsx';
 
 export function DisplayApp() {
@@ -45,7 +46,7 @@ export function DisplayApp() {
 
   return (
     <div className="stage" onDoubleClick={toggleFullscreen}>
-      {view ? <Show socket={socket} view={view} /> : <div className="stage-loading">Connecting to Encore…</div>}
+      {view ? <Show socket={socket} view={view} armed={armed} /> : <div className="stage-loading">Connecting to Encore…</div>}
       {conn === 'offline' && view && (
         <div className="offline-pill">
           <I.Wifi /> Reconnecting to the KJ laptop…
@@ -103,7 +104,7 @@ function PinGate({ onPin }: { onPin: (pin: string) => void }) {
 
 // --- the show ------------------------------------------------------------------
 
-function Show({ socket, view }: { socket: AppSocket; view: DisplayView }) {
+function Show({ socket, view, armed }: { socket: AppSocket; view: DisplayView; armed: boolean }) {
   const np = view.nowPlaying;
   const player = useRef<PlayerHandle>(null);
   const playId = np?.playId;
@@ -146,9 +147,35 @@ function Show({ socket, view }: { socket: AppSocket; view: DisplayView }) {
   // YouTube's terms forbid covering its player, so during YouTube songs the
   // player leaves a band at the bottom for the lower thirds and status pills.
   const ytBand = np?.entry.song.source.kind === 'youtube' && np.stage !== 'intro';
+  // Break music: under the idle and walk-up screens, which let it show through.
+  const bm = view.breakMusic;
+  const breakShown = bm?.on && bm.track ? bm.track : null;
+  const onBreakEnded = useCallback((nonce: number) => report && socket.emit('display:breakEnded', { nonce }), [socket, report]);
+  const onBreakError = useCallback((nonce: number, message: string) => report && socket.emit('display:breakError', { nonce, message }), [socket, report]);
 
   return (
-    <div className={`show-root ${ytBand ? 'yt-band' : ''}`}>
+    <div className={`show-root ${ytBand ? 'yt-band' : ''} ${breakShown ? `break-${breakShown.kind}` : ''}`}>
+      {bm?.track && (
+        <BreakLayer
+          track={bm.track}
+          nonce={bm.nonce}
+          on={bm.on}
+          paused={bm.paused}
+          volume={bm.volume}
+          muted={!view.primary}
+          ready={armed}
+          mediaKey={view.mediaKey}
+          onEnded={onBreakEnded}
+          onError={onBreakError}
+        />
+      )}
+      {breakShown && (
+        <div className="break-now">
+          <span className="lt-label">{bm?.paused ? 'Break music paused' : 'Break music'}</span>
+          <span className="break-title">{breakShown.title}</span>
+          {breakShown.artist && <span className="break-artist">{breakShown.artist}</span>}
+        </div>
+      )}
       {np && (
         <div className={`media-layer ${np.stage === 'intro' ? 'hidden' : ''}`}>
           <Player

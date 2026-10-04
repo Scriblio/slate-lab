@@ -14,6 +14,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   const s = view.show.settings;
   const [config, setConfig] = useState<ServerConfigView | null>(null);
   const [folders, setFolders] = useState('');
+  const [breakFolders, setBreakFolders] = useState('');
   const [showName, setShowName] = useState(s.showName);
   const [confirmNew, setConfirmNew] = useState(false);
 
@@ -21,12 +22,15 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
     request<ServerConfigView>(socket, 'dj:config').then((c) => {
       setConfig(c);
       setFolders(c.libraryFolders.join('\n'));
+      setBreakFolders(c.breakFolders.join('\n'));
     });
   }, [socket]);
 
   const set = (patch: Partial<Settings>) => act({ type: 'updateSettings', patch });
   const lib = view.library;
   const foldersChanged = config && folders.trim() !== config.libraryFolders.join('\n').trim();
+  const breakChanged = config && breakFolders.trim() !== config.breakFolders.join('\n').trim();
+  const brk = view.breakMusic;
 
   return (
     <Modal title="Settings" onClose={onClose} width={640}>
@@ -122,6 +126,57 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
               <I.Alert /> {e}
             </p>
           ))}
+        </Section>
+
+        <Section title="Break music">
+          <p className="muted small">
+            Music and videos for between singers, kept in a folder of their own. Music plays over moving graphics on the venue screen, and videos play full screen. It plays whenever nothing is on stage, and fades out when a singer starts.
+          </p>
+          <Switch label="Play break music" hint="Turn it off to keep the venue screen quiet between songs." checked={s.breakMusic} onChange={(v) => set({ breakMusic: v })} />
+          <Field label="Folders (one per line)" hint="MP3, M4A, WAV, FLAC and OGG music, and MP4, MKV, WebM and MOV videos. Karaoke files in here are left out.">
+            <textarea className="input mono" rows={2} value={breakFolders} onChange={(e) => setBreakFolders(e.target.value)} placeholder={'D:\Break Music'} />
+          </Field>
+          <div className="settings-row">
+            <span className="spacer" />
+            {desktop && (
+              <button
+                className="btn sm"
+                onClick={async () => {
+                  const picked = (await desktop?.pickFolders()) ?? [];
+                  if (!picked.length) return;
+                  const current = breakFolders.split('\n').map((f) => f.trim()).filter(Boolean);
+                  setBreakFolders([...current, ...picked.filter((p) => !current.includes(p))].join('\n'));
+                }}
+              >
+                <I.Folder /> Browse…
+              </button>
+            )}
+            {breakChanged ? (
+              <button
+                className="btn sm primary"
+                onClick={async () => {
+                  const folders = breakFolders.split('\n').map((f) => f.trim()).filter(Boolean);
+                  await act({ type: 'setConfig', breakFolders: folders }, 'Scanning break music…');
+                  setConfig((c) => c && { ...c, breakFolders: folders });
+                }}
+              >
+                Save & scan
+              </button>
+            ) : (
+              <button className="btn sm" onClick={() => act({ type: 'setConfig', breakFolders: config?.breakFolders ?? [] })} disabled={brk.scanning}>
+                {brk.scanning ? <I.Loader /> : <I.Restart />} Rescan
+              </button>
+            )}
+          </div>
+          <p className="muted small">{brk.scanning ? 'Scanning…' : `${brk.tracks.toLocaleString()} songs and videos`}</p>
+          {brk.errors.map((e) => (
+            <p key={e} className="settings-error">
+              <I.Alert /> {e}
+            </p>
+          ))}
+          <p className="muted small">
+            Need some? Free-to-use libraries such as Pixabay Music and the Free Music Archive have plenty; check each track’s licence. A bar that plays commercial music needs its own public-performance licences, but royalty-free music doesn’t.
+          </p>
         </Section>
 
         <Section title="YouTube search">

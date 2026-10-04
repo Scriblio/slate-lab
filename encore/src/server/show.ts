@@ -1060,6 +1060,8 @@ function sanitizeSettings(s: Settings): Settings {
     maxQueuedPerSinger: int(s.maxQueuedPerSinger, 0, 50, D.maxQueuedPerSinger),
     allowYouTube: bool(s.allowYouTube, D.allowYouTube),
     allowBrowse: bool(s.allowBrowse, D.allowBrowse),
+    breakMusic: bool(s.breakMusic, D.breakMusic),
+    breakVolume: int(s.breakVolume, 0, 100, D.breakVolume),
     showSongsToSingers: bool(s.showSongsToSingers, D.showSongsToSingers),
     joinOpen: bool(s.joinOpen, D.joinOpen),
     autoAdvance: bool(s.autoAdvance, D.autoAdvance),

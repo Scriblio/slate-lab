@@ -23,6 +23,8 @@ export type Ack<T = undefined> = (res: { ok: true; data: T } | { ok: false; erro
 
 export interface ServerConfigView {
   libraryFolders: string[];
+  /** Folders of music and videos to play between karaoke songs. */
+  breakFolders: string[];
   filenameOrder: FilenameOrder;
   /** 'built-in': through Encore's search service; 'own-key': a developer's YOUTUBE_API_KEY. */
   youtubeSearch: 'built-in' | 'own-key' | 'off';
@@ -80,7 +82,11 @@ export type DjAction =
   | { type: 'rescanLibrary' }
   /** From the console's preview player: whether a queued YouTube video plays here. */
   | { type: 'youtubeCheck'; videoId: string; ok: boolean; mode?: YouTubeMode }
-  | { type: 'setConfig'; libraryFolders?: string[]; filenameOrder?: FilenameOrder; onlineJoin?: boolean };
+  /** Skip to the next break music track. */
+  | { type: 'breakSkip' }
+  /** Pause or resume the break music (no `paused` toggles it). */
+  | { type: 'breakPause'; paused?: boolean }
+  | { type: 'setConfig'; libraryFolders?: string[]; breakFolders?: string[]; filenameOrder?: FilenameOrder; onlineJoin?: boolean };
 
 /** A Web Push subscription, as the browser's PushSubscription.toJSON() gives it. */
 export interface PushSubscriptionRef {
@@ -125,6 +131,9 @@ export interface ClientToServer {
   lookupYouTube: (urlOrId: string, ack: Ack<SearchResult>) => void;
   'display:progress': (p: { playId: string; position: number; duration?: number }) => void;
   'display:ended': (p: { playId: string }) => void;
+  /** The break music track `nonce` finished, or couldn't be played. */
+  'display:breakEnded': (p: { nonce: number }) => void;
+  'display:breakError': (p: { nonce: number; message?: string }) => void;
   /** code: the YouTube player's error code, when it was a YouTube error. */
   'display:error': (p: { playId: string; message: string; code?: number }) => void;
 }

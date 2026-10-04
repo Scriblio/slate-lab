@@ -7,6 +7,7 @@ import * as I from '../common/icons.tsx';
 import { connect, request, savePin, storedPin, useConnection } from '../common/socket.ts';
 import { Modal, useToast } from '../common/ui.tsx';
 import { DjContext, useDj, type DjCtx } from './context.ts';
+import { BreakCard } from './BreakCard.tsx';
 import { Finder } from './Finder.tsx';
 import { Rotation } from './Rotation.tsx';
 import { SettingsModal } from './Settings.tsx';
@@ -112,6 +113,7 @@ export function DjApp() {
           <section className="col col-stage">
             <Stage />
             <UpNext />
+            <BreakCard />
           </section>
           <section className="col col-rotation">
             <Rotation />
@@ -153,6 +155,12 @@ function TopBar({ offline }: { offline: boolean }) {
   const { view, act } = useDj();
   const [qr, setQr] = useState(false);
   const [settings, setSettings] = useState(false);
+  // Other parts of the console can open Settings (the break music card's "Set up").
+  useEffect(() => {
+    const open = () => setSettings(true);
+    window.addEventListener('encore:settings', open);
+    return () => window.removeEventListener('encore:settings', open);
+  }, []);
   const mode = ROTATION_MODES.find((m) => m.id === view.show.mode)!;
   const pending = view.show.entries.filter((e) => e.status === 'pending').length;
 

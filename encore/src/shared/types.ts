@@ -124,6 +124,10 @@ export interface Settings {
   allowYouTube: boolean;
   /** Let singers scroll through the whole library list on their phones. */
   allowBrowse: boolean;
+  /** Play music from the break music folder whenever nothing is on stage. */
+  breakMusic: boolean;
+  /** How loud the break music is, 0-100 (separate from the karaoke volume). */
+  breakVolume: number;
   /** Let phones see song titles for other singers in the queue. */
   showSongsToSingers: boolean;
   joinOpen: boolean;
@@ -142,6 +146,8 @@ export const DEFAULT_SETTINGS: Settings = {
   maxQueuedPerSinger: 3,
   allowYouTube: true,
   allowBrowse: true,
+  breakMusic: true,
+  breakVolume: 60,
   showSongsToSingers: false,
   joinOpen: true,
   autoAdvance: true,
@@ -255,6 +261,28 @@ export interface SingerView {
   songKeys?: Record<string, SongKey>;
 }
 
+/** One song or video in the break music folder. */
+export interface BreakTrack {
+  /** Same kind of id as a library track; the file is served at /media/<id>/main. */
+  id: string;
+  title: string;
+  artist: string;
+  /** Videos play full screen; audio plays over motion graphics. */
+  kind: 'audio' | 'video';
+}
+
+/** The break music folder, and what is playing from it. */
+export interface BreakStatus {
+  folders: string[];
+  tracks: number;
+  scanning: boolean;
+  errors: string[];
+  /** Nothing is on stage, so music should be playing now (unless paused). */
+  on: boolean;
+  paused: boolean;
+  track: BreakTrack | null;
+}
+
 /** What the venue screen sees. */
 export interface DisplayView {
   showName: string;
@@ -268,6 +296,16 @@ export interface DisplayView {
   /** Appended to /media URLs; only the KJ and displays are given it. */
   mediaKey: string;
   youtube: YouTubeEmbed;
+  /** Break music: absent when no break music folder has anything in it. */
+  breakMusic?: {
+    on: boolean;
+    paused: boolean;
+    /** 0-100. */
+    volume: number;
+    /** Changes with every track, so the screen starts the new one. */
+    nonce: number;
+    track: BreakTrack | null;
+  };
 }
 
 /** Where YouTube players load from, and what Encore knows about tonight's videos. */
@@ -305,4 +343,5 @@ export interface DjView {
   mediaKey: string;
   /** Original keys of the library songs in the queue and on stage, by track id. */
   songKeys: Record<string, SongKey>;
+  breakMusic: BreakStatus;
 }
