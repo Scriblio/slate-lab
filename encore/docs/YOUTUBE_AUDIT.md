@@ -31,7 +31,7 @@ Section by section, the answers below match the form's fields. Text in quote blo
 >
 > Songs come from the KJ's own licensed karaoke files or from YouTube. For YouTube, Encore uses the YouTube Data API to let the KJ, or a singer from their phone, search for karaoke versions of a song. The chosen video then plays on the venue screen in YouTube's official embedded player (IFrame Player API), unaltered and with YouTube's ads. Nothing is drawn over the player, and Encore never downloads, records or analyzes videos.
 >
-> The value to YouTube: every YouTube song played at a karaoke night is a full, monetized view of a karaoke creator's video, shown to a room full of people. Karaoke channels such as Sing King and KaraFun get plays at live venues that today mostly use paid karaoke subscriptions instead. KJs and singers get the widest song selection without any YouTube account, key or setup.
+> The value to YouTube: every YouTube song played at a karaoke night is a full, monetized view of a karaoke creator's video, shown to a room full of people. Karaoke creators who allow embedding get plays at live venues that today mostly use paid karaoke subscriptions instead. KJs and singers get the widest song selection without any YouTube account, key or setup.
 >
 > How Encore keeps its API use small and compliant:
 >
