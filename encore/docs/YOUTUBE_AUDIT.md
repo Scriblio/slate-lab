@@ -59,12 +59,12 @@ Section by section, the answers below match the form's fields. Text in quote blo
 | Primary access URL | https://sing.scriblio.co/encore |
 | Privacy Policy URL | https://sing.scriblio.co/privacy |
 | Terms of Service URL | https://sing.scriblio.co/terms |
-| Publicly accessible? | **Yes** if the installer is published as a GitHub release (see below); otherwise **No**, and put the download link in Special Instructions |
+| Publicly accessible? | Yes. The installer is a public GitHub pre-release, linked from /encore. |
 | Demo account | None needed. Encore has no accounts. |
 
 **Special instructions for access:**
 
-> Encore has no accounts or sign-in. To try it, install it on Windows 10 or 11 from [installer link]. Windows SmartScreen may warn because the installer isn't code-signed yet: click More info, then Run anyway.
+> Encore has no accounts or sign-in. To try it, install it on Windows 10 or 11 from https://github.com/Scriblio/slate-lab/releases/download/encore-v0.1.0-preview/Encore-Karaoke-Setup-0.1.0.exe (also linked from https://sing.scriblio.co/encore). Windows SmartScreen may warn because the installer isn't code-signed yet: click More info, then Run anyway.
 >
 > Demo songs are included, so no music library is needed:
 >
@@ -128,7 +128,6 @@ Read each one, then tick them all and submit. Afterwards, click **Download submi
 ## Before submitting, check
 
 - [ ] https://sing.scriblio.co/privacy, /terms and /encore load.
-- [ ] The installer link works for someone who isn't signed in to GitHub.
 - [ ] The project number is the right one (encore-karaoke-k7m3).
 - [ ] The search caps are still on: the Supabase secrets `YT_DAILY_SEARCHES` etc. aren't raised until Google grants the quota.
 

@@ -145,7 +145,8 @@ export function encorePage() {
 <p>By using Encore's YouTube features you agree to the <a href="https://www.youtube.com/t/terms">YouTube Terms of Service</a>. See also the <a href="https://policies.google.com/privacy">Google Privacy Policy</a>, and Encore's <a href="/privacy">Privacy Policy</a> and <a href="/terms">Terms of Use</a>.</p>
 </div>
 <h2>Get Encore</h2>
-<p>Encore is coming to the Microsoft Store for Windows 10 and 11. For questions or early access, email <a href="mailto:mattclancaster@gmail.com">mattclancaster@gmail.com</a>.</p>
+<p>Encore is coming to the Microsoft Store for Windows 10 and 11. Until then, a preview is available: <a href="https://github.com/Scriblio/slate-lab/releases/download/encore-v0.1.0-preview/Encore-Karaoke-Setup-0.1.0.exe">download the Windows installer</a> (<a href="https://github.com/Scriblio/slate-lab/releases/tag/encore-v0.1.0-preview">release notes</a>). It isn't code-signed yet, so Windows may show a SmartScreen warning: choose <strong>More info → Run anyway</strong>. Demo songs are included.</p>
+<p>Questions: <a href="mailto:mattclancaster@gmail.com">mattclancaster@gmail.com</a>.</p>
 `,
   });
 }
