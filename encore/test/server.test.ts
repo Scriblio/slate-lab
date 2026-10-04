@@ -582,4 +582,27 @@ describe('YouTube videos that won’t play here', () => {
     await act({ type: 'setConfig', audioOutput: '' });
     await reset;
   });
+
+  it('turns away rude names before they reach the screen, tells the KJ, and lets the KJ add their own words', async () => {
+    const dj = client({ role: 'dj' });
+    const act = (action: object) => call((a) => dj.emit('dj:action', action as never, a as never));
+    const join = (name: string) => call<{ singerId: string }>((a) => client().emit('singer:join', name, a));
+    const notice = nextEvent<{ text: string }>(dj, 'dj:notice');
+    await expect(join('F.U.C.K')).rejects.toThrow(/can’t go up on the screen/);
+    expect((await notice).text).toMatch(/tried a name that isn’t allowed/);
+    expect((await notice).text).not.toMatch(/f\.u\.c\.k/i);
+    expect(app.show.state.singers.some((x) => /f\.u/i.test(x.name))).toBe(false);
+    expect(await join('Scunthorpe Sue')).toHaveProperty('singerId');
+
+    // The KJ's own words, and the KJ can always add anyone themselves.
+    await act({ type: 'updateSettings', patch: { blockedWords: 'Gary, ' } });
+    expect(app.show.state.settings.blockedWords).toBe('gary');
+    await expect(join('Gary')).rejects.toThrow(/pick a different one/);
+    expect(await act({ type: 'addSinger', name: 'Gary' })).toBeTruthy();
+
+    // Switched off, anything goes.
+    await act({ type: 'updateSettings', patch: { nameFilter: false } });
+    expect(await join('Gary the Great')).toHaveProperty('singerId');
+    await act({ type: 'updateSettings', patch: { nameFilter: true, blockedWords: '' } });
+  });
 });

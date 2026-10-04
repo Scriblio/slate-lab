@@ -5,6 +5,7 @@
 import { randomBytes, randomInt, randomUUID } from 'node:crypto';
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
+import { isBlockedName, parseWords } from '../shared/namefilter.ts';
 import { clampKey } from '../shared/pitch.ts';
 import type { PlayerCommand, SingerAction, SongRef } from '../shared/protocol.ts';
 import { nameKey } from '../shared/text.ts';
@@ -265,6 +266,12 @@ export class Show {
 
   join(name: string): { token: string; singer: Singer } {
     if (!this.state.settings.joinOpen) throw new UserError('Sign-ups are closed for tonight.');
+    const { nameFilter, blockedWords } = this.state.settings;
+    if (nameFilter && isBlockedName(String(name ?? ''), parseWords(blockedWords))) {
+      // Names go up on the venue screen. The KJ is told someone tried, without repeating what they typed.
+      this.deps.onNotice?.('A singer tried a name that isn’t allowed on the screen, so it was turned away. You can add them yourself under another name.');
+      throw new UserError('That name can’t go up on the screen. Please pick a different one.', 'name-blocked');
+    }
     const singer = this.addSinger(name, true);
     return { token: this.issueToken(singer.id), singer };
   }
@@ -1062,6 +1069,8 @@ function sanitizeSettings(s: Settings): Settings {
     allowBrowse: bool(s.allowBrowse, D.allowBrowse),
     breakMusic: bool(s.breakMusic, D.breakMusic),
     breakVolume: int(s.breakVolume, 0, 100, D.breakVolume),
+    nameFilter: bool(s.nameFilter, D.nameFilter),
+    blockedWords: parseWords(String(s.blockedWords ?? '')).join(', ').slice(0, 600),
     showSongsToSingers: bool(s.showSongsToSingers, D.showSongsToSingers),
     joinOpen: bool(s.joinOpen, D.joinOpen),
     autoAdvance: bool(s.autoAdvance, D.autoAdvance),

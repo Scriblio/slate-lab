@@ -128,6 +128,10 @@ export interface Settings {
   breakMusic: boolean;
   /** How loud the break music is, 0-100 (separate from the karaoke volume). */
   breakVolume: number;
+  /** Refuse rude names, since they go up on the venue screen. */
+  nameFilter: boolean;
+  /** The KJ's own words to refuse as well, separated by commas. */
+  blockedWords: string;
   /** Let phones see song titles for other singers in the queue. */
   showSongsToSingers: boolean;
   joinOpen: boolean;
@@ -148,6 +152,8 @@ export const DEFAULT_SETTINGS: Settings = {
   allowBrowse: true,
   breakMusic: true,
   breakVolume: 60,
+  nameFilter: true,
+  blockedWords: '',
   showSongsToSingers: false,
   joinOpen: true,
   autoAdvance: true,

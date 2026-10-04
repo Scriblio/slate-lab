@@ -5,6 +5,7 @@ Encore runs on the KJ's laptop. It does three things:
 - **DJ console** (`/dj`): runs the rotation, the stage and song search.
 - **Venue screen** (`/display`): plays the song on the TV or projector, introduces each singer, and shows a QR code between songs.
 - **Phone sign-up** (`/join`): singers scan the code, type a name, pick a song and watch their place in line. They don't need an app or an account.
+- **Rude names stay off the screen:** names go up on the venue TV, so a phone can't join with a rude one (Settings → *Block rude names*, on by default). Names are matched as whole words, so "Cassie" and "Scunthorpe" are fine, and simple disguises like "f u c k" or "sh!t" are seen through. You can add your own words, and you can always add anyone yourself. The KJ is told when a name was turned away, without repeating it. It's a baseline, not a guarantee.
 - **Choose the speakers:** Settings → *Speakers* sends songs and break music to the output your PA or mixer is plugged into (with a Test button), instead of whatever Windows is using. YouTube videos play in YouTube's own player and always use the Windows default.
 - **Break music:** a folder of music and videos that plays between singers (Settings → *Break music*, separate from your karaoke library).
   - Music-only files play over moving graphics that follow the sound; videos play full screen with a strip along the bottom for the QR code and the queue.

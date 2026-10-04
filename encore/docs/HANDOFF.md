@@ -15,7 +15,7 @@ Encore is a karaoke hosting (KJ) app by Scriblio (Matthew Lancaster). It's being
 | --- | --- |
 | Install | `npm ci` (use `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci` if you don't need Electron) |
 | Typecheck | `npm run typecheck` |
-| Tests | `npm test` (227 tests) |
+| Tests | `npm test` (261 tests) |
 | Run with a demo library | `npm run demo`, then open http://localhost:4747/dj (venue screen at `/display`, phone page at `/join`) |
 | Desktop app | `npm run build:desktop && npm run desktop` |
 | Windows installer | built by GitHub Actions on every push to the branch: download the "Encore-Karaoke-Windows" artifact from the run; `npm run dist:win` needs Windows |
@@ -61,6 +61,10 @@ The YouTube API Services policies apply because Encore uses the search API. Brea
 - **Store YouTube data for at most 30 days.**
 
 ## Done recently (all on the branch, tested)
+
+- **Name filter:** `src/shared/namefilter.ts`, used by `Show.join` (phone joins only; the KJ's own *Add singer* and renames aren't filtered). Settings `nameFilter` (default on) and `blockedWords` (comma-separated, stored cleaned).
+  - Whole-word matching, so Scunthorpe and Cassie pass (tests cover a list of tricky names both ways). A short list of unmistakable words also matches inside longer ones. It sees through spacing, punctuation, accents and leetspeak. "Dyke" is deliberately not on the built-in list because it's a surname (Van Dyke).
+  - The phone gets "That name can't go up on the screen", and the KJ a notice that doesn't repeat the name.
 
 - **Speakers:** Settings → *Speakers* (`config.audioOutput`, a browser device id; '' is the system default).
   - It reaches the venue screen (`DisplayView.audioOutput`) and the console (`DjView.audioOutput`, so its preview matches). `src/client/common/audio-output.ts` calls `setSinkId` on every media element and audio context that registers with `routeToOutput` (the song players, the key-change context, break music), and re-applies when a device is plugged in.

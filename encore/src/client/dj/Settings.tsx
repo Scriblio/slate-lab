@@ -31,6 +31,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
     };
   }, []);
   const [showName, setShowName] = useState(s.showName);
+  const [blocked, setBlocked] = useState(s.blockedWords);
   const [confirmNew, setConfirmNew] = useState(false);
 
   useEffect(() => {
@@ -67,6 +68,19 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           </Field>
           <Switch label="Allow YouTube requests" hint="Singers can pick YouTube karaoke videos as well as your library." checked={s.allowYouTube} onChange={(v) => set({ allowYouTube: v })} />
           <Switch label="Let singers browse the song list" hint="Phones get a scrollable list of your whole library, by artist or title, as well as search." checked={s.allowBrowse} onChange={(v) => set({ allowBrowse: v })} />
+          <Switch label="Block rude names" hint="Names go up on the venue screen. Phones can’t join with a rude one, and you can always add someone yourself." checked={s.nameFilter} onChange={(v) => set({ nameFilter: v })} />
+          {s.nameFilter && (
+            <Field label="Also block these words" hint="Your own list, separated by commas. Short words only match a whole name; longer ones match inside a name too.">
+              <input
+                className="input"
+                value={blocked}
+                maxLength={300}
+                onChange={(e) => setBlocked(e.target.value)}
+                onBlur={() => blocked.trim() !== s.blockedWords.trim() && set({ blockedWords: blocked })}
+                placeholder="e.g. gary, karen"
+              />
+            </Field>
+          )}
           <Switch label="Show song titles to singers" hint="Off keeps everyone’s picks a surprise; phones only see names." checked={s.showSongsToSingers} onChange={(v) => set({ showSongsToSingers: v })} />
         </Section>
 
