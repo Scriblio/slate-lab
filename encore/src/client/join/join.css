@@ -926,7 +926,7 @@ button.status {
   font-size: 18px;
 }
 .key-stepper output {
-  min-width: 62px;
+  min-width: 72px;
   text-align: center;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
@@ -934,6 +934,12 @@ button.status {
 }
 .key-stepper output.on {
   color: var(--cyan);
+}
+.key-stepper output .key-letter {
+  display: block;
+  font-size: 22px;
+  line-height: 1.1;
+  color: inherit;
 }
 .key-stepper output small {
   display: block;

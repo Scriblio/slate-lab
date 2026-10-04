@@ -234,6 +234,7 @@ describe('online join link, end to end', () => {
     const page = await ack<{ items: unknown[]; total: number }>(p, 'browse', { sort: 'title' });
     expect(Array.isArray(page.items)).toBe(true);
     expect(page.total).toBe(page.items.length);
+    expect(await ack<unknown>(p, 'songKey', 'not-a-track')).toBeNull();
     await until(() => connects > 0);
     const back = await ack<{ singerId: string }>(p, 'singer:resume', token);
     expect(app.show.singer(back.singerId)?.name).toBe('Barney');

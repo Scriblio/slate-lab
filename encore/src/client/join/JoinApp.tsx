@@ -788,6 +788,7 @@ function SearchTab({
 
       {picked && (
         <AddSheet
+          socket={socket}
           result={picked}
           disabled={full}
           onClose={() => setPicked(null)}
@@ -869,12 +870,14 @@ function PhonePreview({ videoId, thumbnail }: { videoId: string; thumbnail?: str
 }
 
 function AddSheet({
+  socket,
   result,
   onClose,
   onAdd,
   disabled,
   replacing,
 }: {
+  socket: AppSocket;
   result: SearchResult;
   onClose: () => void;
   /** key: semitones, for library songs. */
@@ -889,6 +892,25 @@ function AddSheet({
   const local = song.source.kind === 'local';
   // Starts in the key this singer sang it in last time.
   const [key, setKey] = useState(result.lastKey ?? 0);
+  // The song's own key, so the picker can say which key a change lands in. When the
+  // laptop doesn't know it yet, ask it to work it out (the KJ's console listens to the song).
+  const trackId = song.source.kind === 'local' ? song.source.trackId : undefined;
+  const [songKey, setSongKey] = useState<SongKey | undefined>(result.songKey);
+  const [finding, setFinding] = useState(false);
+  useEffect(() => {
+    if (replacing || !trackId || songKey) return;
+    let live = true;
+    setFinding(true);
+    request<SongKey | null>(socket, 'songKey', trackId)
+      .then((k) => live && k && setSongKey(k))
+      .catch(() => {})
+      .finally(() => live && setFinding(false));
+    return () => {
+      live = false;
+    };
+  }, [socket, trackId, replacing, songKey]);
+  const target = songKey ? transposeKey(songKey, key) : undefined;
+  const approx = songKey && !songKey.confirmed ? '≈' : '';
   return (
     <div className="sheet-backdrop" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="sheet" role="dialog" aria-modal="true" aria-label="Add song">
@@ -912,19 +934,31 @@ function AddSheet({
             <div>
               <strong>Key</strong>
               <span className="muted">
-                {result.songKey ? `It’s in ${keyLabel(0, result.songKey)}. ` : ''}
+                {songKey ? `It’s in ${keyLabel(0, songKey)}${songKey.confirmed ? '' : ' (found by listening)'}. ` : finding ? 'Finding the key… ' : ''}
                 {result.lastKey ? `You sang it ${formatKey(result.lastKey)} last time. ` : ''}Too high or low? The speed stays the same.
               </span>
             </div>
             <div className="key-stepper">
-              <button type="button" className="btn icon" disabled={key <= -MAX_SEMITONES} onClick={() => setKey(key - 1)} aria-label="Lower the key">
+              <button type="button" className="btn icon" disabled={key <= -MAX_SEMITONES} onClick={() => setKey((k) => k - 1)} aria-label="Lower the key">
                 −
               </button>
               <output className={key ? 'on' : ''} aria-live="polite">
-                {key ? formatKey(key) : 'Original'}
-                {key && result.songKey ? <small>{keyName(transposeKey(result.songKey, key))}</small> : null}
+                {target ? (
+                  <>
+                    <b className="key-letter">
+                      {approx}
+                      {keyName(target)}
+                    </b>
+                    <small>{key ? formatKey(key) : 'Original key'}</small>
+                  </>
+                ) : (
+                  <>
+                    {key ? formatKey(key) : 'Original'}
+                    {finding ? <small>finding key…</small> : null}
+                  </>
+                )}
               </output>
-              <button type="button" className="btn icon" disabled={key >= MAX_SEMITONES} onClick={() => setKey(key + 1)} aria-label="Raise the key">
+              <button type="button" className="btn icon" disabled={key >= MAX_SEMITONES} onClick={() => setKey((k) => k + 1)} aria-label="Raise the key">
                 +
               </button>
             </div>

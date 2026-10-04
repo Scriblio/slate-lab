@@ -19,6 +19,7 @@ import { loadConfig, saveConfig, type Config } from './config.ts';
 import { KeyMemory } from './keys.ts';
 import { Library } from './library.ts';
 import { SongKeys } from './songkeys.ts';
+import type { SongKey } from '../shared/songkey.ts';
 import { serveMedia } from './media.ts';
 import { PushNotifier, turnAlerts } from './push.ts';
 import { loadIdentity, RelayHost, type RelayIdentity } from './relay.ts';
@@ -46,6 +47,8 @@ export interface AppOptions {
   cloud?: false | { joinOrigin: string; transport: () => RelayTransport; checkJoinPage?: () => Promise<boolean> };
   /** Encore's YouTube search service. Defaults to shared/cloud.ts (plus env overrides); false turns it off. */
   youtubeProxy?: false | { url: string; key: string };
+  /** How long a phone waits for the console to work out a song's key (default 12 s). */
+  keyWaitMs?: number;
   quiet?: boolean;
 }
 
@@ -85,6 +88,36 @@ export async function createApp(opts: AppOptions) {
   const songKeys = new SongKeys({ dataDir: opts.dataDir, log });
   await songKeys.load();
   const songKeyOf = (song: Song) => (song.source.kind === 'local' ? songKeys.get(song.source.trackId) : undefined);
+  /**
+   * Phones waiting for a song's key while the console works it out. The
+   * console is asked at most once a minute per song, so a song it can't
+   * decode isn't retried in a loop.
+   */
+  const pendingKeys = new Map<string, { askedAt: number; waiters: Set<(k: SongKey | null) => void> }>();
+  const KEY_WAIT_MS = opts.keyWaitMs ?? 12_000;
+  function detectKeyNow(id: string): Promise<SongKey | null> {
+    // Only the KJ's console can listen to a song, so with none connected there's nothing to wait for.
+    if (!io?.sockets.adapter.rooms.get('dj')?.size) return Promise.resolve(null);
+    let p = pendingKeys.get(id);
+    if (!p) pendingKeys.set(id, (p = { askedAt: 0, waiters: new Set() }));
+    const entry = p;
+    return new Promise((resolve) => {
+      const done = (k: SongKey | null) => {
+        clearTimeout(timer);
+        entry.waiters.delete(done);
+        resolve(k);
+      };
+      const timer = setTimeout(() => {
+        done(null);
+        if (!entry.waiters.size && pendingKeys.get(id) === entry && Date.now() - entry.askedAt > 60_000) pendingKeys.delete(id);
+      }, KEY_WAIT_MS);
+      entry.waiters.add(done);
+      if (Date.now() - entry.askedAt > 60_000) {
+        entry.askedAt = Date.now();
+        io.to('dj').emit('dj:detect', { trackId: id });
+      }
+    });
+  }
   const trackIds = (entries: Entry[]) => entries.flatMap((e) => (e.song.source.kind === 'local' ? [e.song.source.trackId] : []));
 
   // Created once the online settings are known (it needs the player page's address).
@@ -384,6 +417,16 @@ export async function createApp(opts: AppOptions) {
         return decorate(results);
       }),
     );
+    socket.on('songKey', (trackId, ack) =>
+      respondAsync(ack, async () => {
+        const id = String(trackId ?? '');
+        if (!/^[a-f0-9]{16}$/.test(id) || !library.get(id)) return null;
+        const known = songKeys.get(id);
+        if (known) return known;
+        if (!isDj && !rateOk(socket, 'songkey', 20, 60_000)) return null;
+        return detectKeyNow(id);
+      }),
+    );
     socket.on('browse', (req, ack) =>
       respond(ack, () => {
         if (!isDj && !show.state.settings.allowBrowse) throw new UserError('The KJ has turned off browsing the song list tonight. You can still search.');
@@ -459,7 +502,13 @@ export async function createApp(opts: AppOptions) {
         const id = String(a.trackId);
         if (!library.get(id)) throw new UserError('That track is not in the library any more.');
         if (songKeys.set(id, a.key, { detected: Boolean(a.detected) })) scheduleBroadcast();
-        return songKeys.get(id) ?? null;
+        const now = songKeys.get(id) ?? null;
+        if (now) {
+          // Phones waiting to hear this song's key get it now.
+          for (const done of pendingKeys.get(id)?.waiters ?? []) done(now);
+          pendingKeys.delete(id);
+        }
+        return now;
       }
       case 'removeEntry':
         return show.removeEntry(a.entryId);

@@ -101,7 +101,7 @@ Library songs (video, MP3+G, audio) can be moved up or down by up to 6 semitones
 - **Keys by name ("can you play it in G?").** The console works out each queued library song's original key from its audio, in the background, and remembers it per track (`data/song-keys.json`).
   - The stage card then reads *≈C → G*. Clicking it opens a *Play it in* grid of all 12 keys.
   - The detection is right about four times in five; misses are usually the relative minor. "≈" means it's only detected: **That's right** confirms it, or the KJ picks the right key once and Encore remembers.
-  - Phones show the song's key and the key they'll sing in ("−5 · G").
+  - Phones show the key they'll land in as a big letter ("G", with "−5" under it), so a singer sees the actual key as they step it up or down. If the song hasn't been analysed yet, the phone asks the console to work it out right then (a second or two), so it works for any song in the library, not just queued ones. That needs the KJ's console to be open, which it is on the laptop.
 - **YouTube songs keep their original key.** They play in YouTube's own player, which Encore never processes or analyses.
 
 The pitch shifter is a phase vocoder with peak phase locking (`src/shared/pitch.ts`), running in an AudioWorklet on the venue screen. Songs in their original key never go through it. It adds about 32 ms of delay, which the CD+G lyrics account for.

@@ -15,7 +15,7 @@ Encore is a karaoke hosting (KJ) app by Scriblio (Matthew Lancaster). It's being
 | --- | --- |
 | Install | `npm ci` (use `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci` if you don't need Electron) |
 | Typecheck | `npm run typecheck` |
-| Tests | `npm test` (219 tests) |
+| Tests | `npm test` (220 tests) |
 | Run with a demo library | `npm run demo`, then open http://localhost:4747/dj (venue screen at `/display`, phone page at `/join`) |
 | Desktop app | `npm run build:desktop && npm run desktop` |
 | Windows installer | built by GitHub Actions on every push to the branch: download the "Encore-Karaoke-Windows" artifact from the run; `npm run dist:win` needs Windows |
@@ -61,6 +61,10 @@ The YouTube API Services policies apply because Encore uses the search API. Brea
 - **Store YouTube data for at most 30 days.**
 
 ## Done recently (all on the branch, tested)
+
+- **Key letters on the phone:** the key picker says which key a change lands in ("G", with "−5" under it), not just the number.
+  - A song's key is only known once the console has analysed it, and singers pick a key *before* queuing. So the phone now asks (`songKey`, also allowed over the relay) and the server tells the console (`dj:detect`) to analyse that song first; `KeyDetector` runs it ahead of the queue. The phone waits up to 12 s (`keyWaitMs`), and the console is asked at most once a minute per song.
+  - No console connected, or a file it can't decode: the phone just shows the number, as before.
 
 - **Song list on the phone:** the Find tab shows the whole library to scroll through when nothing is typed (`src/client/join/Browse.tsx`).
   - The server pages it: socket event `browse` (also allowed over the relay), `Library.browse` in `src/server/library.ts`. Each song appears once, preferring a video/MP3+G file over plain audio. Pages are 40 songs, sorted by artist or title, with an A–Z jump (`letter`).

@@ -1,5 +1,6 @@
 // Socket.IO event contracts between the server and the three clients.
 
+import type { SongKey } from './songkey.ts';
 import type { BrowseRequest, BrowseResult, DisplayView, DjView, RotationMode, SearchResult, Settings, SingerView, Song, YouTubeMode } from './types.ts';
 import type { FilenameOrder } from './text.ts';
 
@@ -114,6 +115,12 @@ export interface ClientToServer {
   search: (query: string, ack: Ack<SearchResult[]>) => void;
   /** A page of the whole library list, for scrolling through on a phone. */
   browse: (req: BrowseRequest, ack: Ack<BrowseResult>) => void;
+  /**
+   * A library song's original key, so a phone can say which key a change lands
+   * in. If it isn't known yet, the KJ's console is asked to work it out now
+   * (this waits a few seconds for it); null when it can't be told.
+   */
+  songKey: (trackId: string, ack: Ack<SongKey | null>) => void;
   searchYouTube: (query: string, ack: Ack<SearchResult[]>) => void;
   lookupYouTube: (urlOrId: string, ack: Ack<SearchResult>) => void;
   'display:progress': (p: { playId: string; position: number; duration?: number }) => void;
@@ -127,6 +134,8 @@ export interface ServerToClient {
   'dj:progress': (p: { playId: string; position: number; duration?: number }) => void;
   /** Something the KJ should see right away, e.g. a singer left from their phone. */
   'dj:notice': (p: { text: string }) => void;
+  /** A phone is about to pick this song: work out its key now (the console does, in the background). */
+  'dj:detect': (p: { trackId: string }) => void;
   'singer:view': (view: SingerView) => void;
   'singer:removed': () => void;
   /** Something this singer should know, e.g. the KJ removed a song that wasn't karaoke. */

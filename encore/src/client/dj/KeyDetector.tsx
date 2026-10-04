@@ -1,5 +1,6 @@
 // Works out the original key of the library songs in the queue, one at a time
-// in the background, so the console can say "C → G" instead of "−5". The
+// in the background, so the console can say "C → G" instead of "−5". A song a
+// phone is about to pick jumps the queue, so the phone can say it too. The
 // console decodes the file (the browser resamples it to 11 kHz on the way) and
 // runs the detector in src/shared/keydetect.ts; the laptop remembers the
 // result per track. YouTube songs are never analysed.
@@ -38,9 +39,19 @@ export function KeyDetector() {
   const { view, socket } = useDj();
   const tried = useRef(new Set<string>());
   const [busy, setBusy] = useState(false);
+  /** Songs phones are looking at right now, first come first served. */
+  const [asked, setAsked] = useState<string[]>([]);
 
-  // On stage first, then in running order, then anything else waiting.
+  useEffect(() => {
+    const onAsk = ({ trackId }: { trackId: string }) => setAsked((a) => (a.includes(trackId) ? a : [...a, trackId].slice(-20)));
+    socket.on('dj:detect', onAsk);
+    return () => void socket.off('dj:detect', onAsk);
+  }, [socket]);
+
+  // A song a phone asked about first, then what's on stage, then the running order, then anything else waiting.
   const next = useMemo(() => {
+    const wanted = asked.find((id) => !view.songKeys[id] && !tried.current.has(id));
+    if (wanted) return wanted;
     const entries = [view.show.nowPlaying?.entry, ...view.upcoming.map((u) => u.entry), ...view.show.entries].filter(Boolean) as Entry[];
     for (const e of entries) {
       if (e.song.source.kind !== 'local') continue;
@@ -48,7 +59,7 @@ export function KeyDetector() {
       if (!view.songKeys[id] && !tried.current.has(id)) return id;
     }
     return null;
-  }, [view, busy]);
+  }, [view, busy, asked]);
 
   useEffect(() => {
     if (!next || busy) return;
@@ -59,7 +70,10 @@ export function KeyDetector() {
       .catch(() => {
         // A format the browser can't decode, or the track went away: the KJ can still set the key by hand.
       })
-      .finally(() => setBusy(false));
+      .finally(() => {
+        setAsked((a) => a.filter((id) => id !== next));
+        setBusy(false);
+      });
   }, [next, busy, socket, view.mediaKey]);
 
   return null;

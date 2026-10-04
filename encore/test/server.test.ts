@@ -9,6 +9,7 @@ import { io as connect, type Socket } from 'socket.io-client';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createApp, type App } from '../src/server/app.ts';
 import type { ClientToServer, ServerToClient } from '../src/shared/protocol.ts';
+import type { SongKey } from '../src/shared/songkey.ts';
 import type { BrowseResult, DisplayView, DjView, SearchResult, SingerView } from '../src/shared/types.ts';
 
 type Client = Socket<ServerToClient, ClientToServer>;
@@ -428,5 +429,53 @@ describe('YouTube videos that won’t play here', () => {
     expect((await call<BrowseResult>((a) => dj.emit('browse', { sort: 'artist' }, a))).total).toBe(3);
     expect((await call<SearchResult[]>((a) => phone.emit('search', 'adele', a)))[0]!.song.title).toBe('Hello');
     await call((a) => dj.emit('dj:action', { type: 'updateSettings', patch: { allowBrowse: true } }, a));
+  });
+
+  it('tells a phone which key a song is in, asking the console to work it out first if nobody knows', async () => {
+    const dataDir = await mkdtemp(join(tmpdir(), 'encore-songkey-'));
+    const own = await createApp({ port: 0, host: '127.0.0.1', dataDir, quiet: true, cloud: false, youtubeProxy: false, keyWaitMs: 400, extraLibraryFolders: [join(dir, 'library')] });
+    const url = await own.listen();
+    for (let i = 0; i < 50 && own.library.getStatus().trackCount < 3; i++) await new Promise((r) => setTimeout(r, 20));
+    const conn = (auth: Record<string, string> = {}) => {
+      const s: Client = connect(url, { auth, transports: ['websocket'], forceNew: true });
+      sockets.push(s);
+      return s;
+    };
+    const phone = conn();
+    await call((a) => phone.emit('singer:join', 'Singer', a));
+    const ask = (id: string) => call<SongKey | null>((a) => phone.emit('songKey', id as never, a));
+    const ids = ['adele', 'queen', 'toto'].map((q) => {
+      const src = own.library.search(q)[0]!.song.source;
+      if (src.kind !== 'local') throw new Error('expected local');
+      return src.trackId;
+    });
+
+    // Nothing to ask while no console is connected, and nonsense is just "unknown".
+    expect(await ask(ids[0]!)).toBeNull();
+    expect(await ask('nope')).toBeNull();
+    expect(await ask('0123456789abcdef')).toBeNull();
+
+    // The console connects. It's asked once, listens to the song, and the phone gets the answer.
+    const dj = conn({ role: 'dj' });
+    const asked: string[] = [];
+    dj.on('dj:detect', ({ trackId }) => {
+      asked.push(trackId);
+      if (trackId === ids[0]) void call((a) => dj.emit('dj:action', { type: 'setSongKey', trackId, key: { tonic: 0, mode: 'major' }, detected: true }, a));
+    });
+    await new Promise((r) => dj.on('connect', () => r(null)));
+    expect(await ask(ids[0]!)).toEqual({ tonic: 0, mode: 'major' });
+    expect(asked).toEqual([ids[0]]);
+    // Known now: answered at once, without asking again. The phone sees it with the song, too.
+    expect(await ask(ids[0]!)).toEqual({ tonic: 0, mode: 'major' });
+    expect(asked).toEqual([ids[0]]);
+    const found = await call<SearchResult[]>((a) => phone.emit('search', 'adele', a));
+    expect(found[0]!.songKey).toEqual({ tonic: 0, mode: 'major' });
+
+    // A console that can't work it out: the phone waits a moment, then moves on, and nobody keeps asking.
+    expect(await ask(ids[1]!)).toBeNull();
+    expect(await ask(ids[1]!)).toBeNull();
+    expect(asked).toEqual([ids[0], ids[1]]);
+    await own.close();
+    await rm(dataDir, { recursive: true, force: true });
   });
 });
