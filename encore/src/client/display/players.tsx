@@ -4,6 +4,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import type { Song, YouTubeMode } from '../../shared/types.ts';
 import { CDG_HEIGHT, CDG_WIDTH, CdgDecoder } from '../cdg/decoder.ts';
+import { routeToOutput } from '../common/audio-output.ts';
 import * as I from '../common/icons.tsx';
 import { modeOrder, playYouTube, YOUTUBE_ERRORS, type YouTubeHandle } from '../common/youtube-embed.ts';
 import { routeKey, type KeyRoute } from './key-change.ts';
@@ -65,6 +66,9 @@ function useMediaElement<T extends HTMLMediaElement>(props: PlayerProps, ref: Re
       if (el.current) el.current.currentTime = s;
     },
   }));
+
+  // Songs play through whichever speakers the KJ chose in Settings.
+  useEffect(() => void (el.current && routeToOutput(el.current)), []);
 
   useEffect(() => {
     const m = el.current;

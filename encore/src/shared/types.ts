@@ -296,6 +296,8 @@ export interface DisplayView {
   /** Appended to /media URLs; only the KJ and displays are given it. */
   mediaKey: string;
   youtube: YouTubeEmbed;
+  /** The audio output device to play through ('' or absent: the system default). */
+  audioOutput?: string;
   /** Break music: absent when no break music folder has anything in it. */
   breakMusic?: {
     on: boolean;
@@ -344,4 +346,6 @@ export interface DjView {
   /** Original keys of the library songs in the queue and on stage, by track id. */
   songKeys: Record<string, SongKey>;
   breakMusic: BreakStatus;
+  /** The audio output device the screen plays through ('' = system default). */
+  audioOutput: string;
 }

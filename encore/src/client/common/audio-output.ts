@@ -41,6 +41,43 @@ export function currentOutputDevice(): string {
   return sink;
 }
 
+// A speaker that was unplugged and comes back needs picking again.
+if (typeof navigator !== 'undefined') {
+  navigator.mediaDevices?.addEventListener?.('devicechange', () => {
+    if (!sink) return;
+    for (const ref of targets) {
+      const t = ref.deref();
+      if (t) void apply(t);
+      else targets.delete(ref);
+    }
+  });
+}
+
+/** Two short beeps through the given output (or the system default), so the KJ can hear which speakers it is. */
+export async function playTestSound(deviceId: string): Promise<void> {
+  const ctx = new AudioContext();
+  try {
+    if (deviceId) await (ctx as unknown as Sinkable).setSinkId?.(deviceId);
+  } catch (err) {
+    await ctx.close();
+    throw new Error(`Couldn’t use that output: ${(err as Error).message}`);
+  }
+  const t0 = ctx.currentTime + 0.05;
+  [440, 660].forEach((hz, i) => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.frequency.value = hz;
+    const at = t0 + i * 0.45;
+    gain.gain.setValueAtTime(0, at);
+    gain.gain.linearRampToValueAtTime(0.25, at + 0.04);
+    gain.gain.linearRampToValueAtTime(0, at + 0.38);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(at);
+    osc.stop(at + 0.4);
+  });
+  setTimeout(() => void ctx.close(), 1500);
+}
+
 export interface OutputDevice {
   id: string;
   label: string;

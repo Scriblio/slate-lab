@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } fro
 import type { DjAction } from '../../shared/protocol.ts';
 import { ROTATION_MODES, type DjView } from '../../shared/types.ts';
 import * as I from '../common/icons.tsx';
+import { setOutputDevice } from '../common/audio-output.ts';
 import { connect, request, savePin, storedPin, useConnection } from '../common/socket.ts';
 import { Modal, useToast } from '../common/ui.tsx';
 import { DjContext, useDj, type DjCtx } from './context.ts';
@@ -32,6 +33,9 @@ export function DjApp() {
     socket.on('dj:view', setView);
     return () => void socket.off('dj:view', setView);
   }, [socket]);
+
+  // The console's own preview plays through the same speakers as the venue screen.
+  useEffect(() => setOutputDevice(view?.audioOutput), [view?.audioOutput]);
 
   // Singers leaving or asking to wait, from their phones.
   useEffect(() => {

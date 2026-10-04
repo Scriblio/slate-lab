@@ -5,6 +5,7 @@
 // YouTube's own player, whose sound Encore never touches.
 
 import { PITCH_LATENCY } from '../../shared/pitch.ts';
+import { routeToOutput } from '../common/audio-output.ts';
 import workletUrl from './pitch-worklet.ts?worker&url';
 
 export interface KeyRoute {
@@ -20,7 +21,7 @@ let shared: { ctx: AudioContext; ready: Promise<void> } | undefined;
 
 function audio(): { ctx: AudioContext; ready: Promise<void> } {
   if (!shared) {
-    const ctx = new AudioContext({ latencyHint: 'playback' });
+    const ctx = routeToOutput(new AudioContext({ latencyHint: 'playback' }));
     shared = { ctx, ready: ctx.audioWorklet.addModule(workletUrl) };
     // Browsers start audio only after the page has been clicked; the venue
     // screen asks for that click already, and this picks it up.

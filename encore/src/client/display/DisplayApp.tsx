@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } fro
 import type { PlayerCommand } from '../../shared/protocol.ts';
 import type { DisplayView } from '../../shared/types.ts';
 import * as I from '../common/icons.tsx';
+import { setOutputDevice } from '../common/audio-output.ts';
 import { desktop } from '../common/desktop.ts';
 import { connect, savePin, storedPin, useConnection, type AppSocket } from '../common/socket.ts';
 import { useTick } from '../common/ui.tsx';
@@ -24,6 +25,9 @@ export function DisplayApp() {
     socket.on('display:view', setView);
     return () => void socket.off('display:view', setView);
   }, [socket]);
+
+  // The speakers the KJ picked in Settings.
+  useEffect(() => setOutputDevice(view?.audioOutput), [view?.audioOutput]);
 
   // F toggles fullscreen.
   useEffect(() => {

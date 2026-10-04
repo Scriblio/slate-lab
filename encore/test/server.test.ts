@@ -1,7 +1,7 @@
 // End-to-end over real sockets: phones join and request, the KJ runs the
 // stage, the display reports playback.
 
-import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { crc32, deflateRawSync } from 'node:zlib';
@@ -563,5 +563,23 @@ describe('YouTube videos that won’t play here', () => {
     await moved;
     await own.close();
     await rm(dataDir, { recursive: true, force: true });
+  });
+
+  it('remembers which speakers the KJ picked and tells the screen and the console', async () => {
+    const dj = client({ role: 'dj' });
+    const display = client({ role: 'display' });
+    const act = (action: object) => call((a) => dj.emit('dj:action', action as never, a as never));
+    const onScreen = nextEvent<DisplayView>(display, 'display:view', (v) => v.audioOutput === 'speaker-123');
+    const onConsole = nextEvent<DjView>(dj, 'dj:view', (v) => v.audioOutput === 'speaker-123');
+    await act({ type: 'setConfig', audioOutput: 'speaker-123' });
+    await onScreen;
+    await onConsole;
+    expect((await call<{ audioOutput: string }>((a) => dj.emit('dj:config', a))).audioOutput).toBe('speaker-123');
+    const saved = JSON.parse(await readFile(join(dir, 'data', 'config.json'), 'utf8')) as { audioOutput: string };
+    expect(saved.audioOutput).toBe('speaker-123');
+    // Back to the system default.
+    const reset = nextEvent<DisplayView>(display, 'display:view', (v) => v.audioOutput === '');
+    await act({ type: 'setConfig', audioOutput: '' });
+    await reset;
   });
 });

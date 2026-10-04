@@ -3,18 +3,33 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import type { ServerConfigView } from '../../shared/protocol.ts';
 import type { Settings } from '../../shared/types.ts';
+import { listOutputDevices, playTestSound, type OutputDevice } from '../common/audio-output.ts';
 import { desktop } from '../common/desktop.ts';
 import * as I from '../common/icons.tsx';
 import { request } from '../common/socket.ts';
-import { Modal, Toggle, YouTubeTerms } from '../common/ui.tsx';
+import { Modal, Toggle, useToast, YouTubeTerms } from '../common/ui.tsx';
 import { useDj } from './context.ts';
 
 export function SettingsModal({ onClose }: { onClose: () => void }) {
   const { view, act, socket } = useDj();
+  const toast = useToast();
   const s = view.show.settings;
   const [config, setConfig] = useState<ServerConfigView | null>(null);
   const [folders, setFolders] = useState('');
   const [breakFolders, setBreakFolders] = useState('');
+  const [devices, setDevices] = useState<OutputDevice[] | null>(null);
+
+  // The speakers this computer has, kept up to date as they're plugged in and out.
+  useEffect(() => {
+    let live = true;
+    const load = () => void listOutputDevices().then((d) => live && setDevices(d));
+    load();
+    navigator.mediaDevices?.addEventListener?.('devicechange', load);
+    return () => {
+      live = false;
+      navigator.mediaDevices?.removeEventListener?.('devicechange', load);
+    };
+  }, []);
   const [showName, setShowName] = useState(s.showName);
   const [confirmNew, setConfirmNew] = useState(false);
 
@@ -63,6 +78,38 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           <Field label="Changeover time (seconds)" hint="Time between singers, used for wait estimates.">
             <input className="input narrow" type="number" min={0} max={600} value={s.changeoverSec} onChange={(e) => set({ changeoverSec: Number(e.target.value) })} />
           </Field>
+        </Section>
+
+        <Section title="Speakers">
+          <Field label="Play sound through" hint="Pick the output your PA or mixer is plugged into. Songs and break music follow it. YouTube videos play in YouTube’s own player and always use the Windows default output.">
+            <div className="settings-row">
+              <select
+                className="input"
+                value={config?.audioOutput ?? ''}
+                onChange={async (e) => {
+                  const audioOutput = e.target.value;
+                  await act({ type: 'setConfig', audioOutput });
+                  setConfig((c) => c && { ...c, audioOutput });
+                }}
+              >
+                <option value="">System default (whatever Windows is using)</option>
+                {(devices ?? []).filter((d) => d.id !== 'default').map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.label}
+                  </option>
+                ))}
+                {config?.audioOutput && devices && !devices.some((d) => d.id === config.audioOutput) && <option value={config.audioOutput}>(not connected right now)</option>}
+              </select>
+              <button className="btn sm" onClick={() => playTestSound(config?.audioOutput ?? '').catch((e: Error) => toast(e.message, 'error'))}>
+                <I.Volume /> Test
+              </button>
+            </div>
+          </Field>
+          {config?.audioOutput && devices && !devices.some((d) => d.id === config.audioOutput) && (
+            <p className="settings-error">
+              <I.Alert /> The speakers you picked aren’t connected, so sound is using the Windows default. Plug them back in and they’ll be used again.
+            </p>
+          )}
         </Section>
 
         <Section title="Karaoke library">

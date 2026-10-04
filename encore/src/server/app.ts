@@ -323,6 +323,7 @@ export async function createApp(opts: AppOptions) {
       respond(ack, () => ({
         libraryFolders: config.libraryFolders,
         breakFolders: config.breakFolders,
+        audioOutput: config.audioOutput,
         filenameOrder: config.filenameOrder,
         youtubeSearch: youtube.mode,
         djPin: config.djPin,
@@ -613,6 +614,10 @@ export async function createApp(opts: AppOptions) {
       config.breakFolders = a.breakFolders.map((f) => String(f).trim()).filter(Boolean).slice(0, 20);
       saved.breakFolders = config.breakFolders;
     }
+    if (typeof a.audioOutput === 'string') {
+      config.audioOutput = a.audioOutput.slice(0, 300);
+      saved.audioOutput = config.audioOutput;
+    }
     if (a.filenameOrder) {
       config.filenameOrder = a.filenameOrder === 'title-artist' ? 'title-artist' : 'artist-title';
       saved.filenameOrder = config.filenameOrder;
@@ -714,13 +719,14 @@ export async function createApp(opts: AppOptions) {
       mediaKey,
       songKeys: songKeys.pick(trackIds(show.state.nowPlaying ? [show.state.nowPlaying.entry, ...show.state.entries] : show.state.entries)),
       breakMusic: breakMusic.status(breakOn),
+      audioOutput: config.audioOutput,
     };
     io.to('dj').emit('dj:view', dj);
     const breakView = breakMusic.count
       ? { on: breakOn, paused: breakMusic.paused, volume: show.state.settings.breakVolume, nonce: breakMusic.nonce, track: breakMusic.current() }
       : undefined;
     displays.forEach((s, i) =>
-      s.emit('display:view', { ...show.displayView(list, joinUrl(), joinLabel(), i === 0, mediaKey, ytGuard.view()), ...(breakView ? { breakMusic: breakView } : {}) }),
+      s.emit('display:view', { ...show.displayView(list, joinUrl(), joinLabel(), i === 0, mediaKey, ytGuard.view()), ...(breakView ? { breakMusic: breakView } : {}), audioOutput: config.audioOutput }),
     );
     for (const raw of io.sockets.sockets.values()) {
       const s = raw as IoSocket;
