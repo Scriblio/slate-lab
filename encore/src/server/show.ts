@@ -939,7 +939,7 @@ export class Show {
 
   // --- views -----------------------------------------------------------------
 
-  singerView(singerId: string | undefined, list: UpcomingItem[], youtubeSearch: boolean): SingerView {
+  singerView(singerId: string | undefined, list: UpcomingItem[], youtubeSearch: boolean, hasLibrary = false): SingerView {
     const { settings } = this.state;
     const me = singerId ? (this.singer(singerId) ?? null) : null;
     const np = this.state.nowPlaying;
@@ -950,6 +950,7 @@ export class Show {
       joinOpen: settings.joinOpen,
       allowYouTube: settings.allowYouTube,
       youtubeSearch: settings.allowYouTube && youtubeSearch,
+      canBrowse: settings.allowBrowse && hasLibrary,
       maxQueuedPerSinger: settings.maxQueuedPerSinger,
       me,
       myEntries: me ? this.state.entries.filter((e) => e.singerId === me.id) : [],
@@ -1058,6 +1059,7 @@ function sanitizeSettings(s: Settings): Settings {
     requireApproval: bool(s.requireApproval, D.requireApproval),
     maxQueuedPerSinger: int(s.maxQueuedPerSinger, 0, 50, D.maxQueuedPerSinger),
     allowYouTube: bool(s.allowYouTube, D.allowYouTube),
+    allowBrowse: bool(s.allowBrowse, D.allowBrowse),
     showSongsToSingers: bool(s.showSongsToSingers, D.showSongsToSingers),
     joinOpen: bool(s.joinOpen, D.joinOpen),
     autoAdvance: bool(s.autoAdvance, D.autoAdvance),

@@ -47,6 +47,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
             <input className="input narrow" type="number" min={0} max={50} value={s.maxQueuedPerSinger} onChange={(e) => set({ maxQueuedPerSinger: Number(e.target.value) })} />
           </Field>
           <Switch label="Allow YouTube requests" hint="Singers can pick YouTube karaoke videos as well as your library." checked={s.allowYouTube} onChange={(v) => set({ allowYouTube: v })} />
+          <Switch label="Let singers browse the song list" hint="Phones get a scrollable list of your whole library, by artist or title, as well as search." checked={s.allowBrowse} onChange={(v) => set({ allowBrowse: v })} />
           <Switch label="Show song titles to singers" hint="Off keeps everyone’s picks a surprise; phones only see names." checked={s.showSongsToSingers} onChange={(v) => set({ showSongsToSingers: v })} />
         </Section>
 

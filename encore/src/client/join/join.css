@@ -339,6 +339,7 @@ body {
   top: var(--head-h, 0);
   z-index: 5;
   padding: 4px 0 10px;
+  background: var(--bg);
 }
 .hint {
   margin-top: 10px;
@@ -939,4 +940,91 @@ button.status {
   font-size: 11px;
   font-weight: 650;
   color: var(--text-2);
+}
+
+/* ---- browse the song list ---- */
+
+.browse-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.browse-head .section-title {
+  margin-right: 0;
+}
+.browse-count {
+  margin-left: 4px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text-3);
+  font-size: 12px;
+  letter-spacing: 0;
+}
+.seg {
+  display: inline-flex;
+  padding: 3px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  margin-top: 6px;
+}
+.seg button {
+  padding: 6px 14px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-2);
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 650;
+  cursor: pointer;
+}
+.seg button.on {
+  background: var(--accent);
+  color: #fff;
+}
+.browse .results {
+  scroll-margin-top: calc(var(--head-h, 0px) + var(--search-h, 70px) + 60px);
+}
+.letters {
+  position: sticky;
+  top: calc(var(--head-h, 0px) + var(--search-h, 70px));
+  z-index: 4;
+  display: flex;
+  gap: 6px;
+  margin: 6px -16px 10px;
+  padding: 6px 16px;
+  overflow-x: auto;
+  background: var(--bg);
+  scrollbar-width: none;
+}
+.letters::-webkit-scrollbar {
+  display: none;
+}
+.letters button {
+  flex: none;
+  min-width: 36px;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text-2);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.letters button.on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.browse-status {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
 }

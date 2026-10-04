@@ -5,6 +5,7 @@ Encore runs on the KJ's laptop. It does three things:
 - **DJ console** (`/dj`): runs the rotation, the stage and song search.
 - **Venue screen** (`/display`): plays the song on the TV or projector, introduces each singer, and shows a QR code between songs.
 - **Phone sign-up** (`/join`): singers scan the code, type a name, pick a song and watch their place in line. They don't need an app or an account.
+- **The song list on the phone:** under the search box, singers can scroll through your whole library, by artist or by title, and jump with an A–Z bar. Each song shows once, even if you have it in several formats. It loads a page at a time, so a library of tens of thousands of songs is fine. Turn it off in Settings (*Let singers browse the song list*) if you'd rather they only search.
 
 Songs come from your own library (MP4/MKV/WebM video, MP3+G, zipped MP3+G) or from YouTube, so a request the library doesn't have can still be played.
 

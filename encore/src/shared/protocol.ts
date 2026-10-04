@@ -1,6 +1,6 @@
 // Socket.IO event contracts between the server and the three clients.
 
-import type { DisplayView, DjView, RotationMode, SearchResult, Settings, SingerView, Song, YouTubeMode } from './types.ts';
+import type { BrowseRequest, BrowseResult, DisplayView, DjView, RotationMode, SearchResult, Settings, SingerView, Song, YouTubeMode } from './types.ts';
 import type { FilenameOrder } from './text.ts';
 
 /** What a client may send to describe a song; the server rebuilds the rest. */
@@ -112,6 +112,8 @@ export interface ClientToServer {
   'singer:reclaim': (name: string, code: string, ack: Ack<{ token: string; singerId: string }>) => void;
   'singer:action': (action: SingerAction, ack: Ack<unknown>) => void;
   search: (query: string, ack: Ack<SearchResult[]>) => void;
+  /** A page of the whole library list, for scrolling through on a phone. */
+  browse: (req: BrowseRequest, ack: Ack<BrowseResult>) => void;
   searchYouTube: (query: string, ack: Ack<SearchResult[]>) => void;
   lookupYouTube: (urlOrId: string, ack: Ack<SearchResult>) => void;
   'display:progress': (p: { playId: string; position: number; duration?: number }) => void;

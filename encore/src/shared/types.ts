@@ -122,6 +122,8 @@ export interface Settings {
   /** 0 = unlimited songs waiting per singer. */
   maxQueuedPerSinger: number;
   allowYouTube: boolean;
+  /** Let singers scroll through the whole library list on their phones. */
+  allowBrowse: boolean;
   /** Let phones see song titles for other singers in the queue. */
   showSongsToSingers: boolean;
   joinOpen: boolean;
@@ -139,6 +141,7 @@ export const DEFAULT_SETTINGS: Settings = {
   requireApproval: false,
   maxQueuedPerSinger: 3,
   allowYouTube: true,
+  allowBrowse: true,
   showSongsToSingers: false,
   joinOpen: true,
   autoAdvance: true,
@@ -193,6 +196,27 @@ export interface LibraryStatus {
   errors: string[];
 }
 
+/** One page of the library list a singer scrolls through on their phone. */
+export interface BrowseRequest {
+  /** The order: by artist (then title) or by title (then artist). */
+  sort: 'artist' | 'title';
+  /** Start this far into the list. Ignored when `letter` is given. */
+  offset?: number;
+  /** Start at the first song under this letter ('A'-'Z', or '#' for digits and symbols). */
+  letter?: string;
+  limit?: number;
+}
+
+export interface BrowseResult {
+  items: SearchResult[];
+  /** Songs in the whole list (each song once, however many files it has). */
+  total: number;
+  /** Where `items` starts in the list. */
+  offset: number;
+  /** The letters that have songs, in order, for the jump bar. */
+  letters: string[];
+}
+
 export interface SearchResult {
   song: Song;
   /** Library tracks carry their disc id; YouTube results carry their channel. */
@@ -211,6 +235,8 @@ export interface SingerView {
   joinOpen: boolean;
   allowYouTube: boolean;
   youtubeSearch: boolean;
+  /** The KJ lets singers scroll through the library, and there is a library. */
+  canBrowse: boolean;
   maxQueuedPerSinger: number;
   me: Singer | null;
   myEntries: Entry[];

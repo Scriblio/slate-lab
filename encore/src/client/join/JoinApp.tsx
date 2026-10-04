@@ -12,6 +12,7 @@ import * as I from '../common/icons.tsx';
 import { connect, request, safeGet, safeSet, useConnection, type AppSocket, type ServerError } from '../common/socket.ts';
 import { Eq, SongThumb, SourceBadge, useAction, useDebounced, useTick, useToast, YouTubeTerms } from '../common/ui.tsx';
 import type { LockScreenAlerts } from '../sing/alerts.ts';
+import { BrowseList, useHeightVar } from './Browse.tsx';
 
 type Tab = 'search' | 'mine' | 'line';
 
@@ -373,9 +374,12 @@ function Main({
       .catch(() => {});
   }, [pushOn, pushKey]);
 
+  const headRef = useRef<HTMLElement>(null);
+  useHeightVar(headRef, '--head-h');
+
   return (
     <div className="app">
-      <header className="app-head">
+      <header className="app-head" ref={headRef}>
         <div className="who">
           <div className="avatar">{initials(me.name)}</div>
           <div className="ellipsis">
@@ -641,6 +645,8 @@ function SearchTab({
   const [ytBusy, setYtBusy] = useState(false);
   const [picked, setPicked] = useState<SearchResult | null>(null);
   const toast = useToast();
+  const stickyRef = useRef<HTMLDivElement>(null);
+  useHeightVar(stickyRef, '--search-h');
   const ytId = parseYouTubeId(q);
   const full = !replacing && view.maxQueuedPerSinger > 0 && view.myEntries.length >= view.maxQueuedPerSinger;
 
@@ -693,7 +699,7 @@ function SearchTab({
           </button>
         </div>
       )}
-      <div className="search-sticky">
+      <div className="search-sticky" ref={stickyRef}>
         <div className="search-box">
           <I.Search />
           <input
@@ -713,7 +719,11 @@ function SearchTab({
         {full && <div className="hint warn">You have {view.myEntries.length} songs waiting — the max for tonight. Sing one first, or swap one out.</div>}
       </div>
 
-      {!query && !ytId && (
+      {!query && !ytId && view.canBrowse && (
+        <BrowseList socket={socket} renderRow={(r) => <ResultRow key={sourceId(r.song)} r={r} onPick={() => setPicked(r)} disabled={full} />} />
+      )}
+
+      {!query && !ytId && !view.canBrowse && (
         <div className="empty">
           <I.Music />
           <strong>What are you singing tonight?</strong>

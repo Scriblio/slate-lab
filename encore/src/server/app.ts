@@ -12,7 +12,7 @@ import sirv from 'sirv';
 import { Server, type Socket } from 'socket.io';
 import type { Ack, ClientToServer, DjAction, HandshakeAuth, Role, ServerToClient } from '../shared/protocol.ts';
 import { parseYouTubeId } from '../shared/text.ts';
-import type { DjView, Entry, SearchResult, Song } from '../shared/types.ts';
+import type { BrowseRequest, DjView, Entry, SearchResult, Song } from '../shared/types.ts';
 import { CLOUD, cloudConfigured } from '../shared/cloud.ts';
 import { joinLink, supabaseTransport, type RelayTransport } from '../shared/relay.ts';
 import { loadConfig, saveConfig, type Config } from './config.ts';
@@ -369,16 +369,33 @@ export async function createApp(opts: AppOptions) {
 
   function wireSearch(socket: IoSocket) {
     const isDj = socket.data.role === 'dj';
+    // A singer sees the key they sang each song in last time, so it comes up that way again.
+    const decorate = (results: SearchResult[]): SearchResult[] => {
+      const me = !isDj && socket.data.singerId ? show.singer(socket.data.singerId)?.name : undefined;
+      return results.map((r) => {
+        const lastKey = me ? keys.get(me, r.song) : undefined;
+        const songKey = songKeyOf(r.song);
+        return { ...r, playedTonight: show.playedTonight(r.song), ...(lastKey ? { lastKey } : {}), ...(songKey ? { songKey } : {}) };
+      });
+    };
     socket.on('search', (query, ack) =>
       respond(ack, () => {
         const results = library.search(String(query ?? '').slice(0, 100), { limit: isDj ? 60 : 30, dedupe: !isDj });
-        // A singer sees the key they sang each song in last time, so it comes up that way again.
-        const me = !isDj && socket.data.singerId ? show.singer(socket.data.singerId)?.name : undefined;
-        return results.map((r) => {
-          const lastKey = me ? keys.get(me, r.song) : undefined;
-          const songKey = songKeyOf(r.song);
-          return { ...r, playedTonight: show.playedTonight(r.song), ...(lastKey ? { lastKey } : {}), ...(songKey ? { songKey } : {}) };
+        return decorate(results);
+      }),
+    );
+    socket.on('browse', (req, ack) =>
+      respond(ack, () => {
+        if (!isDj && !show.state.settings.allowBrowse) throw new UserError('The KJ has turned off browsing the song list tonight. You can still search.');
+        if (!isDj && !rateOk(socket, 'browse', 120, 60_000)) throw new UserError('Slow down a little, then keep scrolling.');
+        const r = (req ?? {}) as Partial<BrowseRequest>;
+        const page = library.browse({
+          sort: r.sort === 'title' ? 'title' : 'artist',
+          offset: Number(r.offset) || 0,
+          letter: typeof r.letter === 'string' ? r.letter.slice(0, 1) : undefined,
+          limit: Math.min(Number(r.limit) || 40, 50),
         });
+        return { ...page, items: decorate(page.items) };
       }),
     );
     socket.on('searchYouTube', (query, ack) =>
@@ -607,7 +624,7 @@ export async function createApp(opts: AppOptions) {
         void s.leave(`singer:${s.data.singerId}`);
         s.data.singerId = undefined;
       }
-      const view = show.singerView(s.data.singerId, list, youtube.canSearch);
+      const view = show.singerView(s.data.singerId, list, youtube.canSearch, library.getStatus().trackCount > 0);
       const id = s.data.singerId;
       const mine = songKeys.pick(trackIds(view.myEntries));
       s.emit('singer:view', {

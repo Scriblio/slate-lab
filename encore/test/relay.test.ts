@@ -230,6 +230,10 @@ describe('online join link, end to end', () => {
     // The phone's next message reaches the new relay, which welcomes it back.
     const results = await ack<SearchResult[]>(p, 'search', 'anything');
     expect(Array.isArray(results)).toBe(true);
+    // The song list works over the encrypted link too.
+    const page = await ack<{ items: unknown[]; total: number }>(p, 'browse', { sort: 'title' });
+    expect(Array.isArray(page.items)).toBe(true);
+    expect(page.total).toBe(page.items.length);
     await until(() => connects > 0);
     const back = await ack<{ singerId: string }>(p, 'singer:resume', token);
     expect(app.show.singer(back.singerId)?.name).toBe('Barney');

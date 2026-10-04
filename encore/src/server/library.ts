@@ -4,7 +4,7 @@
 import { createHash } from 'node:crypto';
 import { readdir } from 'node:fs/promises';
 import { basename, extname, join, relative } from 'node:path';
-import type { LibraryStatus, LibraryTrack, LocalFormat, SearchResult } from '../shared/types.ts';
+import type { BrowseRequest, BrowseResult, LibraryStatus, LibraryTrack, LocalFormat, SearchResult } from '../shared/types.ts';
 import { normalize, parseFilename, type FilenameOrder } from '../shared/text.ts';
 
 const VIDEO = new Set(['.mp4', '.m4v', '.webm', '.mkv', '.mov', '.ogv']);
@@ -22,6 +22,8 @@ export class Library {
   private tracks: Indexed[] = [];
   private byId = new Map<string, Indexed>();
   private status: LibraryStatus = { folders: [], trackCount: 0, scanning: false, errors: [] };
+  /** The browse lists (each song once), built when first asked for and dropped when the tracks change. */
+  private lists = new Map<'artist' | 'title', { items: Indexed[]; letters: string[]; starts: Map<string, number> }>();
 
   constructor(private order: FilenameOrder = 'artist-title') {}
 
@@ -51,6 +53,7 @@ export class Library {
     }
     found.sort((a, b) => a.nArtist.localeCompare(b.nArtist) || a.nTitle.localeCompare(b.nTitle));
     this.tracks = found;
+    this.lists.clear();
     this.byId = new Map(found.map((t) => [t.id, t]));
     this.status = { folders, trackCount: found.length, scanning: false, lastScanAt: Date.now(), errors };
     onProgress?.();
@@ -117,6 +120,59 @@ export class Library {
       this.tracks.push(ix);
       this.byId.set(ix.id, ix);
     }
+    this.lists.clear();
+  }
+
+  /**
+   * A page of the whole library in order, for a phone to scroll through. Each
+   * song shows once (the best file for it) however many files it has.
+   */
+  browse(req: BrowseRequest): BrowseResult {
+    const list = this.list(req.sort === 'title' ? 'title' : 'artist');
+    const limit = Math.max(1, Math.min(100, Math.floor(Number(req.limit) || 40)));
+    let offset = Math.max(0, Math.floor(Number(req.offset) || 0));
+    if (typeof req.letter === 'string' && req.letter) {
+      // The first song under that letter, or under the next letter that has any.
+      const want = letterOf(req.letter.trim().toLowerCase());
+      offset = list.items.length;
+      for (const [letter, at] of list.starts) {
+        if (letter >= want && at < offset) offset = at;
+      }
+      if (want === '#') offset = 0;
+    }
+    offset = Math.min(offset, list.items.length);
+    const items = list.items.slice(offset, offset + limit).map((t) => this.toResult(t));
+    return { items, total: list.items.length, offset, letters: list.letters };
+  }
+
+  private list(sort: 'artist' | 'title') {
+    let list = this.lists.get(sort);
+    if (list) return list;
+    const keyOf = (t: Indexed) => (sort === 'artist' ? t.nArtist || t.nTitle : t.nTitle || t.nArtist);
+    const second = (t: Indexed) => (sort === 'artist' ? t.nTitle : t.nArtist);
+    // Files of the same song: keep the one search would rank first (video, MP3+G and zip over plain audio).
+    const best = new Map<string, Indexed>();
+    for (const t of this.tracks) {
+      const id = `${t.nArtist}|${t.nTitle}`;
+      const have = best.get(id);
+      if (!have || rank(t) > rank(have)) best.set(id, t);
+    }
+    const items = [...best.values()].sort((a, b) => keyOf(a).localeCompare(keyOf(b)) || second(a).localeCompare(second(b)) || a.path.localeCompare(b.path));
+    const starts = new Map<string, number>();
+    items.forEach((t, i) => {
+      const letter = letterOf(keyOf(t));
+      if (!starts.has(letter)) starts.set(letter, i);
+    });
+    list = { items, letters: [...starts.keys()], starts };
+    this.lists.set(sort, list);
+    return list;
+  }
+
+  private toResult(t: Indexed): SearchResult {
+    return {
+      song: { title: t.title, artist: t.artist, source: { kind: 'local', trackId: t.id, format: t.format } },
+      detail: [t.discId, FORMAT_LABEL[t.format]].filter(Boolean).join(' · '),
+    };
   }
 
   search(query: string, opts: { limit?: number; dedupe?: boolean } = {}): SearchResult[] {
@@ -155,6 +211,17 @@ export class Library {
     }
     return out;
   }
+}
+
+/** The jump-bar letter for a sort key: 'A'-'Z', or '#' for digits and anything else. */
+function letterOf(key: string): string {
+  const c = key.charAt(0).toUpperCase();
+  return c >= 'A' && c <= 'Z' ? c : '#';
+}
+
+/** Of several files for one song, the one to show: playable video and MP3+G over plain audio. */
+function rank(t: Indexed): number {
+  return t.format === 'audio' ? 0 : 1;
 }
 
 const FORMAT_LABEL: Record<LocalFormat, string> = {

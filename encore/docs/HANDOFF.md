@@ -15,7 +15,7 @@ Encore is a karaoke hosting (KJ) app by Scriblio (Matthew Lancaster). It's being
 | --- | --- |
 | Install | `npm ci` (use `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci` if you don't need Electron) |
 | Typecheck | `npm run typecheck` |
-| Tests | `npm test` (209 tests) |
+| Tests | `npm test` (219 tests) |
 | Run with a demo library | `npm run demo`, then open http://localhost:4747/dj (venue screen at `/display`, phone page at `/join`) |
 | Desktop app | `npm run build:desktop && npm run desktop` |
 | Windows installer | built by GitHub Actions on every push to the branch: download the "Encore-Karaoke-Windows" artifact from the run; `npm run dist:win` needs Windows |
@@ -61,6 +61,11 @@ The YouTube API Services policies apply because Encore uses the search API. Brea
 - **Store YouTube data for at most 30 days.**
 
 ## Done recently (all on the branch, tested)
+
+- **Song list on the phone:** the Find tab shows the whole library to scroll through when nothing is typed (`src/client/join/Browse.tsx`).
+  - The server pages it: socket event `browse` (also allowed over the relay), `Library.browse` in `src/server/library.ts`. Each song appears once, preferring a video/MP3+G file over plain audio. Pages are 40 songs, sorted by artist or title, with an A–Z jump (`letter`).
+  - The KJ can turn it off with Settings → *Let singers browse the song list* (`allowBrowse`; phones get `canBrowse` in their view). It's refused for phones when off, and the KJ console is unaffected.
+  - Also fixed: the search box and header on the phone page never stacked (the `--head-h` variable was never set). `useHeightVar` now measures them, so the search box and the A–Z bar stay pinned under the header.
 
 - **Karaoke catalog:** the top 5,000 videos by views from Sing King (`@SingKingKaraoke`) and KaraFun (`@karafun`).
   - It's built through the API's cheap list calls, about 700 units in all, inside a 2,000-unit-a-day budget, and rebuilt every 25 days.

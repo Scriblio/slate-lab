@@ -9,7 +9,7 @@ import { io as connect, type Socket } from 'socket.io-client';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createApp, type App } from '../src/server/app.ts';
 import type { ClientToServer, ServerToClient } from '../src/shared/protocol.ts';
-import type { DisplayView, DjView, SearchResult, SingerView } from '../src/shared/types.ts';
+import type { BrowseResult, DisplayView, DjView, SearchResult, SingerView } from '../src/shared/types.ts';
 
 type Client = Socket<ServerToClient, ClientToServer>;
 
@@ -388,5 +388,45 @@ describe('YouTube videos that won’t play here', () => {
     expect(results.map((r) => r.song.source.kind === 'youtube' && r.song.source.videoId)).not.toContain('aaaaaaaaaaa');
     await own.close();
     await rm(dataDir, { recursive: true, force: true });
+  });
+
+  it('lets a phone scroll through the whole library, in order, until the KJ turns it off', async () => {
+    const dj = client({ role: 'dj' });
+    const phone = client();
+    const joined = nextEvent<SingerView>(phone, 'singer:view', (v) => v.me?.name === 'Scroller');
+    await call((a) => phone.emit('singer:join', 'Scroller', a));
+    expect((await joined).canBrowse).toBe(true);
+    const page = (req: object) => call<BrowseResult>((a) => phone.emit('browse', req as never, a));
+    const titles = (r: BrowseResult) => r.items.map((i) => i.song.title);
+
+    const byArtist = await page({ sort: 'artist' });
+    expect(titles(byArtist)).toEqual(['Hello', 'Bohemian Rhapsody', 'Africa']); // Adele, Queen, Toto
+    expect(byArtist).toMatchObject({ total: 3, offset: 0, letters: ['A', 'Q', 'T'] });
+    expect(byArtist.items[1]).toMatchObject({ detail: 'SF001-07 · MP3+G' });
+    // Songs already sung or requested tonight (by earlier tests, here) are marked, as in search.
+    expect(byArtist.items.every((i) => i.playedTonight === app.show.playedTonight(i.song))).toBe(true);
+    expect(titles(await page({ sort: 'title' }))).toEqual(['Africa', 'Bohemian Rhapsody', 'Hello']);
+    // Paging, and jumping to a letter.
+    expect(titles(await page({ sort: 'artist', offset: 1, limit: 1 }))).toEqual(['Bohemian Rhapsody']);
+    expect(await page({ sort: 'artist', letter: 'q' })).toMatchObject({ offset: 1 });
+
+    const song = byArtist.items[0]!.song.source;
+    if (song.kind !== 'local') throw new Error('expected local');
+    await call((a) => phone.emit('singer:action', { type: 'request', song: { kind: 'local', trackId: song.trackId } }, a));
+    expect((await page({ sort: 'artist' })).items[0]).toMatchObject({ playedTonight: true });
+
+    // Nonsense can't break it, and a phone sees only what it's allowed to.
+    expect(await page({ sort: 'sideways', offset: -5, limit: 'lots' })).toMatchObject({ offset: 0, total: 3 });
+    expect(await call<BrowseResult>((a) => phone.emit('browse', null as never, a))).toMatchObject({ total: 3 });
+
+    // The KJ turns browsing off: the phones are told, and the list is refused.
+    const off = nextEvent<SingerView>(phone, 'singer:view', (v) => v.canBrowse === false);
+    await call((a) => dj.emit('dj:action', { type: 'updateSettings', patch: { allowBrowse: false } }, a));
+    await off;
+    await expect(page({ sort: 'artist' })).rejects.toThrow(/turned off browsing/);
+    // The KJ's own console is not affected, and search still works for singers.
+    expect((await call<BrowseResult>((a) => dj.emit('browse', { sort: 'artist' }, a))).total).toBe(3);
+    expect((await call<SearchResult[]>((a) => phone.emit('search', 'adele', a)))[0]!.song.title).toBe('Hello');
+    await call((a) => dj.emit('dj:action', { type: 'updateSettings', patch: { allowBrowse: true } }, a));
   });
 });
