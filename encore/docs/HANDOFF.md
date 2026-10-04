@@ -107,7 +107,7 @@ The YouTube API Services policies apply because Encore uses the search API. Brea
    - vibration, chime and wake lock on real iPhone and Android phones;
    - key change by ear on real karaoke tracks: how ±2 and ±4 sound, and that CD+G lyrics still feel in time;
    - lock-screen alerts on a real Android phone (Chrome), and on an iPhone from the home screen. Check whether the home-screen app reopens straight into the show: the manifest has no `start_url`, so it should keep the link from the QR code. If it doesn't, the singer can still get back in with their rejoin code.
-2. **YouTube quota extension:** apply through the YouTube API Services audit before launch. The free quota is about 99 uncached searches a day across all customers. Caps can be raised with the Supabase secrets `YT_DAILY_SEARCHES`, `YT_DAILY_PER_INSTALL` and `YT_DAILY_PER_IP`.
+2. **YouTube quota extension:** the answers and evidence are ready in `docs/YOUTUBE_AUDIT.md`. The PDFs are in `docs/youtube-audit/` and aren't committed; regenerate them from the live pages if needed. Matthew submits the form. Apply through the YouTube API Services audit before launch. The free quota is about 99 uncached searches a day across all customers. Caps can be raised with the Supabase secrets `YT_DAILY_SEARCHES`, `YT_DAILY_PER_INSTALL` and `YT_DAILY_PER_IP`.
 3. **Terms of Use:** say that users of YouTube features agree to the YouTube Terms of Service. Finish `PRIVACY.md` (placeholders in brackets) and host it.
 4. **Microsoft Store:** fill in the Partner Center identity values in `electron-builder.yml` (see `STORE.md`).
 5. **Ideas Matthew liked but didn't build yet:**
