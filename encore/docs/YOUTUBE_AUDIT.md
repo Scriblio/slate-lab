@@ -98,7 +98,7 @@ Section by section, the answers below match the form's fields. Text in quote blo
 > Estimate for our first year, with about 100 KJs:
 > - Each KJ hosts about 3 nights a week, so about 45 shows on an average day and 80 on Fridays and Saturdays.
 > - A show takes about 60 song requests, and about half are YouTube songs.
-> - Our shared 7-day cache and our catalog of popular karaoke videos answer most of them without search.list; requests for common songs are matched in the catalog. We estimate about 9 uncached searches per show.
+> - Our shared 7-day cache and our catalog of popular karaoke videos answer many of them without search.list. We estimate about 9 uncached searches per show.
 >
 > That's about 400 searches (40,000 units) on an average day, and about 720 (72,000 units) at the weekend peak. We're asking for 100,000 units a day of search.list to cover the peak with some headroom.
 >
