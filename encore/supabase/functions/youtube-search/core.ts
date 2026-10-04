@@ -4,6 +4,9 @@
 // ask this function instead.
 //
 // What keeps the shared daily quota (10,000 units, about 99 searches) going:
+//   - a catalog of the most-viewed videos from a few karaoke channels, built
+//     through the API's cheap listing calls and rebuilt every 25 days
+//     (handleCatalogTick below), searched before YouTube is;
 //   - a shared cache: results stay fresh for 7 days, and up to 30 days old
 //     (the policies' storage limit) they are a fallback when the quota is out;
 //   - daily caps on uncached searches: overall, per installation and per
@@ -42,6 +45,19 @@ export interface Store {
   report(videoId: string, kind: ReportKind, reporter: string, network: string): Promise<void>;
   /** The video played after all: forget the "won't play here" reports. */
   clearRefused(videoId: string): Promise<void>;
+  /** Catalog videos matching a search, best first. */
+  catalogSearch(query: string, limit: number): Promise<VideoResult[]>;
+  /** Age of the catalog's oldest video in ms, or null when it's empty. */
+  catalogAge(): Promise<number | null>;
+  jobGet(): Promise<{ state: CatalogState; token: string; config: CatalogConfig }>;
+  jobSave(state: CatalogState): Promise<void>;
+  /** Add video ids found on a channel to the import. */
+  stagingAdd(ids: string[]): Promise<void>;
+  /** Ids in the import still waiting for their details. */
+  stagingPending(limit: number): Promise<string[]>;
+  stagingSet(rows: StagedVideo[]): Promise<void>;
+  /** Put the import live, keeping the most-viewed `keep`; returns how many were kept. */
+  stagingCommit(keep: number): Promise<number>;
 }
 
 export interface Limits {
@@ -66,8 +82,11 @@ export interface Deps {
 
 export interface Reply {
   status: number;
-  body: { ok: true; results: VideoResult[]; cached?: 'fresh' | 'stale' } | { ok: false; error: string; code: string };
+  body: { ok: true; results: VideoResult[]; cached?: 'fresh' | 'stale' | 'catalog' } | { ok: false; error: string; code: string };
 }
+
+/** With at least this many catalog matches, YouTube isn't searched at all. */
+export const CATALOG_ENOUGH = 2;
 
 const DAY = 24 * 60 * 60 * 1000;
 export const FRESH_MS = 7 * DAY;
@@ -103,6 +122,10 @@ async function findResults(input: unknown, ip: string, deps: Deps): Promise<Repl
   if (cached && age < FRESH_MS) return ok(cached.results, 'fresh');
   const fallback = cached && age < MAX_AGE_MS ? cached.results : null;
 
+  // The catalog of popular karaoke videos answers most searches without using the quota.
+  const fromCatalog = await deps.store.catalogSearch(q, 15).catch(() => [] as VideoResult[]);
+  if (fromCatalog.length >= CATALOG_ENOUGH) return ok(fromCatalog, 'catalog');
+
   if (!deps.apiKey) return fallback ? ok(fallback, 'stale') : fail(503, 'not-configured', `YouTube search isn’t switched on yet. ${LINK_HINT}`);
 
   const day = pacificDay(now);
@@ -125,7 +148,7 @@ async function findResults(input: unknown, ip: string, deps: Deps): Promise<Repl
   try {
     results = await searchYouTube(deps.fetch, deps.apiKey, search);
   } catch (err) {
-    console.error('YouTube search failed:', err instanceof Error ? err.message : err);
+    console.error('YouTube search failed:', errorText(err, deps.apiKey));
     if (fallback) return ok(fallback, 'stale');
     const quota = err instanceof YouTubeError && err.reason === 'quota';
     return fail(503, quota ? 'limit' : 'upstream', quota ? `YouTube search is very busy today. ${LINK_HINT}` : `YouTube search isn’t answering right now. ${LINK_HINT}`);
@@ -202,6 +225,177 @@ export async function handleCheck(input: unknown, deps: Deps): Promise<CheckRepl
   if (!Array.isArray(ids) || ids.length > 100) return { status: 400, body: { ok: false, code: 'bad-request', error: 'Send up to 100 video ids.' } };
   const hidden = await reportedVideos(ids.filter((x): x is string => typeof x === 'string'), deps);
   return { status: 200, body: { ok: true, hidden: Object.fromEntries(hidden) } };
+}
+
+// --- the catalog of popular karaoke videos ------------------------------------------
+
+/** Kept in the database (yt_catalog_job), so it changes without a redeploy. */
+export interface CatalogConfig {
+  /** Channel handles (@SingKingKaraoke) or ids (UC…). */
+  channels: string[];
+  /** How many of the most-viewed videos to keep. */
+  keep: number;
+  /** Quota units the import may use per day, leaving the rest for searches. */
+  unitsPerDay: number;
+}
+
+export interface CatalogState {
+  phase: 'idle' | 'resolve' | 'list' | 'details' | 'commit';
+  channels?: { channel: string; playlist?: string; page?: string; done?: boolean; title?: string; videos?: number; error?: string }[];
+  /** Pacific day and the units used on it. */
+  day?: string;
+  units?: number;
+  startedAt?: number;
+  finishedAt?: number;
+  kept?: number;
+  /** The last thing that went wrong (quota used up, say); the import carries on next time. */
+  lastError?: string;
+}
+
+export interface StagedVideo {
+  videoId: string;
+  title?: string;
+  channel?: string;
+  thumbnail?: string;
+  durationSec?: number;
+  views?: number;
+  embeddable: boolean;
+}
+
+/** Rebuild the catalog once it's this old, inside YouTube's 30-day limit. */
+const REBUILD_AFTER_MS = 25 * DAY;
+/** API calls per nudge, so each one finishes well inside the function's time limit. */
+const CALLS_PER_TICK = 25;
+
+export interface TickReply {
+  status: number;
+  body:
+    | { ok: true; phase: CatalogState['phase']; units: number; kept?: number; channels?: CatalogState['channels']; lastError?: string }
+    | { ok: false; error: string; code: string };
+}
+
+/**
+ * POST { action: 'catalog', token }: do the next slice of the catalog
+ * import. The database's timer calls this every couple of minutes; it does
+ * nothing while the catalog is fresh. Only the job's own token is accepted.
+ */
+export async function handleCatalogTick(input: unknown, deps: Deps): Promise<TickReply> {
+  const token = (input as { token?: unknown })?.token;
+  const job = await deps.store.jobGet();
+  const config = job.config;
+  if (typeof token !== 'string' || !sameString(token, job.token)) return { status: 403, body: { ok: false, code: 'forbidden', error: 'Not allowed.' } };
+  if (!deps.apiKey) return { status: 503, body: { ok: false, code: 'not-configured', error: 'No YouTube API key.' } };
+  const now = (deps.now ?? Date.now)();
+  const state: CatalogState = { ...job.state };
+  const today = pacificDay(now);
+  if (state.day !== today) {
+    state.day = today;
+    state.units = 0;
+  }
+  if (state.phase === 'idle') {
+    const age = await deps.store.catalogAge();
+    if (age !== null && age < REBUILD_AFTER_MS) return { status: 200, body: { ok: true, phase: 'idle', units: state.units ?? 0, kept: state.kept } };
+    Object.assign(state, { phase: 'resolve', startedAt: now, channels: config.channels.map((channel) => ({ channel })) });
+  }
+
+  const api = async (path: string, params: Record<string, string>) => {
+    state.units = (state.units ?? 0) + 1;
+    const res = await deps.fetch(`https://www.googleapis.com/youtube/v3/${path}?${new URLSearchParams({ ...params, key: deps.apiKey! })}`, {
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) throw await youtubeError(res);
+    return res.json();
+  };
+
+  try {
+    for (let calls = 0; calls < CALLS_PER_TICK && (state.units ?? 0) < config.unitsPerDay; calls++) {
+      const channels = state.channels ?? [];
+      if (state.phase === 'resolve') {
+        const c = channels.find((x) => !x.playlist && !x.error);
+        if (!c) {
+          state.phase = 'list';
+          continue;
+        }
+        const by: Record<string, string> = c.channel.startsWith('UC') ? { id: c.channel } : { forHandle: c.channel.replace(/^@?/, '@') };
+        const body = (await api('channels', { part: 'snippet,contentDetails,statistics', ...by })) as {
+          items?: { snippet?: { title?: string }; contentDetails?: { relatedPlaylists?: { uploads?: string } }; statistics?: { videoCount?: string } }[];
+        };
+        const item = body.items?.[0];
+        const uploads = item?.contentDetails?.relatedPlaylists?.uploads;
+        if (uploads) Object.assign(c, { playlist: uploads, title: item?.snippet?.title, videos: Number(item?.statistics?.videoCount) || undefined });
+        else Object.assign(c, { error: 'channel not found', done: true });
+      } else if (state.phase === 'list') {
+        const c = channels.find((x) => x.playlist && !x.done);
+        if (!c) {
+          state.phase = 'details';
+          continue;
+        }
+        const body = (await api('playlistItems', { part: 'contentDetails', maxResults: '50', playlistId: c.playlist!, ...(c.page ? { pageToken: c.page } : {}) })) as {
+          items?: { contentDetails?: { videoId?: string } }[];
+          nextPageToken?: string;
+        };
+        const ids = (body.items ?? []).map((i) => i.contentDetails?.videoId).filter((id): id is string => typeof id === 'string' && ID.test(id));
+        if (ids.length) await deps.store.stagingAdd(ids);
+        c.page = body.nextPageToken;
+        if (!c.page) c.done = true;
+      } else if (state.phase === 'details') {
+        const ids = await deps.store.stagingPending(50);
+        if (!ids.length) {
+          state.phase = 'commit';
+          continue;
+        }
+        const body = (await api('videos', { part: 'snippet,contentDetails,statistics,status', id: ids.join(','), maxResults: '50' })) as {
+          items?: {
+            id: string;
+            snippet?: { title?: string; channelTitle?: string; liveBroadcastContent?: string; thumbnails?: Record<string, { url?: string }> };
+            contentDetails?: { duration?: string };
+            statistics?: { viewCount?: string };
+            status?: { embeddable?: boolean; privacyStatus?: string };
+          }[];
+        };
+        const found = new Map((body.items ?? []).map((v) => [v.id, v]));
+        await deps.store.stagingSet(
+          ids.map((id) => {
+            const v = found.get(id);
+            if (!v) return { videoId: id, embeddable: false };
+            return {
+              videoId: id,
+              title: decodeEntities(v.snippet?.title ?? ''),
+              channel: decodeEntities(v.snippet?.channelTitle ?? ''),
+              thumbnail: v.snippet?.thumbnails?.medium?.url ?? v.snippet?.thumbnails?.default?.url,
+              durationSec: isoSeconds(v.contentDetails?.duration ?? ''),
+              views: Number(v.statistics?.viewCount) || 0,
+              embeddable: v.status?.embeddable === true && v.status?.privacyStatus === 'public' && (v.snippet?.liveBroadcastContent ?? 'none') === 'none',
+            };
+          }),
+        );
+      } else if (state.phase === 'commit') {
+        state.kept = await deps.store.stagingCommit(config.keep);
+        Object.assign(state, { phase: 'idle', finishedAt: now });
+        break;
+      } else break;
+    }
+    delete state.lastError;
+  } catch (err) {
+    state.lastError = errorText(err, deps.apiKey);
+  } finally {
+    await deps.store.jobSave(state);
+  }
+  return { status: 200, body: { ok: true, phase: state.phase, units: state.units ?? 0, kept: state.kept, channels: state.channels, lastError: state.lastError } };
+}
+
+/** An error's message with the API key taken out: a failed fetch's message can include its URL. */
+export function errorText(err: unknown, apiKey?: string): string {
+  const text = err instanceof Error ? err.message : String(err);
+  const out = apiKey ? text.split(apiKey).join('[key]') : text;
+  return out.replace(/([?&]key=)[^&\s)]+/g, '$1[key]');
+}
+
+function sameString(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
 }
 
 /** What actually gets searched: the query, nudged toward karaoke versions. */
@@ -294,7 +488,7 @@ function decodeEntities(s: string): string {
     .replace(/&amp;/g, '&');
 }
 
-function ok(results: VideoResult[], cached?: 'fresh' | 'stale'): Reply {
+function ok(results: VideoResult[], cached?: 'fresh' | 'stale' | 'catalog'): Reply {
   return { status: 200, body: cached ? { ok: true, results, cached } : { ok: true, results } };
 }
 

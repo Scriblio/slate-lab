@@ -10,8 +10,13 @@ import {
   MAX_AGE_MS,
   pacificDay,
   searchText,
+  handleCatalogTick,
+  errorText,
+  type CatalogConfig,
+  type CatalogState,
   type Deps,
   type ReportKind,
+  type StagedVideo,
   type Store,
   type VideoResult,
 } from '../supabase/functions/youtube-search/core.ts';
@@ -23,7 +28,50 @@ function memoryStore() {
   const usage = new Map<string, number>();
   /** video|kind|reporter -> network */
   const reports = new Map<string, string>();
+  const catalog = new Map<string, VideoResult & { at: number }>();
+  const staging = new Map<string, StagedVideo & { fetched: boolean }>();
+  const job: { state: CatalogState; token: string; config: CatalogConfig } = {
+    state: { phase: 'idle' },
+    token: 'job-token-123',
+    config: { channels: ['@SingKingKaraoke', '@karafun'], keep: 3, unitsPerDay: 2000 },
+  };
   const store: Store = {
+    async catalogSearch(query, limit) {
+      const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+      return [...catalog.values()]
+        .filter((v) => words.every((w) => `${v.title} ${v.channel}`.toLowerCase().includes(w)))
+        .slice(0, limit)
+        .map(({ at: _at, ...v }) => v);
+    },
+    async catalogAge() {
+      return catalog.size ? Date.now() - Math.min(...[...catalog.values()].map((v) => v.at)) : null;
+    },
+    async jobGet() {
+      return structuredClone(job);
+    },
+    async jobSave(state) {
+      job.state = structuredClone(state);
+    },
+    async stagingAdd(ids) {
+      for (const id of ids) if (!staging.has(id)) staging.set(id, { videoId: id, embeddable: false, fetched: false });
+    },
+    async stagingPending(limit) {
+      return [...staging.values()].filter((v) => !v.fetched).slice(0, limit).map((v) => v.videoId);
+    },
+    async stagingSet(rows) {
+      for (const r of rows) staging.set(r.videoId, { ...r, fetched: true });
+    },
+    async stagingCommit(keep) {
+      const kept = [...staging.values()]
+        .filter((v) => v.fetched && v.embeddable && v.title)
+        .sort((a, b) => (b.views ?? 0) - (a.views ?? 0))
+        .slice(0, keep);
+      if (!kept.length) return 0;
+      catalog.clear();
+      for (const v of kept) catalog.set(v.videoId, { videoId: v.videoId, title: v.title!, channel: v.channel!, thumbnail: v.thumbnail, durationSec: v.durationSec, at: Date.now() });
+      staging.clear();
+      return kept.length;
+    },
     async blocked(ids, t) {
       const out: Record<string, ReportKind> = {};
       for (const id of ids)
@@ -53,7 +101,7 @@ function memoryStore() {
     },
     async prune() {},
   };
-  return { store, cache, usage, reports };
+  return { store, cache, usage, reports, catalog, staging, job };
 }
 
 function fakeYouTube(opts: { quota?: boolean } = {}) {
@@ -205,5 +253,154 @@ describe('shared reports: "won’t play here" and "not karaoke"', () => {
     let last = 200;
     for (let i = 0; i < 201; i++) last = (await handleReport({ installId: INSTALL, videoId: VIDEO, kind: 'refused' }, '1.2.3.4', d)).status;
     expect(last).toBe(429);
+  });
+});
+
+describe('the karaoke catalog', () => {
+  /** A fake YouTube with two channels: Sing King (3 videos over 2 pages) and KaraFun (2 videos). */
+  function catalogYouTube(opts: { quotaAfter?: number } = {}) {
+    const calls: URL[] = [];
+    const videos: Record<string, { title: string; channel: string; views: number; embeddable?: boolean }> = {
+      sk000000001: { title: 'Toto - Africa (Karaoke Version)', channel: 'Sing King', views: 900 },
+      sk000000002: { title: 'Adele - Hello (Karaoke Version)', channel: 'Sing King', views: 500 },
+      sk000000003: { title: 'Queen - Bohemian Rhapsody (Karaoke Version)', channel: 'Sing King', views: 50, embeddable: false },
+      kf000000001: { title: 'Toto - Africa | Karaoke Version | KaraFun', channel: 'KaraFun Karaoke', views: 700 },
+      kf000000002: { title: 'ABBA - Dancing Queen | Karaoke Version | KaraFun', channel: 'KaraFun Karaoke', views: 100 },
+    };
+    const impl = (async (input: string | URL | Request) => {
+      const url = new URL(String(input));
+      calls.push(url);
+      if (opts.quotaAfter !== undefined && calls.length > opts.quotaAfter) {
+        return Response.json({ error: { message: 'You have exceeded your quota.', errors: [{ reason: 'quotaExceeded' }] } }, { status: 403 });
+      }
+      const p = url.searchParams;
+      if (url.pathname.endsWith('/channels')) {
+        const handle = p.get('forHandle');
+        if (handle === '@NoSuchChannel') return Response.json({ items: [] });
+        const sk = handle === '@SingKingKaraoke';
+        return Response.json({
+          items: [
+            {
+              snippet: { title: sk ? 'Sing King' : 'KaraFun Karaoke' },
+              contentDetails: { relatedPlaylists: { uploads: sk ? 'UUsk' : 'UUkf' } },
+              statistics: { videoCount: sk ? '3' : '2' },
+            },
+          ],
+        });
+      }
+      if (url.pathname.endsWith('/playlistItems')) {
+        const pages: Record<string, string[][]> = { UUsk: [['sk000000001', 'sk000000002'], ['sk000000003']], UUkf: [['kf000000001', 'kf000000002']] };
+        const list = pages[p.get('playlistId')!]!;
+        const page = Number(p.get('pageToken') ?? 0);
+        return Response.json({
+          items: list[page]!.map((videoId) => ({ contentDetails: { videoId } })),
+          ...(page + 1 < list.length ? { nextPageToken: String(page + 1) } : {}),
+        });
+      }
+      if (url.pathname.endsWith('/videos')) {
+        return Response.json({
+          items: p
+            .get('id')!
+            .split(',')
+            .filter((id) => videos[id])
+            .map((id) => {
+              const v = videos[id]!;
+              return {
+                id,
+                snippet: { title: v.title, channelTitle: v.channel, liveBroadcastContent: 'none', thumbnails: { medium: { url: `https://i.ytimg.com/vi/${id}/mqdefault.jpg` } } },
+                contentDetails: { duration: 'PT4M1S' },
+                statistics: { viewCount: String(v.views) },
+                status: { embeddable: v.embeddable ?? true, privacyStatus: 'public' },
+              };
+            }),
+        });
+      }
+      return new Response('nope', { status: 404 });
+    }) as typeof fetch;
+    return { impl, calls };
+  }
+
+  const tick = (d: Deps, token: unknown = 'job-token-123') => handleCatalogTick({ action: 'catalog', token }, d);
+
+  async function runImport(d: Deps, max = 10) {
+    let r = await tick(d);
+    for (let i = 0; i < max && r.body.ok && r.body.phase !== 'idle'; i++) r = await tick(d);
+    return r;
+  }
+
+  it('imports the most-viewed playable videos from the channels, cheaply', async () => {
+    const yt = catalogYouTube();
+    const d = deps({ fetch: yt.impl });
+    const r = await runImport(d);
+    expect(r.body).toMatchObject({ ok: true, phase: 'idle', kept: 3 });
+    // The top 3 by views, leaving out the one that won't embed.
+    expect([...d.mem.catalog.keys()].sort()).toEqual(['kf000000001', 'sk000000001', 'sk000000002']);
+    expect(d.mem.catalog.get('sk000000001')).toMatchObject({ title: 'Toto - Africa (Karaoke Version)', channel: 'Sing King', durationSec: 241 });
+    // 2 channel lookups + 3 list pages + 1 details call: 6 units, versus 100 for one search.
+    expect(yt.calls).toHaveLength(6);
+    expect(yt.calls.some((u) => u.pathname.endsWith('/search'))).toBe(false);
+    // View counts are only used to choose; the catalog doesn't keep them.
+    expect(JSON.stringify([...d.mem.catalog.values()])).not.toContain('900');
+  });
+
+  it('answers searches from the catalog without using the quota', async () => {
+    const yt = catalogYouTube();
+    const d = deps({ fetch: yt.impl });
+    await runImport(d);
+    const before = yt.calls.length;
+    const r = await handleSearch({ q: 'toto africa', installId: INSTALL }, '203.0.113.5', d);
+    expect(r.body).toMatchObject({ ok: true, cached: 'catalog' });
+    expect(r.body.ok && r.body.results.map((v) => v.videoId).sort()).toEqual(['kf000000001', 'sk000000001']);
+    expect(yt.calls.length).toBe(before);
+    expect(d.mem.usage.size).toBe(0); // nothing counted against anyone's daily cap
+    // One match isn't enough choice: YouTube is searched as before.
+    const one = await handleSearch({ q: 'adele hello', installId: INSTALL }, '203.0.113.5', d);
+    expect(one.body).not.toMatchObject({ cached: 'catalog' });
+  });
+
+  it('does nothing while the catalog is fresh, and rebuilds it before 30 days', async () => {
+    const yt = catalogYouTube();
+    const d = deps({ fetch: yt.impl });
+    await runImport(d);
+    const calls = yt.calls.length;
+    expect((await tick(d)).body).toMatchObject({ ok: true, phase: 'idle' });
+    expect(yt.calls.length).toBe(calls);
+    for (const v of d.mem.catalog.values()) v.at -= 26 * 24 * 60 * 60 * 1000;
+    await tick(d);
+    expect(yt.calls.length).toBeGreaterThan(calls);
+  });
+
+  it('stays inside its daily budget, and carries on after running out of quota', async () => {
+    const d = deps({ fetch: catalogYouTube({ quotaAfter: 3 }).impl });
+    const r = await tick(d);
+    expect(r.body).toMatchObject({ ok: true, lastError: expect.stringMatching(/quota/) });
+    expect(d.mem.catalog.size).toBe(0); // a half-done import never replaces the catalog
+
+    const tight = deps({ fetch: catalogYouTube().impl });
+    tight.mem.job.config.unitsPerDay = 2;
+    expect((await runImport(tight, 5)).body).toMatchObject({ ok: true, units: 2 });
+    expect(tight.mem.job.state.phase).not.toBe('idle');
+  });
+
+  it('reports a channel it can’t find, and only answers to its own token', async () => {
+    const d = deps({ fetch: catalogYouTube().impl });
+    d.mem.job.config.channels = ['@SingKingKaraoke', '@NoSuchChannel'];
+    const r = await runImport(d);
+    expect(r.body.ok && r.body.channels?.find((c) => c.channel === '@NoSuchChannel')).toMatchObject({ error: 'channel not found' });
+    expect(d.mem.catalog.size).toBe(2);
+    expect((await tick(d, 'guess')).status).toBe(403);
+    expect((await handleCatalogTick({ action: 'catalog' }, d)).status).toBe(403);
+  });
+
+  it('never stores the API key in an error, even when a failed fetch names its URL', async () => {
+    const leaky = (async (input: string | URL | Request) => {
+      throw new TypeError(`error sending request for url (${String(input)})`);
+    }) as typeof fetch;
+    const d = deps({ fetch: leaky });
+    const r = await tick(d);
+    expect(r.body).toMatchObject({ ok: true, lastError: expect.stringContaining('key=[key]') });
+    expect(JSON.stringify(r.body)).not.toContain('AIzaTest');
+    expect(JSON.stringify(d.mem.job.state)).not.toContain('AIzaTest');
+    expect(errorText(new Error('https://x/y?part=a&key=AIzaOther&q=b'))).toBe('https://x/y?part=a&key=[key]&q=b');
   });
 });

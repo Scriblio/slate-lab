@@ -2,6 +2,8 @@
 // POST { action: 'report', installId, videoId, kind } -> { ok: true }
 //   kind: 'refused' (won't play inside Encore), 'not_karaoke', or 'plays'
 // POST { action: 'check', ids } -> { ok: true, hidden: { [videoId]: kind } }
+// POST { action: 'catalog', token } -> the next slice of the karaoke catalog
+//   import (called every 2 minutes by the database's timer; see the migration)
 //
 // Deployed with verify_jwt off: Encore sends the project's publishable key,
 // which isn't a JWT, and this function does its own checks and limits.
@@ -10,7 +12,7 @@
 // YT_REFUSED_REPORTS (default 2) and YT_NOT_KARAOKE_REPORTS (default 3) for how
 // many different networks must agree before a video is hidden for everyone.
 
-import { DEFAULT_LIMITS, DEFAULT_THRESHOLDS, handleCheck, handleReport, handleSearch, type Deps } from './core.ts';
+import { DEFAULT_LIMITS, DEFAULT_THRESHOLDS, handleCatalogTick, handleCheck, handleReport, handleSearch, type Deps } from './core.ts';
 import { restStore } from './store.ts';
 
 const env = (name: string) => Deno.env.get(name) || undefined;
@@ -57,7 +59,13 @@ Deno.serve(async (req) => {
     };
     const action = (input as { action?: unknown } | null)?.action;
     const reply =
-      action === 'report' ? await handleReport(input, ip, deps) : action === 'check' ? await handleCheck(input, deps) : await handleSearch(input, ip, deps);
+      action === 'report'
+        ? await handleReport(input, ip, deps)
+        : action === 'check'
+          ? await handleCheck(input, deps)
+          : action === 'catalog'
+            ? await handleCatalogTick(input, deps)
+            : await handleSearch(input, ip, deps);
     return Response.json(reply.body, { status: reply.status, headers: { 'Cache-Control': 'no-store' } });
   } catch (err) {
     console.error(err);

@@ -58,7 +58,7 @@ Configuration can also come from the environment: `PORT`, `ENCORE_LIBRARY` (fold
 
 ### YouTube search
 
-Searching YouTube is built in; KJs don't need a key. YouTube's developer policies allow one API project per app and forbid sharing its key, so every copy of Encore asks Encore's search service (`supabase/functions/youtube-search`), which holds the one key, caches results for everyone, and caps daily use so the shared quota lasts. Pasting a YouTube link never uses the quota. See [supabase/README.md](supabase/README.md) to set it up.
+Searching YouTube is built in; KJs don't need a key. YouTube's developer policies allow one API project per app and forbid sharing its key, so every copy of Encore asks Encore's search service (`supabase/functions/youtube-search`), which holds the one key. It answers most searches from a catalog of the top 5,000 karaoke videos (Sing King and KaraFun, built through the API and rebuilt monthly), caches results for everyone, and caps daily use so the shared quota lasts. Pasting a YouTube link never uses the quota. See [supabase/README.md](supabase/README.md) to set it up.
 
 ### YouTube videos that won't play here
 

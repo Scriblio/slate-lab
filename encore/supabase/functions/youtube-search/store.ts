@@ -1,8 +1,9 @@
-// The search cache, usage counters and shared video reports, in this
+// The search cache, usage counters, shared video reports and the karaoke
+// catalog, in this
 // project's Postgres through its REST API. Uses a secret key, so it runs only
 // inside the function.
 
-import type { CacheRow, ReportKind, Store, VideoResult } from './core.ts';
+import type { CacheRow, CatalogState, ReportKind, Store, VideoResult } from './core.ts';
 
 export function restStore(supabaseUrl: string, secretKey: string, fetchImpl: typeof fetch = fetch): Store {
   const base = `${supabaseUrl.replace(/\/$/, '')}/rest/v1`;
@@ -58,6 +59,62 @@ export function restStore(supabaseUrl: string, secretKey: string, fetchImpl: typ
     },
     async clearRefused(videoId) {
       await call(`/yt_reports?video_id=eq.${encodeURIComponent(videoId)}&kind=eq.refused`, { method: 'DELETE', headers: { Prefer: 'return=minimal' } });
+    },
+    async catalogSearch(query, limit) {
+      const res = await call('/rpc/yt_catalog_search', { method: 'POST', body: JSON.stringify({ p_query: query, p_limit: limit }) });
+      const rows = (await res.json()) as { video_id: string; title: string; channel: string; thumbnail: string | null; duration_sec: number | null }[];
+      return rows.map((r) => ({ videoId: r.video_id, title: r.title, channel: r.channel, thumbnail: r.thumbnail ?? undefined, durationSec: r.duration_sec ?? undefined }));
+    },
+    async catalogAge() {
+      const res = await call('/rpc/yt_catalog_age', { method: 'POST', body: '{}' });
+      const seconds = (await res.json()) as number | null;
+      return seconds === null ? null : seconds * 1000;
+    },
+    async jobGet() {
+      const res = await call('/yt_catalog_job?id=eq.1&select=state,token,channels,keep,units_per_day');
+      const [row] = (await res.json()) as { state: CatalogState; token: string; channels: string[]; keep: number; units_per_day: number }[];
+      if (!row) throw new Error('catalog job row missing');
+      return { state: row.state, token: row.token, config: { channels: row.channels, keep: row.keep, unitsPerDay: row.units_per_day } };
+    },
+    async jobSave(state) {
+      await call('/yt_catalog_job?id=eq.1', {
+        method: 'PATCH',
+        headers: { Prefer: 'return=minimal' },
+        body: JSON.stringify({ state, updated_at: new Date().toISOString() }),
+      });
+    },
+    async stagingAdd(ids) {
+      await call('/yt_catalog_staging?on_conflict=video_id', {
+        method: 'POST',
+        headers: { Prefer: 'resolution=ignore-duplicates,return=minimal' },
+        body: JSON.stringify(ids.map((video_id) => ({ video_id }))),
+      });
+    },
+    async stagingPending(limit) {
+      const res = await call(`/yt_catalog_staging?fetched=eq.false&select=video_id&limit=${limit}`);
+      return ((await res.json()) as { video_id: string }[]).map((r) => r.video_id);
+    },
+    async stagingSet(rows) {
+      await call('/yt_catalog_staging?on_conflict=video_id', {
+        method: 'POST',
+        headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+        body: JSON.stringify(
+          rows.map((r) => ({
+            video_id: r.videoId,
+            title: r.title ?? null,
+            channel: r.channel ?? null,
+            thumbnail: r.thumbnail ?? null,
+            duration_sec: r.durationSec ?? null,
+            views: r.views ?? null,
+            embeddable: r.embeddable,
+            fetched: true,
+          })),
+        ),
+      });
+    },
+    async stagingCommit(keep) {
+      const res = await call('/rpc/yt_catalog_commit', { method: 'POST', body: JSON.stringify({ p_keep: keep }) });
+      return (await res.json()) as number;
     },
   };
 }

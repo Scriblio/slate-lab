@@ -15,7 +15,7 @@ Encore is a karaoke hosting (KJ) app by Scriblio (Matthew Lancaster). It's being
 | --- | --- |
 | Install | `npm ci` (use `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci` if you don't need Electron) |
 | Typecheck | `npm run typecheck` |
-| Tests | `npm test` (203 tests) |
+| Tests | `npm test` (209 tests) |
 | Run with a demo library | `npm run demo`, then open http://localhost:4747/dj (venue screen at `/display`, phone page at `/join`) |
 | Desktop app | `npm run build:desktop && npm run desktop` |
 | Windows installer | built by GitHub Actions on every push to the branch: download the "Encore-Karaoke-Windows" artifact from the run; `npm run dist:win` needs Windows |
@@ -40,7 +40,8 @@ Encore is a karaoke hosting (KJ) app by Scriblio (Matthew Lancaster). It's being
 - **Supabase** project `encore`, ref `oohgawkfnwhjlqlihhju` (Scriblio org):
   - Realtime relay;
   - the `youtube-search` Edge Function, deployed with `verify_jwt` off;
-  - tables `yt_search_cache` and `yt_search_usage` (RLS on, no policies);
+  - tables `yt_search_cache`, `yt_search_usage`, `yt_reports` and the `yt_catalog*` tables (RLS on, no policies);
+  - a `pg_cron` job, `yt-catalog-tick`, that keeps the karaoke catalog built (see `supabase/README.md`);
   - Edge Function secret `YOUTUBE_API_KEY`.
 
   Only the publishable key is in the code (`src/shared/cloud.ts`).
@@ -60,6 +61,11 @@ The YouTube API Services policies apply because Encore uses the search API. Brea
 - **Store YouTube data for at most 30 days.**
 
 ## Done recently (all on the branch, tested)
+
+- **Karaoke catalog:** the top 5,000 videos by views from Sing King (`@SingKingKaraoke`) and KaraFun (`@karafun`).
+  - It's built through the API's cheap list calls, about 700 units in all, inside a 2,000-unit-a-day budget, and rebuilt every 25 days.
+  - Searches with 2 or more catalog matches never use the quota.
+  - Settings and progress are in `yt_catalog_job`. It's deployed as function version 6.
 
 - **Shared YouTube reports:** refusals (auto-detected) and **Not karaoke** marks go to the search service (table `yt_reports`, actions `report` and `check`).
   - A video is hidden from all searches, and swapped out of queues within a minute, once 2 different networks report "won't play" or 3 report "not karaoke". A video that later plays clears it.
