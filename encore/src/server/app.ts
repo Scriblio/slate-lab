@@ -123,6 +123,8 @@ export async function createApp(opts: AppOptions) {
     // The YouTube player runs from a page on Encore's site, so YouTube sees a
     // real https website as the embedder rather than this laptop's address.
     frameUrl: cloud ? `${cloud.joinOrigin.replace(/\/$/, '')}/yt-frame` : undefined,
+    // Refusals and "not karaoke" are shared with every KJ through the search service.
+    shared: youtube.mode === 'built-in' ? { report: (id, kind) => youtube.report(id, kind), check: (ids) => youtube.checkShared(ids) } : undefined,
     log,
   });
   guard.onUpdate = scheduleBroadcast;
@@ -396,6 +398,7 @@ export async function createApp(opts: AppOptions) {
         if (!isDj && !show.state.settings.allowYouTube) throw new UserError('YouTube requests are off tonight.');
         const id = parseYouTubeId(String(input ?? ''));
         if (!id) throw new UserError('That doesn’t look like a YouTube link.');
+        await ytGuard.checkShared([id]);
         const blocked = blockedMessage(ytGuard.blockReason(id));
         if (blocked) throw new UserError(blocked);
         const result = await youtube.lookup(id);
@@ -574,6 +577,8 @@ export async function createApp(opts: AppOptions) {
       push.retain(new Set(show.state.singers.map((s) => s.id)));
       push.update(turnAlerts(show.state, list), onlineJoinUrl());
     }
+    // Other KJs may have found a queued video won't play; at most once a minute.
+    void ytGuard.syncShared().catch(() => {});
     const dj: DjView = {
       show: show.state,
       upcoming: list,

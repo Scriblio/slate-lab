@@ -83,6 +83,46 @@ export class YouTube {
     return (body.results ?? []).filter((v) => typeof v?.videoId === 'string' && /^[\w-]{11}$/.test(v.videoId));
   }
 
+  /**
+   * Tell Encore's search service that a video won't play inside Encore, isn't
+   * karaoke, or plays after all. Reports from enough different KJs hide a
+   * video for everyone. Best effort: a laptop offline just doesn't report.
+   */
+  async report(videoId: string, kind: 'refused' | 'not_karaoke' | 'plays'): Promise<void> {
+    if (!this.proxy || !/^[\w-]{11}$/.test(videoId)) return;
+    const { url, key, installId } = this.proxy;
+    try {
+      const res = await this.fetchImpl(url, {
+        method: 'POST',
+        headers: { apikey: key, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'report', installId, videoId, kind }),
+        signal: AbortSignal.timeout(8000),
+      });
+      await res.body?.cancel();
+    } catch {
+      // offline: the report is simply not shared
+    }
+  }
+
+  /** Which of these videos every KJ's reports have hidden, and why. */
+  async checkShared(ids: string[]): Promise<Record<string, 'refused' | 'not_karaoke'>> {
+    const valid = ids.filter((id) => /^[\w-]{11}$/.test(id)).slice(0, 100);
+    if (!this.proxy || !valid.length) return {};
+    const { url, key } = this.proxy;
+    try {
+      const res = await this.fetchImpl(url, {
+        method: 'POST',
+        headers: { apikey: key, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'check', ids: valid }),
+        signal: AbortSignal.timeout(8000),
+      });
+      const body = (await res.json().catch(() => null)) as { ok?: boolean; hidden?: Record<string, 'refused' | 'not_karaoke'> } | null;
+      return body?.ok && body.hidden ? body.hidden : {};
+    } catch {
+      return {};
+    }
+  }
+
   /** Title and thumbnail for a pasted link, via oEmbed (no API key needed). */
   async lookup(videoId: string): Promise<SearchResult> {
     const url = `https://www.youtube.com/watch?v=${videoId}`;

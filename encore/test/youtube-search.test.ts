@@ -2,14 +2,43 @@
 // against an in-memory store and a fake YouTube.
 
 import { describe, expect, it } from 'vitest';
-import { FRESH_MS, handleSearch, MAX_AGE_MS, pacificDay, searchText, type Deps, type Store, type VideoResult } from '../supabase/functions/youtube-search/core.ts';
+import {
+  FRESH_MS,
+  handleCheck,
+  handleReport,
+  handleSearch,
+  MAX_AGE_MS,
+  pacificDay,
+  searchText,
+  type Deps,
+  type ReportKind,
+  type Store,
+  type VideoResult,
+} from '../supabase/functions/youtube-search/core.ts';
 
 const INSTALL = 'abcdefghijklmnopqrstuv';
 
 function memoryStore() {
   const cache = new Map<string, { results: VideoResult[]; fetchedAt: number }>();
   const usage = new Map<string, number>();
+  /** video|kind|reporter -> network */
+  const reports = new Map<string, string>();
   const store: Store = {
+    async blocked(ids, t) {
+      const out: Record<string, ReportKind> = {};
+      for (const id of ids)
+        for (const kind of ['not_karaoke', 'refused'] as const) {
+          const networks = new Set([...reports].filter(([k]) => k.startsWith(`${id}|${kind}|`)).map(([, n]) => n));
+          if (networks.size >= (kind === 'refused' ? t.refused : t.notKaraoke)) out[id] = kind;
+        }
+      return out;
+    },
+    async report(videoId, kind, reporter, network) {
+      reports.set(`${videoId}|${kind}|${reporter}`, network);
+    },
+    async clearRefused(videoId) {
+      for (const k of [...reports.keys()]) if (k.startsWith(`${videoId}|refused|`)) reports.delete(k);
+    },
     async getCache(key) {
       return cache.get(key) ?? null;
     },
@@ -24,7 +53,7 @@ function memoryStore() {
     },
     async prune() {},
   };
-  return { store, cache, usage };
+  return { store, cache, usage, reports };
 }
 
 function fakeYouTube(opts: { quota?: boolean } = {}) {
@@ -120,5 +149,61 @@ describe('YouTube search service', () => {
   it('counts days in Pacific time, when YouTube resets its quota', () => {
     expect(pacificDay(Date.UTC(2026, 9, 4, 6, 59))).toBe('2026-10-03');
     expect(pacificDay(Date.UTC(2026, 9, 4, 7, 1))).toBe('2026-10-04');
+  });
+});
+
+describe('shared reports: "won’t play here" and "not karaoke"', () => {
+  const VIDEO = 'aaaaaaaaaaa';
+  const report = (d: Deps, kind: string, ip: string, install = `${ip.replace(/\D/g, '')}installinstall`.padEnd(16, 'x')) =>
+    handleReport({ action: 'report', installId: install, videoId: VIDEO, kind }, ip, d);
+  const search = async (d: Deps) => {
+    const r = await handleSearch({ q: 'the boxer', installId: INSTALL }, '203.0.113.5', d);
+    return r.body.ok ? r.body.results.map((v) => v.videoId) : r.body;
+  };
+
+  it('hides a video for everyone once two different networks find it won’t play', async () => {
+    const d = deps();
+    expect(await search(d)).toEqual([VIDEO]);
+    expect((await report(d, 'refused', '198.51.100.1')).status).toBe(200);
+    expect(await search(d)).toEqual([VIDEO]); // one report isn't enough
+    await report(d, 'refused', '198.51.100.1', 'another-install-same-bar'); // same network again
+    expect(await search(d)).toEqual([VIDEO]);
+    await report(d, 'refused', '192.0.2.77');
+    expect(await search(d)).toEqual([]); // cached results are filtered too
+    expect(d.yt.calls.filter((u) => u.pathname.endsWith('/search'))).toHaveLength(1);
+    expect((await handleCheck({ action: 'check', ids: [VIDEO, 'bbbbbbbbbbb'] }, d)).body).toEqual({ ok: true, hidden: { [VIDEO]: 'refused' } });
+  });
+
+  it('needs three networks for "not karaoke", a judgement call', async () => {
+    const d = deps();
+    await report(d, 'not_karaoke', '198.51.100.1');
+    await report(d, 'not_karaoke', '192.0.2.77');
+    expect(await search(d)).toEqual([VIDEO]);
+    await report(d, 'not_karaoke', '203.0.113.200');
+    expect(await search(d)).toEqual([]);
+  });
+
+  it('brings a video back when it plays after all', async () => {
+    const d = deps();
+    await report(d, 'refused', '198.51.100.1');
+    await report(d, 'refused', '192.0.2.77');
+    expect(await search(d)).toEqual([]);
+    await report(d, 'plays', '203.0.113.9');
+    expect(await search(d)).toEqual([VIDEO]);
+  });
+
+  it('keeps only hashes of who reported, and turns away nonsense and floods', async () => {
+    const d = deps({ salt: 'pepper' });
+    await report(d, 'refused', '198.51.100.1');
+    const [key, network] = [...d.mem.reports][0]!;
+    expect(key).not.toContain('198.51.100.1');
+    expect(key).not.toContain('installinstall');
+    expect(network).not.toContain('198.51');
+    expect((await handleReport({ installId: INSTALL, videoId: 'nope', kind: 'refused' }, '1.2.3.4', d)).status).toBe(400);
+    expect((await handleReport({ installId: INSTALL, videoId: VIDEO, kind: 'boring' }, '1.2.3.4', d)).status).toBe(400);
+    expect((await handleCheck({ ids: 'x' }, d)).status).toBe(400);
+    let last = 200;
+    for (let i = 0; i < 201; i++) last = (await handleReport({ installId: INSTALL, videoId: VIDEO, kind: 'refused' }, '1.2.3.4', d)).status;
+    expect(last).toBe(429);
   });
 });

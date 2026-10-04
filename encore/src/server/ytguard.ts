@@ -6,6 +6,10 @@
 // refusals it hits at showtime. Either way, Encore remembers the video for
 // 30 days (hiding it from searches on this laptop) and swaps the request for
 // another version of the same song that does play, telling the singer.
+//
+// Reports are shared through Encore's search service: a refusal or "not
+// karaoke" here is sent there, and videos enough other KJs have reported are
+// treated the same way here (queued ones are checked, and swapped if hidden).
 
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -27,9 +31,19 @@ export interface YouTubeGuardDeps {
   /** YouTube search (cached), used to find other versions. */
   search: (query: string) => Promise<SearchResult[]>;
   frameUrl?: string;
+  /** Encore's shared reports, through the search service (absent when it's off). */
+  shared?: {
+    report(videoId: string, kind: 'refused' | 'not_karaoke' | 'plays'): Promise<void>;
+    check(ids: string[]): Promise<Record<string, 'refused' | 'not_karaoke'>>;
+  };
   now?: () => number;
   log?: (msg: string) => void;
 }
+
+/** How long another KJ's report, or a clean check, is trusted before asking again. */
+const SHARED_FOR_MS = 30 * 60 * 1000;
+/** At most this often, look up queued videos in the shared reports. */
+const SYNC_EVERY_MS = 60 * 1000;
 
 /** Why a video is kept off the list: YouTube won't play it here, or the KJ says it isn't karaoke. */
 export type BlockReason = 'refused' | 'not-karaoke';
@@ -39,6 +53,9 @@ export class YouTubeGuard {
   private refused = new Map<string, { at: number; reason: BlockReason }>();
   private checks = new Map<string, { ok: boolean; mode?: YouTubeMode; at: number }>();
   private swapping = new Set<string>();
+  /** What the shared reports say about videos looked up recently (null: nothing). */
+  private shared = new Map<string, { reason: BlockReason | null; at: number }>();
+  private lastSync = -Infinity;
   private saving: Promise<void> = Promise.resolve();
   private readonly now: () => number;
 
@@ -84,10 +101,43 @@ export class YouTubeGuard {
     while (this.refused.size > MAX_REMEMBERED) this.refused.delete(this.refused.keys().next().value!);
   }
 
-  /** Why a video is kept off the list on this laptop, if it is. */
+  /** Why a video is kept off the list here: found on this laptop, or reported by enough KJs. */
   blockReason(videoId: string): BlockReason | undefined {
     const b = this.refused.get(videoId);
-    return b && this.now() - b.at < REMEMBER_MS ? b.reason : undefined;
+    if (b && this.now() - b.at < REMEMBER_MS) return b.reason;
+    const s = this.shared.get(videoId);
+    return s?.reason && this.now() - s.at < SHARED_FOR_MS ? s.reason : undefined;
+  }
+
+  /** Look these videos up in the shared reports (videos not looked up lately). */
+  async checkShared(ids: string[]): Promise<void> {
+    const check = this.deps.shared?.check;
+    const now = this.now();
+    const due = [...new Set(ids)].filter((id) => /^[\w-]{11}$/.test(id) && !(now - (this.shared.get(id)?.at ?? -Infinity) < SHARED_FOR_MS));
+    if (!check || !due.length) return;
+    const hidden = await check(due.slice(0, 100)).catch(() => null);
+    if (!hidden) return;
+    for (const id of due.slice(0, 100)) {
+      const kind = hidden[id];
+      this.shared.set(id, { reason: kind === 'refused' ? 'refused' : kind === 'not_karaoke' ? 'not-karaoke' : null, at: now });
+    }
+  }
+
+  /**
+   * Now and then, look tonight's queued YouTube songs up in the shared
+   * reports, and swap any that other KJs found won't play or aren't karaoke.
+   */
+  async syncShared(): Promise<void> {
+    if (!this.deps.shared || this.now() - this.lastSync < SYNC_EVERY_MS) return;
+    this.lastSync = this.now();
+    const { entries, nowPlaying } = this.deps.show.state;
+    const queued = [...entries, ...(nowPlaying?.stage === 'intro' ? [nowPlaying.entry] : [])].filter((e) => e.song.source.kind === 'youtube');
+    const before = new Set(queued.filter((e) => this.isRefused(sourceId(e))).map(sourceId));
+    await this.checkShared(queued.map(sourceId));
+    const newly = queued.filter((e) => !before.has(sourceId(e)) && this.isRefused(sourceId(e)));
+    if (!newly.length) return;
+    await Promise.all(newly.map((e) => this.swap(e.id)));
+    this.onUpdate?.();
   }
 
   /** Blocked for any reason: hidden from search, turned away when requested, never swapped in. */
@@ -103,6 +153,7 @@ export class YouTubeGuard {
     this.checks.delete(videoId);
     this.expire();
     await this.save();
+    void this.deps.shared?.report(videoId, 'not_karaoke');
     this.onUpdate?.();
   }
 
@@ -132,14 +183,18 @@ export class YouTubeGuard {
     if (!/^[\w-]{11}$/.test(videoId)) return;
     if (ok) {
       this.checks.set(videoId, { ok: true, mode: mode === 'site' || mode === 'direct' ? mode : undefined, at: this.now() });
-      // It plays after all; a KJ's "not karaoke" still stands.
+      // It plays after all (here and for everyone); a KJ's "not karaoke" still stands.
+      const wasRefused = this.refused.get(videoId)?.reason === 'refused' || this.shared.get(videoId)?.reason === 'refused';
+      if (this.shared.get(videoId)?.reason === 'refused') this.shared.delete(videoId);
       if (this.refused.get(videoId)?.reason === 'refused') {
         this.refused.delete(videoId);
         await this.save();
       }
+      if (wasRefused) void this.deps.shared?.report(videoId, 'plays');
       this.onUpdate?.();
       return;
     }
+    void this.deps.shared?.report(videoId, 'refused');
     this.checks.delete(videoId);
     if (this.refused.get(videoId)?.reason !== 'not-karaoke') {
       this.refused.delete(videoId);

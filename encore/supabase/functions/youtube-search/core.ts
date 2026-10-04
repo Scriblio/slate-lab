@@ -10,7 +10,9 @@
 //     network address (stored only as a hash that changes every day).
 //
 // Titles are passed through exactly as YouTube returns them; the policies
-// forbid modifying search results.
+// forbid modifying search results. Videos that enough KJs reported as not
+// playing inside Encore, or as not karaoke, are left out for everyone (see
+// handleReport below).
 //
 // Plain TypeScript with no Deno or npm imports, so the tests run it in Node.
 
@@ -34,6 +36,12 @@ export interface Store {
   take(buckets: { name: string; limit: number }[], day: string): Promise<string | null>;
   /** Forget results older than 30 days and old usage counters. */
   prune(): Promise<void>;
+  /** Which of these videos enough different networks reported in the last 30 days. */
+  blocked(ids: string[], thresholds: ReportThresholds): Promise<Record<string, ReportKind>>;
+  /** Record (or refresh) one installation's report about a video. */
+  report(videoId: string, kind: ReportKind, reporter: string, network: string): Promise<void>;
+  /** The video played after all: forget the "won't play here" reports. */
+  clearRefused(videoId: string): Promise<void>;
 }
 
 export interface Limits {
@@ -48,6 +56,10 @@ export interface Deps {
   /** Unset until the YOUTUBE_API_KEY secret is added. */
   apiKey?: string;
   limits: Limits;
+  /** How many different networks must agree to hide a video for everyone. */
+  thresholds?: ReportThresholds;
+  /** Secret salt for hashing network addresses in reports (kept 30 days, so a daily hash won't do). */
+  salt?: string;
   now?: () => number;
   random?: () => number;
 }
@@ -66,6 +78,15 @@ export const DEFAULT_LIMITS: Limits = { global: 90, perInstall: 60, perIp: 90 };
 const LINK_HINT = 'You can still paste a YouTube link.';
 
 export async function handleSearch(input: unknown, ip: string, deps: Deps): Promise<Reply> {
+  const reply = await findResults(input, ip, deps);
+  if (!reply.body.ok) return reply;
+  // Videos enough KJs found broken or not karaoke are skipped for everyone,
+  // as they are found: cached results are filtered on the way out.
+  const hidden = await reportedVideos(reply.body.results.map((r) => r.videoId), deps);
+  return hidden.size ? { ...reply, body: { ...reply.body, results: reply.body.results.filter((r) => !hidden.has(r.videoId)) } } : reply;
+}
+
+async function findResults(input: unknown, ip: string, deps: Deps): Promise<Reply> {
   const now = (deps.now ?? Date.now)();
   const body = (input ?? {}) as { q?: unknown; installId?: unknown };
   const q = typeof body.q === 'string' ? body.q.trim() : '';
@@ -111,6 +132,76 @@ export async function handleSearch(input: unknown, ip: string, deps: Deps): Prom
   }
   await deps.store.putCache(key, results, now).catch(() => {});
   return ok(results);
+}
+
+// --- shared reports: "won't play here" and "not karaoke" ------------------------------
+
+export type ReportKind = 'refused' | 'not_karaoke';
+
+/** How many different networks must agree before a video is hidden for everyone. */
+export interface ReportThresholds {
+  refused: number;
+  notKaraoke: number;
+}
+
+// Two for "won't play here": Encore detects refusals itself, from YouTube's
+// player, so they're facts, but the function is public and one forged report
+// shouldn't hide a video. Three for "not karaoke", which is a judgement call.
+export const DEFAULT_THRESHOLDS: ReportThresholds = { refused: 2, notKaraoke: 3 };
+
+const ID = /^[\w-]{11}$/;
+const REPORTS_PER_DAY = { install: 200, ip: 300 };
+
+async function reportedVideos(ids: string[], deps: Deps): Promise<Map<string, ReportKind>> {
+  const valid = [...new Set(ids.filter((id) => ID.test(id)))].slice(0, 100);
+  if (!valid.length) return new Map();
+  const rows = await deps.store.blocked(valid, deps.thresholds ?? DEFAULT_THRESHOLDS).catch(() => ({}) as Record<string, ReportKind>);
+  return new Map(Object.entries(rows));
+}
+
+export interface ReportReply {
+  status: number;
+  body: { ok: true } | { ok: false; error: string; code: string };
+}
+
+/**
+ * POST { action: 'report', installId, videoId, kind }. kind 'plays' means
+ * the video played after all, which clears the "won't play here" reports.
+ */
+export async function handleReport(input: unknown, ip: string, deps: Deps): Promise<ReportReply> {
+  const body = (input ?? {}) as { installId?: unknown; videoId?: unknown; kind?: unknown };
+  const installId = typeof body.installId === 'string' ? body.installId : '';
+  const videoId = typeof body.videoId === 'string' ? body.videoId : '';
+  const kind = body.kind;
+  if (!/^[A-Za-z0-9_-]{16,64}$/.test(installId) || !ID.test(videoId) || (kind !== 'refused' && kind !== 'not_karaoke' && kind !== 'plays')) {
+    return { status: 400, body: { ok: false, code: 'bad-request', error: 'Not a report Encore understands.' } };
+  }
+  const day = pacificDay((deps.now ?? Date.now)());
+  const network = await hash(`${ip}|${deps.salt ?? ''}`);
+  const full = await deps.store.take(
+    [
+      { name: `report:install:${installId}`, limit: REPORTS_PER_DAY.install },
+      { name: `report:ip:${await hash(`${ip}|${day}`)}`, limit: REPORTS_PER_DAY.ip },
+    ],
+    day,
+  );
+  if (full) return { status: 429, body: { ok: false, code: 'limit', error: 'Too many reports today.' } };
+  if (kind === 'plays') await deps.store.clearRefused(videoId);
+  else await deps.store.report(videoId, kind, await hash(`install|${installId}`), network);
+  return { status: 200, body: { ok: true } };
+}
+
+export interface CheckReply {
+  status: number;
+  body: { ok: true; hidden: Record<string, ReportKind> } | { ok: false; error: string; code: string };
+}
+
+/** POST { action: 'check', ids }: which of these videos are hidden for everyone, and why. */
+export async function handleCheck(input: unknown, deps: Deps): Promise<CheckReply> {
+  const ids = (input as { ids?: unknown })?.ids;
+  if (!Array.isArray(ids) || ids.length > 100) return { status: 400, body: { ok: false, code: 'bad-request', error: 'Send up to 100 video ids.' } };
+  const hidden = await reportedVideos(ids.filter((x): x is string => typeof x === 'string'), deps);
+  return { status: 200, body: { ok: true, hidden: Object.fromEntries(hidden) } };
 }
 
 /** What actually gets searched: the query, nudged toward karaoke versions. */

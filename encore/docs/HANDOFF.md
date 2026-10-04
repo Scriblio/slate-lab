@@ -15,7 +15,7 @@ Encore is a karaoke hosting (KJ) app by Scriblio (Matthew Lancaster). It's being
 | --- | --- |
 | Install | `npm ci` (use `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci` if you don't need Electron) |
 | Typecheck | `npm run typecheck` |
-| Tests | `npm test` (196 tests) |
+| Tests | `npm test` (203 tests) |
 | Run with a demo library | `npm run demo`, then open http://localhost:4747/dj (venue screen at `/display`, phone page at `/join`) |
 | Desktop app | `npm run build:desktop && npm run desktop` |
 | Windows installer | built by GitHub Actions on every push to the branch: download the "Encore-Karaoke-Windows" artifact from the run; `npm run dist:win` needs Windows |
@@ -60,6 +60,10 @@ The YouTube API Services policies apply because Encore uses the search API. Brea
 - **Store YouTube data for at most 30 days.**
 
 ## Done recently (all on the branch, tested)
+
+- **Shared YouTube reports:** refusals (auto-detected) and **Not karaoke** marks go to the search service (table `yt_reports`, actions `report` and `check`).
+  - A video is hidden from all searches, and swapped out of queues within a minute, once 2 different networks report "won't play" or 3 report "not karaoke". A video that later plays clears it.
+  - Only hashes of who reported are kept, for 30 days. It's deployed as function version 5.
 
 - **Song keys by name:**
   - The console detects each queued library song's original key (chroma plus Albrecht & Shanahan profiles: `src/shared/keydetect.ts`, run by `src/client/dj/KeyDetector.tsx`). It's stored per track in `data/song-keys.json` (`src/server/songkeys.ts`, DJ action `setSongKey`), and the KJ's word beats a detection.

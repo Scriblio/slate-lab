@@ -68,6 +68,7 @@ Some videos YouTube lists as embeddable still refuse to play inside other apps (
 - **Queued songs are checked ahead of time.** The console's *YouTube check* card loads each upcoming YouTube song, without playing it, in a small preview player.
 - **Refused videos are swapped.** Encore swaps the request for another version of the same song that plays (matching titles so a different song is never substituted) and tells the singer on their phone. That also happens if a video is refused on stage. If no other version turns up, the console and the phone say so.
 - **Refusals are remembered** for 30 days on that laptop (`data/youtube-refused.json`, video ids only), and hidden from YouTube search.
+- **And shared with every KJ.** Refusals and **Not karaoke** marks go to Encore's search service. Once enough different KJs report a video (2 for "won't play", 3 for "not karaoke"), it's hidden from everyone's searches, and queued requests for it are swapped. If a video later plays after all, it comes back.
 
 ## Rotation modes
 

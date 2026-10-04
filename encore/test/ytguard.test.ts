@@ -172,3 +172,60 @@ describe('“Not karaoke”', () => {
     await rm(dir, { recursive: true, force: true });
   });
 });
+
+describe('reports shared with every KJ', () => {
+  function sharedSetup(hidden: Record<string, 'refused' | 'not_karaoke'> = {}) {
+    let clock = 1_000_000;
+    const now = () => (clock += 1000);
+    const sent: [string, string][] = [];
+    const checked: string[][] = [];
+    let guard: YouTubeGuard | undefined;
+    const show = new Show({ now, resolveLocal: () => undefined, onChange: () => {}, onPlayerCommand: () => {}, blockReason: (id) => guard?.blockReason(id) });
+    guard = new YouTubeGuard({
+      show,
+      now,
+      search: async () => EVER_SO_SWEET,
+      shared: {
+        report: async (id, kind) => void sent.push([id, kind]),
+        check: async (ids) => {
+          checked.push(ids);
+          return Object.fromEntries(Object.entries(hidden).filter(([id]) => ids.includes(id)));
+        },
+      },
+    });
+    return { show, guard, sent, checked };
+  }
+
+  it('shares refusals, "not karaoke", and videos that play after all', async () => {
+    const { guard, sent } = sharedSetup();
+    await guard.report('sweetsweet1', false);
+    await guard.markNotKaraoke('sweetsweet3');
+    await guard.report('sweetsweet1', true);
+    await guard.report('sweetsweet2', true); // never refused: nothing to say
+    expect(sent).toEqual([
+      ['sweetsweet1', 'refused'],
+      ['sweetsweet3', 'not_karaoke'],
+      ['sweetsweet1', 'plays'],
+    ]);
+  });
+
+  it('swaps a queued song other KJs found won’t play, checking at most once a minute', async () => {
+    const { show, guard, checked } = sharedSetup({ sweetsweet2: 'refused' });
+    const ana = show.join('Ana').singer;
+    const e = show.addEntry(ana.id, { kind: 'youtube', videoId: 'sweetsweet2', title: 'The Early November - Ever So Sweet (Karaoke Version)' }, { fromPhone: true });
+    await guard.syncShared();
+    expect(checked).toEqual([['sweetsweet2']]);
+    expect(show.findEntry(e.id)!.song.source).toEqual({ kind: 'youtube', videoId: 'sweetsweet3' });
+    expect(guard.blockReason('sweetsweet2')).toBe('refused');
+    await guard.syncShared();
+    expect(checked).toHaveLength(1);
+  });
+
+  it('turns away a pasted link other KJs voted not karaoke', async () => {
+    const { show, guard } = sharedSetup({ abcdefghijk: 'not_karaoke' });
+    await guard.checkShared(['abcdefghijk']);
+    expect(guard.blockReason('abcdefghijk')).toBe('not-karaoke');
+    const ana = show.join('Ana').singer;
+    expect(() => show.addEntry(ana.id, { kind: 'youtube', videoId: 'abcdefghijk', title: 'x' }, { fromPhone: true })).toThrow(/not a karaoke version/);
+  });
+});
