@@ -63,7 +63,7 @@ The YouTube API Services policies apply because Encore uses the search API. Brea
 ## Done recently (all on the branch, tested)
 
 - **Key letters on the phone:** the key picker says which key a change lands in ("G", with "−5" under it), not just the number.
-  - A song's key is only known once the console has analysed it, and singers pick a key *before* queuing. So the phone now asks (`songKey`, also allowed over the relay) and the server tells the console (`dj:detect`) to analyse that song first; `KeyDetector` runs it ahead of the queue. The phone waits up to 12 s (`keyWaitMs`), and the console is asked at most once a minute per song.
+  - A song's key is only known once the console has analysed it, and singers pick a key *before* queuing. So the phone shows a **Check the key** button (nothing is checked unless the singer taps it). It sends `songKey` (also allowed over the relay) and the server tells the console (`dj:detect`) to analyse that song first; `KeyDetector` runs it ahead of the queue. The phone waits up to 12 s (`keyWaitMs`), and the console is asked at most once a minute per song.
   - No console connected, or a file it can't decode: the phone just shows the number, as before.
 
 - **Song list on the phone:** the Find tab shows the whole library to scroll through when nothing is typed (`src/client/join/Browse.tsx`).

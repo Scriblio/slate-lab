@@ -915,6 +915,12 @@ button.status {
   font-size: 12.5px;
   line-height: 1.35;
 }
+.key-check {
+  margin-top: 8px;
+}
+.key-picker .key-check-note {
+  color: var(--amber);
+}
 .key-stepper {
   display: flex;
   flex: none;

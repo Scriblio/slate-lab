@@ -893,22 +893,26 @@ function AddSheet({
   // Starts in the key this singer sang it in last time.
   const [key, setKey] = useState(result.lastKey ?? 0);
   // The song's own key, so the picker can say which key a change lands in. When the
-  // laptop doesn't know it yet, ask it to work it out (the KJ's console listens to the song).
+  // laptop doesn't know it yet, the singer can ask for a check (the KJ's console listens
+  // to the song). Nothing is checked unless they tap the button.
   const trackId = song.source.kind === 'local' ? song.source.trackId : undefined;
   const [songKey, setSongKey] = useState<SongKey | undefined>(result.songKey);
   const [finding, setFinding] = useState(false);
-  useEffect(() => {
-    if (replacing || !trackId || songKey) return;
-    let live = true;
+  const [noKey, setNoKey] = useState(false);
+  async function checkKey() {
+    if (!trackId || finding) return;
     setFinding(true);
-    request<SongKey | null>(socket, 'songKey', trackId)
-      .then((k) => live && k && setSongKey(k))
-      .catch(() => {})
-      .finally(() => live && setFinding(false));
-    return () => {
-      live = false;
-    };
-  }, [socket, trackId, replacing, songKey]);
+    setNoKey(false);
+    try {
+      const k = await request<SongKey | null>(socket, 'songKey', trackId);
+      if (k) setSongKey(k);
+      else setNoKey(true);
+    } catch {
+      setNoKey(true);
+    } finally {
+      setFinding(false);
+    }
+  }
   const target = songKey ? transposeKey(songKey, key) : undefined;
   const approx = songKey && !songKey.confirmed ? '≈' : '';
   return (
@@ -934,9 +938,17 @@ function AddSheet({
             <div>
               <strong>Key</strong>
               <span className="muted">
-                {songKey ? `It’s in ${keyLabel(0, songKey)}${songKey.confirmed ? '' : ' (found by listening)'}. ` : finding ? 'Finding the key… ' : ''}
+                {songKey ? `It’s in ${keyLabel(0, songKey)}${songKey.confirmed ? '' : ' (found by listening)'}. ` : ''}
                 {result.lastKey ? `You sang it ${formatKey(result.lastKey)} last time. ` : ''}Too high or low? The speed stays the same.
               </span>
+              {!songKey && (
+                <>
+                  <button type="button" className="btn sm key-check" onClick={checkKey} disabled={finding}>
+                    {finding ? <I.Loader /> : <I.Music />} {finding ? 'Checking the key…' : 'Check the key'}
+                  </button>
+                  {noKey && <span className="key-check-note">Couldn’t tell this one’s key. You can still use the numbers.</span>}
+                </>
+              )}
             </div>
             <div className="key-stepper">
               <button type="button" className="btn icon" disabled={key <= -MAX_SEMITONES} onClick={() => setKey((k) => k - 1)} aria-label="Lower the key">
@@ -954,7 +966,6 @@ function AddSheet({
                 ) : (
                   <>
                     {key ? formatKey(key) : 'Original'}
-                    {finding ? <small>finding key…</small> : null}
                   </>
                 )}
               </output>
