@@ -80,6 +80,8 @@ export function BreakLayer({ track, nonce, on, paused, volume, muted, ready, med
       started.current = nonce;
       m.volume = 0;
     }
+    // A browser keeps the audio engine asleep until the page has been clicked; wake it now that music should play.
+    if (audible && sharedContext?.state === 'suspended') void sharedContext.resume().catch(() => {});
     // Not being allowed to play yet (no click so far) or a quick pause aren't a bad track.
     if (audible && m.paused) m.play().catch((e: Error) => e.name !== 'AbortError' && e.name !== 'NotAllowedError' && cb.current.onError(nonce, e.message));
     const from = m.volume;

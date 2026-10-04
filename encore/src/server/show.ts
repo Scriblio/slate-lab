@@ -3,8 +3,8 @@
 // broadcast the same way whether they came from the KJ or a phone.
 
 import { randomBytes, randomInt, randomUUID } from 'node:crypto';
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { mkdir, readdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
+import { basename, dirname, join } from 'node:path';
 import { isBlockedName, parseWords } from '../shared/namefilter.ts';
 import { clampKey } from '../shared/pitch.ts';
 import type { PlayerCommand, SingerAction, SongRef } from '../shared/protocol.ts';
@@ -116,8 +116,22 @@ export class Show {
     return this.deps.dataDir ? join(this.deps.dataDir, 'show.json') : undefined;
   }
 
+  /** Temp files left by an earlier session that was closed between writing and renaming. */
+  private async removeStaleTemps(): Promise<void> {
+    const file = this.file;
+    if (!file) return;
+    try {
+      const mine = `${basename(file)}.${process.pid}.tmp`;
+      const stale = (await readdir(dirname(file))).filter((n) => n.startsWith(`${basename(file)}.`) && n.endsWith('.tmp') && n !== mine);
+      await Promise.all(stale.map((n) => unlink(join(dirname(file), n)).catch(() => {})));
+    } catch {
+      // No folder yet, or nothing to tidy.
+    }
+  }
+
   async load(): Promise<void> {
     if (!this.file) return;
+    await this.removeStaleTemps();
     try {
       const raw = JSON.parse(await readFile(this.file, 'utf8')) as Persisted;
       if (raw.version !== 1) return;

@@ -15,7 +15,7 @@ Encore is a karaoke hosting (KJ) app by Scriblio (Matthew Lancaster). It's being
 | --- | --- |
 | Install | `npm ci` (use `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci` if you don't need Electron) |
 | Typecheck | `npm run typecheck` |
-| Tests | `npm test` (267 tests) |
+| Tests | `npm test` (269 tests) |
 | Run with a demo library | `npm run demo`, then open http://localhost:4747/dj (venue screen at `/display`, phone page at `/join`) |
 | Desktop app | `npm run build:desktop && npm run desktop` |
 | Windows installer | built by GitHub Actions on every push to the branch: download the "Encore-Karaoke-Windows" artifact from the run; `npm run dist:win` needs Windows |
@@ -61,6 +61,9 @@ The YouTube API Services policies apply because Encore uses the search API. Brea
 - **Store YouTube data for at most 30 days.**
 
 ## Done recently (all on the branch, tested)
+
+- **Break music folder with only karaoke files:** a KJ pointed the break folder at their karaoke folder, which has only MP3+G pairs. Break music leaves those out on purpose (so a folder that mixes karaoke and music is fine), so it found nothing and the card just said so. `BreakStatus.karaoke` now counts the left-out files, and the console card and Settings say "that folder only has karaoke songs; pick a different one".
+- **Stale save files:** `Show.load` deletes `show.json.<pid>.tmp` files left when an earlier session was closed between writing and renaming (a real install had about 20). Saves themselves were working.
 
 - **First-run guide:** `src/client/dj/SetupGuide.tsx`, opened by `FirstRun` in `DjApp.tsx` when `config.setupDone` is false (`dj:config`), or by the `encore:setup` event (Settings → Help). `setupDone` defaults to true when the saved config already has library folders, so an upgrade doesn't show it (`test/config.test.ts`). Finishing, skipping or closing it saves `setupDone: true`.
 - **Phone header:** it shrinks to the name row once the song list is scrolled (the "you're up next" and "you're called" cards stay), using the measured `--head-h` so the pinned search box and A-Z bar follow.

@@ -117,7 +117,8 @@ describe('BreakMusic', () => {
     const nonce = b.nonce;
     b.startBreak();
     expect(b.nonce).toBe(nonce + 1);
-    expect(b.status(true)).toMatchObject({ on: true, paused: false, tracks: 5, errors: [] });
+    // The karaoke pair and the zip in the folder are counted, so the console can say why they were left out.
+    expect(b.status(true)).toMatchObject({ on: true, paused: false, tracks: 5, karaoke: 2, errors: [] });
   });
 
   it('copes with an empty or missing folder, and with files that vanish after a rescan', async () => {
@@ -136,5 +137,15 @@ describe('BreakMusic', () => {
     expect(b.count).toBe(2);
     b.ensureTrack();
     expect(['Slow Jam', 'Neon Loop']).toContain(b.current()!.title);
+  });
+
+  it('says so when a folder has only karaoke songs, so nobody wonders why nothing plays', async () => {
+    const karaoke = await mkdtemp(join(tmpdir(), 'encore-break-karaoke-'));
+    for (const f of ['Adele - Hello.mp3', 'Adele - Hello.cdg', 'Queen - Radio Gaga.mp3', 'Queen - Radio Gaga.cdg']) await writeFile(join(karaoke, f), '');
+    const b = new BreakMusic();
+    await b.scan([karaoke]);
+    expect(b.count).toBe(0);
+    expect(b.status(false)).toMatchObject({ tracks: 0, karaoke: 2, folders: [karaoke] });
+    await rm(karaoke, { recursive: true, force: true });
   });
 });

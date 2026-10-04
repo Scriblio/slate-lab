@@ -92,7 +92,7 @@ export class BreakMusic {
 
   status(on: boolean): BreakStatus {
     const s = this.library.getStatus();
-    return { folders: s.folders, tracks: this.count, scanning: s.scanning, errors: s.errors, on, paused: this.paused, track: this.current() };
+    return { folders: s.folders, tracks: this.count, karaoke: this.library.playable(['mp3+g', 'zip']).length, scanning: s.scanning, errors: s.errors, on, paused: this.paused, track: this.current() };
   }
 
   private advance(): void {

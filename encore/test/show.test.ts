@@ -384,4 +384,25 @@ describe('Dropping a request', () => {
     expect(show.state.nowPlaying).toBeNull();
     expect(show.state.history[0]).toMatchObject({ outcome: 'skipped' });
   });
+
+  it('tidies temp save files an earlier session left behind, and keeps the saved show', async () => {
+    const { mkdtemp, readdir, rm, writeFile } = await import('node:fs/promises');
+    const { tmpdir } = await import('node:os');
+    const { join } = await import('node:path');
+    const dir = await mkdtemp(join(tmpdir(), 'encore-show-'));
+    const mk = () => new Show({ resolveLocal: () => undefined, onChange: () => {}, onPlayerCommand: () => {}, dataDir: dir });
+    const first = mk();
+    first.addSinger('Saved Sam', false);
+    await first.flush();
+    await writeFile(join(dir, 'show.json.123.tmp'), '{"half":');
+    await writeFile(join(dir, 'show.json.4567.tmp'), '');
+    await writeFile(join(dir, 'config.json'), '{}');
+    const second = mk();
+    await second.load();
+    expect((await readdir(dir)).sort()).toEqual(['config.json', 'show.json']);
+    expect(second.state.singers.map((x) => x.name)).toEqual(['Saved Sam']);
+    first.dispose();
+    second.dispose();
+    await rm(dir, { recursive: true, force: true });
+  });
 });

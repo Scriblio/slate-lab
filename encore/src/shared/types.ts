@@ -289,6 +289,8 @@ export interface BreakTrack {
 export interface BreakStatus {
   folders: string[];
   tracks: number;
+  /** Karaoke songs (MP3+G, zips) found in the folder, which break music leaves out. */
+  karaoke: number;
   scanning: boolean;
   errors: string[];
   /** Nothing is on stage, so music should be playing now (unless paused). */

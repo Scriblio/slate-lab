@@ -250,6 +250,12 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
             )}
           </div>
           <p className="muted small">{brk.scanning ? 'Scanning…' : `${brk.tracks.toLocaleString()} songs and videos`}</p>
+          {!brk.scanning && brk.folders.length > 0 && brk.karaoke > 0 && (
+            <p className={brk.tracks ? 'muted small' : 'settings-error'}>
+              {brk.tracks ? null : <I.Alert />} {brk.karaoke.toLocaleString()} karaoke {brk.karaoke === 1 ? 'song was' : 'songs were'} left out: break music is for plain music and videos.
+              {brk.tracks ? '' : ' Pick a folder with music or video files in it.'}
+            </p>
+          )}
           {brk.errors.map((e) => (
             <p key={e} className="settings-error">
               <I.Alert /> {e}

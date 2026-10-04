@@ -23,9 +23,11 @@ export function BreakCard() {
         <div>
           <strong>Break music</strong>
           <span className="muted small">
-            {b.folders.length
-              ? 'No songs or videos found in your break music folder.'
-              : 'Play music or videos between singers. Pick a folder in Settings.'}
+            {!b.folders.length
+              ? 'Play music or videos between singers. Pick a folder in Settings.'
+              : b.karaoke
+                ? `That folder only has karaoke songs (${b.karaoke.toLocaleString()}). Break music needs plain music or video files, so pick a different folder.`
+                : 'No songs or videos found in your break music folder.'}
           </span>
         </div>
         <button className="btn sm" onClick={() => window.dispatchEvent(new Event('encore:settings'))}>
