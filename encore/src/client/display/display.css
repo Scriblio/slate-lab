@@ -631,3 +631,43 @@ kbd {
 .show-root.break-video .upnext-panel {
   align-self: end;
 }
+
+/* ---- tips ---- */
+
+.tip-card {
+  position: absolute;
+  right: 4vw;
+  bottom: 4.5vh;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 1em;
+  padding: 0.7em 1.2em 0.7em 0.7em;
+  border-radius: 1.2em;
+  background: rgba(10, 10, 18, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(16px);
+}
+.tip-card img {
+  width: 6em;
+  height: 6em;
+  padding: 0.35em;
+  border-radius: 0.8em;
+  background: #fff;
+}
+.tip-card div {
+  display: grid;
+  gap: 0.15em;
+}
+.tip-card strong {
+  font-family: var(--display);
+  font-size: 1.5em;
+}
+.tip-card span {
+  color: rgba(255, 255, 255, 0.65);
+}
+.show-root.break-video .tip-card {
+  bottom: auto;
+  top: 3.5vh;
+  right: 3.5vw;
+}

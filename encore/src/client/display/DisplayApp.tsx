@@ -240,6 +240,15 @@ function Idle({ view }: { view: DisplayView }) {
         </div>
         <UpNextList view={view} />
       </div>
+      {view.tip && (
+        <div className="tip-card">
+          <img src="/api/tip-qr.svg" alt="" />
+          <div>
+            <strong>{view.tip.text}</strong>
+            <span>Scan to send a tip</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

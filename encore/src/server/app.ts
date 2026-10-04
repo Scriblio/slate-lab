@@ -235,6 +235,14 @@ export async function createApp(opts: AppOptions) {
       return void res.end(svg);
     }
 
+    if (path === '/api/tip-qr.svg') {
+      const link = show.state.settings.tipLink;
+      if (!link) return notFound(res);
+      const svg = await QRCode.toString(link, { type: 'svg', margin: 1, errorCorrectionLevel: 'M', color: { dark: '#000000', light: '#ffffff' } });
+      res.writeHead(200, { 'content-type': 'image/svg+xml', 'cache-control': 'no-store' });
+      return void res.end(svg);
+    }
+
     if (path === '/api/health') {
       res.writeHead(200, { 'content-type': 'application/json' });
       return void res.end(JSON.stringify({ ok: true }));

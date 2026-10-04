@@ -957,6 +957,7 @@ export class Show {
       joinOpen: settings.joinOpen,
       allowYouTube: settings.allowYouTube,
       youtubeSearch: settings.allowYouTube && youtubeSearch,
+      ...(settings.tipLink ? { tip: { link: settings.tipLink, text: settings.tipText } } : {}),
       canBrowse: settings.allowBrowse && hasLibrary,
       maxQueuedPerSinger: settings.maxQueuedPerSinger,
       me,
@@ -994,6 +995,7 @@ export class Show {
       nowPlaying: this.state.nowPlaying,
       upNext: list.slice(0, 3).map((u) => ({ singerName: u.singer.name, title: u.entry.song.title, artist: u.entry.song.artist })),
       volume: this.state.settings.volume,
+      ...(this.state.settings.tipLink ? { tip: { text: this.state.settings.tipText } } : {}),
       primary,
       mediaKey,
       youtube,
@@ -1054,6 +1056,18 @@ export function cleanText(s: unknown, max: number): string {
     .slice(0, max);
 }
 
+/** The KJ's tip link as a clean https URL, or '' if it isn't one ("venmo.com/u/me" is taken as https). */
+export function cleanTipLink(v: unknown): string {
+  const t = String(v ?? '').trim();
+  if (!t) return '';
+  try {
+    const u = new URL(/^[a-z][a-z0-9+.-]*:/i.test(t) ? t : `https://${t}`);
+    return u.protocol === 'https:' && !u.username && !u.password && u.hostname.includes('.') ? u.toString().slice(0, 300) : '';
+  } catch {
+    return '';
+  }
+}
+
 function sanitizeSettings(s: Settings): Settings {
   const int = (v: unknown, lo: number, hi: number, d: number) => {
     const n = Math.round(Number(v));
@@ -1071,6 +1085,8 @@ function sanitizeSettings(s: Settings): Settings {
     breakVolume: int(s.breakVolume, 0, 100, D.breakVolume),
     nameFilter: bool(s.nameFilter, D.nameFilter),
     blockedWords: parseWords(String(s.blockedWords ?? '')).join(', ').slice(0, 600),
+    tipLink: cleanTipLink(s.tipLink),
+    tipText: cleanText(s.tipText, 40) || D.tipText,
     showSongsToSingers: bool(s.showSongsToSingers, D.showSongsToSingers),
     joinOpen: bool(s.joinOpen, D.joinOpen),
     autoAdvance: bool(s.autoAdvance, D.autoAdvance),

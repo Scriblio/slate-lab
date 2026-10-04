@@ -32,6 +32,8 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   }, []);
   const [showName, setShowName] = useState(s.showName);
   const [blocked, setBlocked] = useState(s.blockedWords);
+  const [tipLink, setTipLink] = useState(s.tipLink);
+  const [tipText, setTipText] = useState(s.tipText);
   const [confirmNew, setConfirmNew] = useState(false);
 
   useEffect(() => {
@@ -92,6 +94,24 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           <Field label="Changeover time (seconds)" hint="Time between singers, used for wait estimates.">
             <input className="input narrow" type="number" min={0} max={600} value={s.changeoverSec} onChange={(e) => set({ changeoverSec: Number(e.target.value) })} />
           </Field>
+        </Section>
+
+        <Section title="Tips">
+          <Field label="Tip link" hint="Your Venmo, Cash App or PayPal.me link. A QR code for it shows on the venue screen between songs, and phones get a button in The line. Encore never touches the money. Leave it empty to turn tips off.">
+            <input
+              className="input"
+              value={tipLink}
+              maxLength={300}
+              onChange={(e) => setTipLink(e.target.value)}
+              onBlur={() => tipLink.trim() !== s.tipLink && set({ tipLink: tipLink.trim() })}
+              placeholder="https://venmo.com/u/yourname"
+            />
+          </Field>
+          {s.tipLink && (
+            <Field label="Message" hint="Shown next to the QR code and on the button.">
+              <input className="input" value={tipText} maxLength={40} onChange={(e) => setTipText(e.target.value)} onBlur={() => tipText.trim() && tipText.trim() !== s.tipText && set({ tipText: tipText.trim() })} />
+            </Field>
+          )}
         </Section>
 
         <Section title="Speakers">

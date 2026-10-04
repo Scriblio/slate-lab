@@ -605,4 +605,35 @@ describe('YouTube videos that won’t play here', () => {
     expect(await join('Gary the Great')).toHaveProperty('singerId');
     await act({ type: 'updateSettings', patch: { nameFilter: true, blockedWords: '' } });
   });
+
+  it('shows a tip QR on the screen and a tip button on phones, only for a clean https link', async () => {
+    const dj = client({ role: 'dj' });
+    const display = client({ role: 'display' });
+    const phone = client();
+    const act = (action: object) => call((a) => dj.emit('dj:action', action as never, a as never));
+    await call((a) => phone.emit('singer:join', 'Tipper', a));
+    const tipLink = () => app.show.state.settings.tipLink;
+
+    expect((await fetch(`${base}/api/tip-qr.svg`)).status).toBe(404);
+    const onScreen = nextEvent<DisplayView>(display, 'display:view', (v) => v.tip?.text === 'Tip DJ Matt!');
+    const onPhone = nextEvent<SingerView>(phone, 'singer:view', (v) => v.tip?.link === 'https://venmo.com/u/dj-matt');
+    await act({ type: 'updateSettings', patch: { tipLink: ' venmo.com/u/dj-matt ', tipText: 'Tip DJ Matt!' } });
+    await onScreen;
+    expect((await onPhone).tip).toEqual({ link: 'https://venmo.com/u/dj-matt', text: 'Tip DJ Matt!' });
+    const qr = await fetch(`${base}/api/tip-qr.svg`);
+    expect(qr.status).toBe(200);
+    expect(qr.headers.get('content-type')).toBe('image/svg+xml');
+    expect(await qr.text()).toContain('<svg');
+
+    // Anything that isn't a plain https link is refused, so the screen never shows a QR for it.
+    for (const bad of ['javascript:alert(1)', 'http://example.com/tip', 'https://user:pw@example.com', 'https://localhost', 'data:text/html,hi', 'not a link']) {
+      await act({ type: 'updateSettings', patch: { tipLink: bad } });
+      expect(tipLink()).toBe('');
+    }
+    // Turned off: gone from the screen and phones.
+    const gone = nextEvent<SingerView>(phone, 'singer:view', (v) => v.tip === undefined);
+    await act({ type: 'updateSettings', patch: { tipLink: '' } });
+    await gone;
+    expect((await fetch(`${base}/api/tip-qr.svg`)).status).toBe(404);
+  });
 });

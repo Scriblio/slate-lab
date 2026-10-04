@@ -132,6 +132,10 @@ export interface Settings {
   nameFilter: boolean;
   /** The KJ's own words to refuse as well, separated by commas. */
   blockedWords: string;
+  /** Where tips go: the KJ's Venmo, Cash App or PayPal.me link (https only). Empty turns the tip QR off. */
+  tipLink: string;
+  /** What the tip QR and button say. */
+  tipText: string;
   /** Let phones see song titles for other singers in the queue. */
   showSongsToSingers: boolean;
   joinOpen: boolean;
@@ -154,6 +158,8 @@ export const DEFAULT_SETTINGS: Settings = {
   breakVolume: 60,
   nameFilter: true,
   blockedWords: '',
+  tipLink: '',
+  tipText: 'Tip your KJ',
   showSongsToSingers: false,
   joinOpen: true,
   autoAdvance: true,
@@ -255,6 +261,8 @@ export interface SingerView {
   /** Position (1-based) of my next performance in the upcoming list. */
   myNextPosition: number | null;
   myNextEtaSec: number | null;
+  /** The KJ's tip link, for a button in the line. Absent when none is set. */
+  tip?: { link: string; text: string };
   nowPlaying: { singerName: string; title?: string; artist?: string; stage: Stage; isMe: boolean } | null;
   upcoming: { singerName: string; title?: string; artist?: string; isMe: boolean; etaSec: number }[];
   mode: RotationMode;
@@ -304,6 +312,8 @@ export interface DisplayView {
   youtube: YouTubeEmbed;
   /** The audio output device to play through ('' or absent: the system default). */
   audioOutput?: string;
+  /** A tip QR code (at /api/tip-qr.svg) goes up between songs; absent when the KJ hasn't set one. */
+  tip?: { text: string };
   /** Break music: absent when no break music folder has anything in it. */
   breakMusic?: {
     on: boolean;

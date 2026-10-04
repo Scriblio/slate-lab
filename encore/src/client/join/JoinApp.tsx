@@ -1266,6 +1266,11 @@ function LineTab({ view, elapsed }: { view: SingerView; elapsed: number }) {
           ))}
         </ol>
       )}
+      {view.tip && (
+        <a className="btn block tip-button" href={view.tip.link} target="_blank" rel="noopener noreferrer">
+          <I.Heart /> {view.tip.text}
+        </a>
+      )}
       <p className="fine center">Wait times are estimates. The KJ can change the order.</p>
     </div>
   );

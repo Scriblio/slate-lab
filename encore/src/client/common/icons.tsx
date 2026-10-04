@@ -114,6 +114,11 @@ export const Film = (p: P) => (
     <path d="M7 3v18M17 3v18M3 8h4M17 8h4M3 16h4M17 16h4" />
   </Svg>
 );
+export const Heart = (p: P) => (
+  <Svg {...p}>
+    <path d="M20.8 5.6a5.5 5.5 0 0 0-7.8 0L12 6.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 22l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8Z" />
+  </Svg>
+);
 export const Music = (p: P) => (
   <Svg {...p}>
     <path d="M9 18V5l12-2v13" />

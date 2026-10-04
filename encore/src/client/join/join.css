@@ -1040,3 +1040,15 @@ button.status {
   gap: 8px;
   text-align: center;
 }
+
+.tip-button {
+  margin-top: 16px;
+  gap: 8px;
+  color: var(--text);
+  text-decoration: none;
+}
+.tip-button svg {
+  width: 18px;
+  height: 18px;
+  color: var(--accent);
+}
