@@ -1,7 +1,7 @@
 // The KJ console: run the stage, manage the rotation, find songs.
 
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
-import type { DjAction } from '../../shared/protocol.ts';
+import type { DjAction, ServerConfigView } from '../../shared/protocol.ts';
 import { ROTATION_MODES, type DjView } from '../../shared/types.ts';
 import * as I from '../common/icons.tsx';
 import { setOutputDevice } from '../common/audio-output.ts';
@@ -10,6 +10,7 @@ import { Modal, useToast } from '../common/ui.tsx';
 import { DjContext, useDj, type DjCtx } from './context.ts';
 import { BreakCard } from './BreakCard.tsx';
 import { Finder } from './Finder.tsx';
+import { SetupGuide } from './SetupGuide.tsx';
 import { Rotation } from './Rotation.tsx';
 import { SettingsModal } from './Settings.tsx';
 import { Stage } from './Stage.tsx';
@@ -111,6 +112,7 @@ export function DjApp() {
     <DjContext.Provider value={ctx}>
       <Shortcuts />
       <KeyDetector />
+      <FirstRun socket={socket} />
       <div className="dj">
         <TopBar offline={conn !== 'online'} />
         <main className="dj-grid">
@@ -130,6 +132,20 @@ export function DjApp() {
       </div>
     </DjContext.Provider>
   );
+}
+
+/** Opens the setup guide on a new installation, and whenever Settings asks for it. */
+function FirstRun({ socket }: { socket: DjCtx['socket'] }) {
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    request<ServerConfigView>(socket, 'dj:config')
+      .then((c) => !c.setupDone && setOpen(true))
+      .catch(() => {});
+    const again = () => setOpen(true);
+    window.addEventListener('encore:setup', again);
+    return () => window.removeEventListener('encore:setup', again);
+  }, [socket]);
+  return open ? <SetupGuide onClose={() => setOpen(false)} /> : null;
 }
 
 function PinGate({ onPin }: { onPin: (pin: string) => void }) {

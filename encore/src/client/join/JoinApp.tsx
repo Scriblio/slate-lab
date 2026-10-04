@@ -376,10 +376,19 @@ function Main({
 
   const headRef = useRef<HTMLElement>(null);
   useHeightVar(headRef, '--head-h');
+  // Scrolling the song list shrinks the header to the name row, so the list gets the screen.
+  // (The turn-is-close and you're-up cards stay.) Different thresholds in and out stop it flickering.
+  const [compact, setCompact] = useState(false);
+  useEffect(() => {
+    const on = () => setCompact((c) => (c ? window.scrollY > 20 : window.scrollY > 90));
+    on();
+    window.addEventListener('scroll', on, { passive: true });
+    return () => window.removeEventListener('scroll', on);
+  }, []);
 
   return (
     <div className="app">
-      <header className="app-head" ref={headRef}>
+      <header className={`app-head ${compact ? 'compact' : ''}`} ref={headRef}>
         <div className="who">
           <div className="avatar">{initials(me.name)}</div>
           <div className="ellipsis">

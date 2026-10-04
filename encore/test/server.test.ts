@@ -636,4 +636,14 @@ describe('YouTube videos that won’t play here', () => {
     await gone;
     expect((await fetch(`${base}/api/tip-qr.svg`)).status).toBe(404);
   });
+
+  it('remembers that the first-run guide has been seen', async () => {
+    const dj = client({ role: 'dj' });
+    const cfg = () => call<{ setupDone: boolean }>((a) => dj.emit('dj:config', a));
+    expect((await cfg()).setupDone).toBe(false);
+    await call((a) => dj.emit('dj:action', { type: 'setConfig', setupDone: true }, a as never));
+    expect((await cfg()).setupDone).toBe(true);
+    const saved = JSON.parse(await readFile(join(dir, 'data', 'config.json'), 'utf8')) as { setupDone: boolean };
+    expect(saved.setupDone).toBe(true);
+  });
 });

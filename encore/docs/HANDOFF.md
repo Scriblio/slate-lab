@@ -15,7 +15,7 @@ Encore is a karaoke hosting (KJ) app by Scriblio (Matthew Lancaster). It's being
 | --- | --- |
 | Install | `npm ci` (use `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci` if you don't need Electron) |
 | Typecheck | `npm run typecheck` |
-| Tests | `npm test` (262 tests) |
+| Tests | `npm test` (267 tests) |
 | Run with a demo library | `npm run demo`, then open http://localhost:4747/dj (venue screen at `/display`, phone page at `/join`) |
 | Desktop app | `npm run build:desktop && npm run desktop` |
 | Windows installer | built by GitHub Actions on every push to the branch: download the "Encore-Karaoke-Windows" artifact from the run; `npm run dist:win` needs Windows |
@@ -61,6 +61,9 @@ The YouTube API Services policies apply because Encore uses the search API. Brea
 - **Store YouTube data for at most 30 days.**
 
 ## Done recently (all on the branch, tested)
+
+- **First-run guide:** `src/client/dj/SetupGuide.tsx`, opened by `FirstRun` in `DjApp.tsx` when `config.setupDone` is false (`dj:config`), or by the `encore:setup` event (Settings → Help). `setupDone` defaults to true when the saved config already has library folders, so an upgrade doesn't show it (`test/config.test.ts`). Finishing, skipping or closing it saves `setupDone: true`.
+- **Phone header:** it shrinks to the name row once the song list is scrolled (the "you're up next" and "you're called" cards stay), using the measured `--head-h` so the pinned search box and A-Z bar follow.
 
 - **Tip your KJ:** settings `tipLink` and `tipText` (`cleanTipLink` in `show.ts`: https only, no credentials, needs a dot in the host; "venmo.com/u/me" is read as https). The screen gets `tip` and a QR from `/api/tip-qr.svg`; phones get `tip.link` and a button in The line (`rel="noopener noreferrer"`). Encore only shows the link; it never handles payments, which keeps it clear of Store payment rules.
 

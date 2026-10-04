@@ -10,6 +10,8 @@ export interface Config {
   libraryFolders: string[];
   /** Music and videos played between karaoke songs. */
   breakFolders: string[];
+  /** The first-run guide has been seen (or skipped), so it doesn't open again by itself. */
+  setupDone: boolean;
   /** The speakers the venue screen plays through (a device id from the browser); '' is the system default. */
   audioOutput: string;
   filenameOrder: FilenameOrder;
@@ -35,6 +37,8 @@ export async function loadConfig(dataDir: string, env = process.env): Promise<Co
   const config: Config = {
     libraryFolders: saved.libraryFolders ?? [],
     breakFolders: saved.breakFolders ?? [],
+    // An installation that already has a library from before the guide existed doesn't need it.
+    setupDone: typeof saved.setupDone === 'boolean' ? saved.setupDone : Boolean(saved.libraryFolders?.length),
     audioOutput: typeof saved.audioOutput === 'string' ? saved.audioOutput : '',
     filenameOrder: saved.filenameOrder === 'title-artist' ? 'title-artist' : 'artist-title',
     installId: saved.installId ?? randomBytes(16).toString('base64url'),

@@ -332,6 +332,7 @@ export async function createApp(opts: AppOptions) {
         libraryFolders: config.libraryFolders,
         breakFolders: config.breakFolders,
         audioOutput: config.audioOutput,
+        setupDone: config.setupDone,
         filenameOrder: config.filenameOrder,
         youtubeSearch: youtube.mode,
         djPin: config.djPin,
@@ -621,6 +622,10 @@ export async function createApp(opts: AppOptions) {
     if (a.breakFolders) {
       config.breakFolders = a.breakFolders.map((f) => String(f).trim()).filter(Boolean).slice(0, 20);
       saved.breakFolders = config.breakFolders;
+    }
+    if (typeof a.setupDone === 'boolean') {
+      config.setupDone = a.setupDone;
+      saved.setupDone = a.setupDone;
     }
     if (typeof a.audioOutput === 'string') {
       config.audioOutput = a.audioOutput.slice(0, 300);

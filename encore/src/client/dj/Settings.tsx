@@ -260,6 +260,22 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           </p>
         </Section>
 
+        <Section title="Help">
+          <div className="settings-row">
+            <span className="muted small">New here? The setup guide walks through your music, the big screen and getting singers in.</span>
+            <span className="spacer" />
+            <button
+              className="btn sm"
+              onClick={() => {
+                onClose();
+                window.dispatchEvent(new Event('encore:setup'));
+              }}
+            >
+              Show the setup guide
+            </button>
+          </div>
+        </Section>
+
         <Section title="YouTube search">
           <p className="muted small">
             {config?.youtubeSearch === 'off'

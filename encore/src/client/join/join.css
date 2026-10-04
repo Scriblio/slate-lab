@@ -1052,3 +1052,11 @@ button.status {
   height: 18px;
   color: var(--accent);
 }
+
+/* Scrolled: just the name row, unless it's nearly your turn. */
+.app-head.compact {
+  padding-bottom: 8px;
+}
+.app-head.compact .status:not(.live):not(.next) {
+  display: none;
+}

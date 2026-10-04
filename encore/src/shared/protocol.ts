@@ -27,6 +27,8 @@ export interface ServerConfigView {
   breakFolders: string[];
   /** The chosen audio output device id ('' = system default). */
   audioOutput: string;
+  /** The first-run guide has been finished or skipped. */
+  setupDone: boolean;
   filenameOrder: FilenameOrder;
   /** 'built-in': through Encore's search service; 'own-key': a developer's YOUTUBE_API_KEY. */
   youtubeSearch: 'built-in' | 'own-key' | 'off';
@@ -88,7 +90,7 @@ export type DjAction =
   | { type: 'breakSkip' }
   /** Pause or resume the break music (no `paused` toggles it). */
   | { type: 'breakPause'; paused?: boolean }
-  | { type: 'setConfig'; libraryFolders?: string[]; breakFolders?: string[]; audioOutput?: string; filenameOrder?: FilenameOrder; onlineJoin?: boolean };
+  | { type: 'setConfig'; libraryFolders?: string[]; breakFolders?: string[]; audioOutput?: string; setupDone?: boolean; filenameOrder?: FilenameOrder; onlineJoin?: boolean };
 
 /** A Web Push subscription, as the browser's PushSubscription.toJSON() gives it. */
 export interface PushSubscriptionRef {
