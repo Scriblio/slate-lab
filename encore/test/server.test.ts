@@ -645,7 +645,9 @@ describe('YouTube videos that won’t play here', () => {
     const onPhone = nextEvent<SingerView>(phone, 'singer:view', (v) => v.tip?.link === 'https://venmo.com/u/dj-matt');
     await act({ type: 'updateSettings', patch: { tipLink: ' venmo.com/u/dj-matt ', tipText: 'Tip DJ Matt!' } });
     await onScreen;
-    expect((await onPhone).tip).toEqual({ link: 'https://venmo.com/u/dj-matt', text: 'Tip DJ Matt!' });
+    expect((await onPhone).tip).toMatchObject({ link: 'https://venmo.com/u/dj-matt', text: 'Tip DJ Matt!' });
+    // Quick-tip buttons open Venmo with the amount filled in.
+    expect((await onPhone).tip!.amounts[0]).toEqual({ amount: 1, link: 'https://venmo.com/dj-matt?txn=pay&amount=1&note=Karaoke%20tip' });
     const qr = await fetch(`${base}/api/tip-qr.svg`);
     expect(qr.status).toBe(200);
     expect(qr.headers.get('content-type')).toBe('image/svg+xml');

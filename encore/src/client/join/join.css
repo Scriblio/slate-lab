@@ -1042,15 +1042,84 @@ button.status {
 }
 
 .tip-button {
-  margin-top: 16px;
   gap: 8px;
   color: var(--text);
   text-decoration: none;
 }
-.tip-button svg {
+.tip-button svg,
+.tip-title svg {
   width: 18px;
   height: 18px;
   color: var(--accent);
+}
+.tip-card {
+  margin-top: 16px;
+  display: grid;
+  gap: 10px;
+}
+.tip-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+}
+.tip-amounts {
+  display: grid;
+  gap: 8px;
+}
+.tip-amount {
+  justify-content: center;
+  min-height: 46px;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text);
+  text-decoration: none;
+}
+.tip-other {
+  grid-column: 1 / -1;
+  min-height: 40px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.tip-prompt {
+  position: relative;
+  display: grid;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding: 16px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  background: var(--accent-soft);
+}
+.tip-prompt-head {
+  padding-right: 32px;
+  font-size: 18px;
+  font-weight: 800;
+}
+.tip-prompt-sub {
+  margin: 0;
+  color: var(--text-2);
+}
+.tip-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-2);
+}
+.tip-close svg {
+  width: 18px;
+  height: 18px;
+}
+.tip-later {
+  min-height: 38px;
 }
 
 /* Scrolled: just the name row, unless it's nearly your turn. */

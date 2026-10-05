@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from 'react';
 import type { ServerConfigView } from '../../shared/protocol.ts';
+import { formatTipAmount, parseTipAmounts, parseTipLink } from '../../shared/tips.ts';
 import type { Settings } from '../../shared/types.ts';
 import { listOutputDevices, playTestSound, type OutputDevice } from '../common/audio-output.ts';
 import { desktop } from '../common/desktop.ts';
@@ -34,6 +35,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   const [blocked, setBlocked] = useState(s.blockedWords);
   const [tipLink, setTipLink] = useState(s.tipLink);
   const [tipText, setTipText] = useState(s.tipText);
+  const [tipAmounts, setTipAmounts] = useState(s.tipAmounts.map(formatTipAmount).join(', '));
   const [confirmNew, setConfirmNew] = useState(false);
 
   useEffect(() => {
@@ -108,9 +110,38 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
             />
           </Field>
           {s.tipLink && (
-            <Field label="Message" hint="Shown next to the QR code and on the button.">
-              <input className="input" value={tipText} maxLength={40} onChange={(e) => setTipText(e.target.value)} onBlur={() => tipText.trim() && tipText.trim() !== s.tipText && set({ tipText: tipText.trim() })} />
-            </Field>
+            <>
+              <Field label="Message" hint="Shown next to the QR code and on the button.">
+                <input className="input" value={tipText} maxLength={40} onChange={(e) => setTipText(e.target.value)} onBlur={() => tipText.trim() && tipText.trim() !== s.tipText && set({ tipText: tipText.trim() })} />
+              </Field>
+              <Field
+                label="Quick tip amounts"
+                hint={
+                  parseTipLink(s.tipLink)
+                    ? 'Phones show a button for each amount that opens the payment app with it filled in (singers can still change it), plus Other amount. Leave empty for just one button.'
+                    : 'Quick amounts work with Venmo, Cash App and PayPal.me links. With this link, phones get one tip button.'
+                }
+              >
+                <input
+                  className="input tip-amounts-input"
+                  value={tipAmounts}
+                  maxLength={40}
+                  placeholder="1, 5, 10"
+                  onChange={(e) => setTipAmounts(e.target.value)}
+                  onBlur={() => {
+                    const amounts = parseTipAmounts(tipAmounts);
+                    setTipAmounts(amounts.map(formatTipAmount).join(', '));
+                    if (amounts.join() !== s.tipAmounts.join()) set({ tipAmounts: amounts });
+                  }}
+                />
+              </Field>
+              <Switch
+                label="Ask for a tip after each song"
+                hint="Right after a singer’s song ends, their phone thanks them and shows the tip buttons, once."
+                checked={s.tipAfterSong}
+                onChange={(v) => set({ tipAfterSong: v })}
+              />
+            </>
           )}
         </Section>
 

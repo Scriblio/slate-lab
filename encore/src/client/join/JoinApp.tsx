@@ -13,6 +13,7 @@ import { connect, request, safeGet, safeSet, useConnection, type AppSocket, type
 import { Eq, SongThumb, SourceBadge, useAction, useDebounced, useTick, useToast, YouTubeTerms } from '../common/ui.tsx';
 import type { LockScreenAlerts } from '../sing/alerts.ts';
 import { BrowseList, useHeightVar } from './Browse.tsx';
+import { TipCard, TipPrompt } from './Tips.tsx';
 
 type Tab = 'search' | 'mine' | 'line';
 
@@ -378,6 +379,8 @@ function Main({
   useHeightVar(headRef, '--head-h');
   // Scrolling the song list shrinks the header to the name row, so the list gets the screen.
   // (The turn-is-close and you're-up cards stay.) Different thresholds in and out stop it flickering.
+  // Re-renders once the tip thank-you is dismissed (it remembers that itself).
+  const [, setTipSeen] = useState(0);
   const [compact, setCompact] = useState(false);
   useEffect(() => {
     const on = () => setCompact((c) => (c ? window.scrollY > 20 : window.scrollY > 90));
@@ -402,6 +405,7 @@ function Main({
       </header>
 
       <main className="app-body">
+        {!alert && <TipPrompt view={view} onDone={() => setTipSeen((n) => n + 1)} />}
         {tab === 'search' && (
           <SearchTab
             socket={socket}
@@ -1275,11 +1279,7 @@ function LineTab({ view, elapsed }: { view: SingerView; elapsed: number }) {
           ))}
         </ol>
       )}
-      {view.tip && (
-        <a className="btn block tip-button" href={view.tip.link} target="_blank" rel="noopener noreferrer">
-          <I.Heart /> {view.tip.text}
-        </a>
-      )}
+      {view.tip && <TipCard tip={view.tip} />}
       <p className="fine center">Wait times are estimates. The KJ can change the order.</p>
     </div>
   );

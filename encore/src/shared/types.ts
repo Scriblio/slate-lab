@@ -3,6 +3,7 @@
 // every client sees a view of it shaped for its role.
 
 import type { SongKey } from './songkey.ts';
+import { DEFAULT_TIP_AMOUNTS } from './tips.ts';
 
 export type RotationMode = 'rotation' | 'fair' | 'fifo' | 'shuffle';
 
@@ -139,6 +140,10 @@ export interface Settings {
   tipLink: string;
   /** What the tip QR and button say. */
   tipText: string;
+  /** Quick-tip amounts for phones (Venmo, Cash App and PayPal.me links only). Empty: just the one button. */
+  tipAmounts: number[];
+  /** Ask each singer for a tip on their phone once their song ends. */
+  tipAfterSong: boolean;
   /** Let phones see song titles for other singers in the queue. */
   showSongsToSingers: boolean;
   joinOpen: boolean;
@@ -163,6 +168,8 @@ export const DEFAULT_SETTINGS: Settings = {
   blockedWords: '',
   tipLink: '',
   tipText: 'Tip your KJ',
+  tipAmounts: DEFAULT_TIP_AMOUNTS,
+  tipAfterSong: true,
   showSongsToSingers: false,
   joinOpen: true,
   autoAdvance: true,
@@ -264,8 +271,14 @@ export interface SingerView {
   /** Position (1-based) of my next performance in the upcoming list. */
   myNextPosition: number | null;
   myNextEtaSec: number | null;
-  /** The KJ's tip link, for a button in the line. Absent when none is set. */
-  tip?: { link: string; text: string };
+  /**
+   * The KJ's tip link, for a button in the line. `amounts` are quick-tip
+   * buttons that open the payment app with the amount filled in (only for
+   * links that can do that). Absent when no tip link is set.
+   */
+  tip?: { link: string; text: string; amounts: { amount: number; link: string }[] };
+  /** This singer's song just ended: their phone thanks them and offers the tip buttons, once. */
+  tipPrompt?: { id: string; title: string };
   nowPlaying: { singerName: string; title?: string; artist?: string; stage: Stage; isMe: boolean } | null;
   upcoming: { singerName: string; title?: string; artist?: string; isMe: boolean; etaSec: number }[];
   mode: RotationMode;

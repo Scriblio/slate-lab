@@ -1078,6 +1078,9 @@ kbd {
 .input.narrow {
   width: 100px;
 }
+.input.tip-amounts-input {
+  width: 170px;
+}
 .narrow-select {
   width: 160px;
   height: 32px;

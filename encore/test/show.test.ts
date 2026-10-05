@@ -406,3 +406,72 @@ describe('Dropping a request', () => {
     await rm(dir, { recursive: true, force: true });
   });
 });
+
+describe('Tipping the KJ', () => {
+  const setup = () => {
+    let t = 1_000_000;
+    const show = new Show({ now: () => t, resolveLocal: () => undefined, onChange: () => {}, onPlayerCommand: () => {} });
+    show.updateSettings({ tipLink: 'https://venmo.com/u/dj-matt', autoAdvance: false, autoStartSec: 0 });
+    const sing = (singerId: string, id: string, seconds: number, how: 'end' | 'skip' = 'end') => {
+      show.addEntry(singerId, yt(id, `Song ${id}`), { fromPhone: true });
+      show.callNext();
+      show.play();
+      const playId = show.state.nowPlaying!.playId;
+      t += seconds * 1000;
+      if (how === 'end') show.ended(playId);
+      else show.skip();
+    };
+    return { show, sing, advance: (ms: number) => (t += ms), view: (id: string) => show.singerView(id, show.upcoming(10), false) };
+  };
+
+  it('gives phones quick-tip buttons for links that can take an amount', () => {
+    const { show, view } = setup();
+    const me = show.join('Robin').singer;
+    expect(view(me.id).tip).toEqual({
+      link: 'https://venmo.com/u/dj-matt',
+      text: 'Tip your KJ',
+      amounts: [1, 5, 10].map((amount) => ({ amount, link: `https://venmo.com/dj-matt?txn=pay&amount=${amount}&note=Karaoke%20tip` })),
+    });
+    show.updateSettings({ tipAmounts: [20, 3] });
+    expect(view(me.id).tip!.amounts.map((a) => a.amount)).toEqual([3, 20]);
+    // A link that can't take an amount gets just the one button.
+    show.updateSettings({ tipLink: 'https://ko-fi.com/djmatt' });
+    expect(view(me.id).tip!.amounts).toEqual([]);
+  });
+
+  it('thanks a singer once their song ends, for a while, and only if they really sang', () => {
+    const { show, sing, advance, view } = setup();
+    const robin = show.join('Robin').singer;
+    const sam = show.join('Sam').singer;
+    expect(view(robin.id).tipPrompt).toBeUndefined();
+
+    sing(robin.id, 'a', 200);
+    const prompt = view(robin.id).tipPrompt;
+    expect(prompt).toMatchObject({ title: 'Song a' });
+    // Only the singer sees it.
+    expect(view(sam.id).tipPrompt).toBeUndefined();
+    // It stays through other people's songs, then goes after ten minutes.
+    sing(sam.id, 'b', 120);
+    expect(view(robin.id).tipPrompt).toEqual(prompt);
+    advance(10 * 60_000);
+    expect(view(robin.id).tipPrompt).toBeUndefined();
+
+    // Cut off within a minute: not asked. Cut off later: asked.
+    sing(robin.id, 'c', 20, 'skip');
+    expect(view(robin.id).tipPrompt).toBeUndefined();
+    sing(robin.id, 'd', 90, 'skip');
+    expect(view(robin.id).tipPrompt).toMatchObject({ title: 'Song d' });
+
+    // While they're up again, it waits.
+    show.addEntry(robin.id, yt('e'), { fromPhone: true });
+    show.callNext();
+    expect(view(robin.id).tipPrompt).toBeUndefined();
+    show.skip();
+
+    // The KJ can turn it off, and it's never there without a tip link.
+    show.updateSettings({ tipAfterSong: false });
+    expect(view(robin.id).tipPrompt).toBeUndefined();
+    show.updateSettings({ tipAfterSong: true, tipLink: '' });
+    expect(view(robin.id).tipPrompt).toBeUndefined();
+  });
+});

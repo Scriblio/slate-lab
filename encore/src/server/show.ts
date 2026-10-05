@@ -6,6 +6,7 @@ import { randomBytes, randomInt, randomUUID } from 'node:crypto';
 import { mkdir, readdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
 import { basename, dirname, join } from 'node:path';
 import { isBlockedName, parseWords } from '../shared/namefilter.ts';
+import { parseTipAmounts, tipLinkWithAmount } from '../shared/tips.ts';
 import { clampKey } from '../shared/pitch.ts';
 import type { PlayerCommand, SingerAction, SongRef } from '../shared/protocol.ts';
 import { nameKey } from '../shared/text.ts';
@@ -74,6 +75,10 @@ interface CallSnapshot {
   holds?: Record<string, number>;
 }
 
+/** How long after their song a singer's phone keeps the tip thank-you up. */
+const TIP_PROMPT_MS = 10 * 60 * 1000;
+/** A song cut short counts as sung after this long. */
+const MIN_SUNG_MS = 60 * 1000;
 /** How many singers go first when someone can't sing right now. */
 export const HOLD_TURNS = 2;
 const MAX_HOLD = 6;
@@ -960,6 +965,28 @@ export class Show {
 
   // --- views -----------------------------------------------------------------
 
+  private tipView(): NonNullable<SingerView['tip']> {
+    const { tipLink, tipText, tipAmounts } = this.state.settings;
+    const amounts = tipAmounts.flatMap((amount) => {
+      const link = tipLinkWithAmount(tipLink, amount);
+      return link ? [{ amount, link }] : [];
+    });
+    return { link: tipLink, text: tipText, amounts };
+  }
+
+  /**
+   * A thank-you on the singer's phone for a while after their song ends. A song
+   * the KJ cut off almost at once, or one that wouldn't play, doesn't count.
+   */
+  private tipPrompt(singerId: string): Pick<SingerView, 'tipPrompt'> {
+    const np = this.state.nowPlaying;
+    if (np?.entry.singerId === singerId) return {};
+    const last = this.state.history.find((h) => h.entry.singerId === singerId);
+    if (!last || this.now() - last.endedAt > TIP_PROMPT_MS) return {};
+    const sang = last.outcome === 'finished' || (last.outcome === 'skipped' && last.endedAt - last.startedAt >= MIN_SUNG_MS);
+    return sang ? { tipPrompt: { id: `${last.entry.id}:${last.endedAt}`, title: last.entry.song.title } } : {};
+  }
+
   singerView(singerId: string | undefined, list: UpcomingItem[], youtubeSearch: boolean, hasLibrary = false): SingerView {
     const { settings } = this.state;
     const me = singerId ? (this.singer(singerId) ?? null) : null;
@@ -971,7 +998,8 @@ export class Show {
       joinOpen: settings.joinOpen,
       allowYouTube: settings.allowYouTube,
       youtubeSearch: settings.allowYouTube && youtubeSearch,
-      ...(settings.tipLink ? { tip: { link: settings.tipLink, text: settings.tipText } } : {}),
+      ...(settings.tipLink ? { tip: this.tipView() } : {}),
+      ...(me && settings.tipLink && settings.tipAfterSong ? this.tipPrompt(me.id) : {}),
       canBrowse: settings.allowBrowse && hasLibrary,
       maxQueuedPerSinger: settings.maxQueuedPerSinger,
       me,
@@ -1101,6 +1129,8 @@ function sanitizeSettings(s: Settings): Settings {
     blockedWords: parseWords(String(s.blockedWords ?? '')).join(', ').slice(0, 600),
     tipLink: cleanTipLink(s.tipLink),
     tipText: cleanText(s.tipText, 40) || D.tipText,
+    tipAmounts: s.tipAmounts === undefined ? D.tipAmounts : parseTipAmounts(s.tipAmounts),
+    tipAfterSong: bool(s.tipAfterSong, D.tipAfterSong),
     showSongsToSingers: bool(s.showSongsToSingers, D.showSongsToSingers),
     joinOpen: bool(s.joinOpen, D.joinOpen),
     autoAdvance: bool(s.autoAdvance, D.autoAdvance),
