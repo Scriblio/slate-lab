@@ -15,7 +15,7 @@ Encore is a karaoke hosting (KJ) app by Scriblio (Matthew Lancaster). It's being
 | --- | --- |
 | Install | `npm ci` (use `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci` if you don't need Electron) |
 | Typecheck | `npm run typecheck` |
-| Tests | `npm test` (269 tests) |
+| Tests | `npm test` (279 tests) |
 | Run with a demo library | `npm run demo`, then open http://localhost:4747/dj (venue screen at `/display`, phone page at `/join`) |
 | Desktop app | `npm run build:desktop && npm run desktop` |
 | Windows installer | built by GitHub Actions on every push to the branch: download the "Encore-Karaoke-Windows" artifact from the run; `npm run dist:win` needs Windows |
@@ -136,6 +136,7 @@ The YouTube API Services policies apply because Encore uses the search API. Brea
 
 ## Open items
 
+0. **Selling Encore:** the plan is in `docs/LICENSING.md`: $149 once with a year of Encore Cloud, $49 a year for Cloud after that, a 14-day trial, and unlock codes Matthew can give out. **Step 1 (accounts, trial, unlock codes, checks in the app) is next.** Payments through Stripe come after a beta.
 1. **Real-world checks** (the cloud sandbox couldn't reach YouTube):
    - YouTube playback through the site-hosted player;
    - whether it plays more videos than before;
