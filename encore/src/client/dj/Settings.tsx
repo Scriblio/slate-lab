@@ -39,10 +39,11 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   const [tipAmounts, setTipAmounts] = useState(s.tipAmounts.map(formatTipAmount).join(', '));
   const [confirmNew, setConfirmNew] = useState(false);
   // A new number mounts a new sheet, so printing twice in a row prints twice.
-  const [printing, setPrinting] = useState<{ layout: PrintLayout; n: number } | null>(null);
+  const [printing, setPrinting] = useState<{ layout: PrintLayout; mode: 'print' | 'pdf'; n: number } | null>(null);
   const [printTip, setPrintTip] = useState(true);
   const [tentFold, setTentFold] = useState<TentFold>('bottom');
-  const print = (layout: PrintLayout) => setPrinting((p) => ({ layout, n: (p?.n ?? 0) + 1 }));
+  const print = (layout: PrintLayout, mode: 'print' | 'pdf' = 'print') => setPrinting((p) => ({ layout, mode, n: (p?.n ?? 0) + 1 }));
+  const canSavePdf = Boolean(desktop?.savePdf);
 
   useEffect(() => {
     request<ServerConfigView>(socket, 'dj:config').then((c) => {
@@ -152,7 +153,12 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
         </Section>
 
         <Section title="Print QR codes">
-          <p className="muted small">Put codes on the tables and at the bar, so people can join without looking up at the screen. Each button opens the print window, where you can also save a PDF.</p>
+          <p className="muted small">
+            Put codes on the tables and at the bar, so people can join without looking up at the screen.{' '}
+            {canSavePdf
+              ? 'Print goes straight to Windows’ print window, which can’t show a preview. Save PDF makes a file and opens it, so you can check it first, print it from there, or send it to a print shop.'
+              : 'Print opens the print window, where you can preview it and save a PDF.'}
+          </p>
           {view.print.lasting ? (
             <div className="print-notes">
               <strong>Good to know</strong>
@@ -193,36 +199,64 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
                   <option value="top">Fold on top (stands by itself)</option>
                 </select>
               </div>
-              <button className="btn sm primary" onClick={() => print('tent')}>
-                <I.Printer /> Print
-              </button>
+              <div className="print-buttons">
+                {canSavePdf && (
+                  <button className="btn sm" onClick={() => print('tent', 'pdf')}>
+                    <I.Download /> Save PDF
+                  </button>
+                )}
+                <button className="btn sm primary" onClick={() => print('tent')}>
+                  <I.Printer /> Print
+                </button>
+              </div>
             </div>
             <div className="print-option">
               <div>
                 <strong>Poster</strong>
                 <span className="muted small">One big code with your show name, for the wall or the bar.</span>
               </div>
-              <button className="btn sm" onClick={() => print('poster')}>
-                <I.Printer /> Print
-              </button>
+              <div className="print-buttons">
+                {canSavePdf && (
+                  <button className="btn sm" onClick={() => print('poster', 'pdf')}>
+                    <I.Download /> Save PDF
+                  </button>
+                )}
+                <button className="btn sm" onClick={() => print('poster')}>
+                  <I.Printer /> Print
+                </button>
+              </div>
             </div>
             <div className="print-option">
               <div>
                 <strong>Table cards</strong>
                 <span className="muted small">Four smaller codes to a page, with lines to cut along.</span>
               </div>
-              <button className="btn sm" onClick={() => print('cards')}>
-                <I.Printer /> Print
-              </button>
+              <div className="print-buttons">
+                {canSavePdf && (
+                  <button className="btn sm" onClick={() => print('cards', 'pdf')}>
+                    <I.Download /> Save PDF
+                  </button>
+                )}
+                <button className="btn sm" onClick={() => print('cards')}>
+                  <I.Printer /> Print
+                </button>
+              </div>
             </div>
             <div className="print-option">
               <div>
                 <strong>Just the code</strong>
                 <span className="muted small">The QR code on its own, as big as the page, for your own signs and flyers.</span>
               </div>
-              <button className="btn sm" onClick={() => print('qr')}>
-                <I.Printer /> Print
-              </button>
+              <div className="print-buttons">
+                {canSavePdf && (
+                  <button className="btn sm" onClick={() => print('qr', 'pdf')}>
+                    <I.Download /> Save PDF
+                  </button>
+                )}
+                <button className="btn sm" onClick={() => print('qr')}>
+                  <I.Printer /> Print
+                </button>
+              </div>
             </div>
           </div>
           {printing && (
@@ -234,6 +268,9 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
               tip={s.tipLink && printTip && printing.layout !== 'qr' ? { text: s.tipText } : undefined}
               alerts={view.print.url.includes('#')}
               fold={tentFold}
+              mode={printing.mode}
+              fileName={`${s.showName} - ${{ tent: 'table tent', poster: 'poster', cards: 'table cards', qr: 'QR code' }[printing.layout]}`}
+              onSaved={(path) => toast(`Saved and opened ${path}`)}
               onDone={() => setPrinting(null)}
             />
           )}

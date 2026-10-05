@@ -21,10 +21,15 @@ interface Props {
   /** Lock-screen alerts are available (only with the online link). */
   alerts: boolean;
   fold?: TentFold;
+  /** 'pdf': save a PDF instead of printing (desktop app only). */
+  mode?: 'print' | 'pdf';
+  /** The PDF's suggested file name, without .pdf. */
+  fileName?: string;
+  onSaved?: (path: string) => void;
   onDone: () => void;
 }
 
-export function PrintSheet({ layout, showName, typedLink, tip, alerts, fold = 'bottom', onDone }: Props) {
+export function PrintSheet({ layout, showName, typedLink, tip, alerts, fold = 'bottom', mode = 'print', fileName = 'Encore', onSaved, onDone }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     let cancelled = false;
@@ -33,8 +38,13 @@ export function PrintSheet({ layout, showName, typedLink, tip, alerts, fold = 'b
     const imgs = [...(ref.current?.querySelectorAll('img') ?? [])];
     void Promise.all(imgs.map((img) => img.decode().catch(() => {}))).then(() => {
       if (cancelled) return;
+      if (mode === 'pdf' && desktop?.savePdf)
+        void desktop
+          .savePdf(fileName)
+          .then((path) => path && onSaved?.(path))
+          .finally(onDone);
       // The desktop app prints through Electron, and says when the print window closes.
-      if (desktop?.print) void desktop.print().finally(onDone);
+      else if (desktop?.print) void desktop.print().finally(onDone);
       else window.print();
     });
     return () => {

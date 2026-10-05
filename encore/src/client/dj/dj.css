@@ -1853,6 +1853,11 @@ kbd {
   display: grid;
   gap: 2px;
 }
+.print-buttons {
+  display: flex;
+  flex: none;
+  gap: 6px;
+}
 .print-fold-select {
   width: 270px;
   height: 32px;

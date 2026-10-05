@@ -179,6 +179,11 @@ export const QrCode = (p: P) => (
     <path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3" />
   </Svg>
 );
+export const Download = (p: P) => (
+  <Svg {...p}>
+    <path d="M12 3v12M7 10l5 5 5-5M5 21h14" />
+  </Svg>
+);
 export const Printer = (p: P) => (
   <Svg {...p}>
     <path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />

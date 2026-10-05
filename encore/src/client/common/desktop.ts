@@ -6,6 +6,8 @@ export interface EncoreDesktop {
   openDataFolder(): Promise<string>;
   /** Opens the system print window for this page; resolves once it closes. Missing in older builds. */
   print?(): Promise<boolean>;
+  /** Saves this page's printout as a PDF where the KJ picks, opens it, and resolves with the path (null if cancelled). */
+  savePdf?(name: string): Promise<string | null>;
 }
 
 declare global {

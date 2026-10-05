@@ -3,6 +3,7 @@
 // on a second monitor when there is one. Phones still join over Wi-Fi.
 
 import { app, BrowserWindow, dialog, ipcMain, Menu, screen, shell, type MenuItemConstructorOptions, type OpenDialogOptions } from 'electron';
+import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { createApp, type App } from '../server/app.ts';
 import { makeDemoLibrary } from '../server/demo.ts';
@@ -57,10 +58,28 @@ async function start(): Promise<void> {
   ipcMain.handle('encore:open-data-folder', () => shell.openPath(dataDir));
   // Printed QR codes: the system print window, which can also save a PDF.
   ipcMain.handle('encore:print', (event) => new Promise<boolean>((done) => event.sender.print({}, (ok) => done(ok))));
+  // The same printout saved as a PDF (Windows' print window can't preview it), then opened so the KJ can
+  // check it, print it or send it to a print shop.
+  ipcMain.handle('encore:save-pdf', async (event, name: unknown) => {
+    const file = `${String(name ?? 'Encore').replace(/[^\w ()-]+/g, '').trim().slice(0, 60) || 'Encore'}.pdf`;
+    const pdf = await event.sender.printToPDF({ pageSize: paperSize(), margins: { top: 0.4, bottom: 0.4, left: 0.4, right: 0.4 }, printBackground: false });
+    const win = BrowserWindow.fromWebContents(event.sender);
+    const opts = { title: 'Save as PDF', defaultPath: join(app.getPath('documents'), file), filters: [{ name: 'PDF', extensions: ['pdf'] }] };
+    const res = await (win ? dialog.showSaveDialog(win, opts) : dialog.showSaveDialog(opts));
+    if (res.canceled || !res.filePath) return null;
+    await writeFile(res.filePath, pdf);
+    void shell.openPath(res.filePath);
+    return res.filePath;
+  });
 
   buildMenu(dataDir);
   openDj();
   if (process.env.ENCORE_SMOKE) void smokeTest();
+}
+
+/** Letter paper where it's the norm (the Americas' Letter countries and the Philippines), A4 elsewhere. */
+function paperSize(): 'Letter' | 'A4' {
+  return ['US', 'CA', 'MX', 'PH', 'CL', 'CO', 'VE', 'GT', 'CR', 'PR', 'DO', 'SV', 'PA'].includes(app.getLocaleCountryCode()) ? 'Letter' : 'A4';
 }
 
 function webPreferences() {
