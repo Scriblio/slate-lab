@@ -90,6 +90,8 @@ export type DjAction =
   | { type: 'breakSkip' }
   /** Pause or resume the break music (no `paused` toggles it). */
   | { type: 'breakPause'; paused?: boolean }
+  /** With auto play off: start the break music, or stop it. */
+  | { type: 'breakPlay'; on: boolean }
   | { type: 'setConfig'; libraryFolders?: string[]; breakFolders?: string[]; audioOutput?: string; setupDone?: boolean; filenameOrder?: FilenameOrder; onlineJoin?: boolean };
 
 /** A Web Push subscription, as the browser's PushSubscription.toJSON() gives it. */

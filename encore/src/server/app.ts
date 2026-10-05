@@ -597,6 +597,14 @@ export async function createApp(opts: AppOptions) {
         breakMusic.setPaused(typeof a.paused === 'boolean' ? a.paused : undefined);
         scheduleBroadcast();
         return null;
+      case 'breakPlay':
+        if (a.on) {
+          if (!breakMusic.count) throw new UserError('There’s no break music yet. Pick a folder with music or videos in Settings.');
+          if (songOnStage()) throw new UserError('A song is playing. Break music can start when it ends.');
+        }
+        breakMusic.started = Boolean(a.on);
+        scheduleBroadcast();
+        return null;
       case 'youtubeCheck':
         await ytGuard.report(String(a.videoId), Boolean(a.ok), a.mode);
         return null;
@@ -674,14 +682,24 @@ export async function createApp(opts: AppOptions) {
     scheduleBroadcast();
   }
 
-  /** Music plays whenever nothing is on stage: between songs, while the next singer walks up, and with an empty list. */
-  function breakIsOn(): boolean {
+  /** A singer's song has started (the walk-up doesn't count). */
+  function songOnStage(): boolean {
     const np = show.state.nowPlaying;
-    return show.state.settings.breakMusic && breakMusic.count > 0 && (!np || np.stage === 'intro');
+    return Boolean(np && np.stage !== 'intro');
+  }
+  /**
+   * Music only plays while nothing is on stage: between songs, while the next singer walks up, and with an
+   * empty list. With auto play on it plays by itself then; with it off, only once the KJ presses Play.
+   */
+  function breakIsOn(): boolean {
+    return !songOnStage() && breakMusic.count > 0 && (show.state.settings.breakMusic || breakMusic.started);
   }
   let breakWasOn = false;
   /** Starts a fresh track when a break begins, and lets go of the pause when it ends. */
   function updateBreak(): boolean {
+    // Pressing Play lasts until the next song, and auto play takes over from it, so turning auto play
+    // back off goes quiet rather than carrying on.
+    if (songOnStage() || show.state.settings.breakMusic) breakMusic.started = false;
     const on = breakIsOn();
     if (on !== breakWasOn) {
       breakWasOn = on;

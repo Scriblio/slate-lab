@@ -211,9 +211,9 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
 
         <Section title="Break music">
           <p className="muted small">
-            Music and videos for between singers, kept in a folder of their own. Music plays over moving graphics on the venue screen, and videos play full screen. It plays whenever nothing is on stage, and fades out when a singer starts.
+            Music and videos for between singers, kept in a folder of their own. Music plays over moving graphics on the venue screen, and videos play full screen. With auto play on, it plays by itself whenever nothing is on stage. With it off, start and stop it with Play on the Break music card. Either way it fades out when a singer starts.
           </p>
-          <Switch label="Play break music" hint="Turn it off to keep the venue screen quiet between songs." checked={s.breakMusic} onChange={(v) => set({ breakMusic: v })} />
+          <Switch label="Auto play break music" hint="Off: music only plays when you press Play on the Break music card, and stops when you press Stop or a singer starts." checked={s.breakMusic} onChange={(v) => set({ breakMusic: v })} />
           <Field label="Folders (one per line)" hint="MP3, M4A, WAV, FLAC and OGG music, and MP4, MKV, WebM and MOV videos. Karaoke files in here are left out.">
             <textarea className="input mono" rows={2} value={breakFolders} onChange={(e) => setBreakFolders(e.target.value)} placeholder={'D:\Break Music'} />
           </Field>

@@ -495,10 +495,12 @@ describe('YouTube videos that won’t play here', () => {
     const display = conn({ role: 'display' });
     const act = <T = unknown>(action: object) => call<T>((a) => dj.emit('dj:action', action as never, a as never));
     const view = (pred: (v: DisplayView) => boolean = () => true) => nextEvent<DisplayView>(display, 'display:view', pred);
+    // Listen before waiting for the scan, so the screen's first view isn't missed.
+    const firstView = view();
     for (let i = 0; i < 50 && own.library.getStatus().trackCount < 3; i++) await new Promise((r) => setTimeout(r, 20));
 
     // No break folder yet: the screen is told nothing about break music.
-    expect((await view()).breakMusic).toBeUndefined();
+    expect((await firstView).breakMusic).toBeUndefined();
     expect((await call<{ breakFolders: string[] }>((a) => dj.emit('dj:config', a))).breakFolders).toEqual([]);
 
     // The KJ points Encore at the folder: with nothing on stage, music starts.
@@ -549,10 +551,34 @@ describe('YouTube videos that won’t play here', () => {
     display.emit('display:ended', { playId });
     expect((await again).breakMusic).toMatchObject({ on: true, paused: false });
 
-    // The KJ switches it off in Settings, and turns the volume down for next time.
+    // The KJ turns auto play off, and the volume down for next time: the music stops.
     const off = view((v) => v.breakMusic?.on === false && v.breakMusic.volume === 30);
     await act({ type: 'updateSettings', patch: { breakMusic: false, breakVolume: 30 } });
     await off;
+
+    // Now it plays only when the KJ presses Play, until Stop.
+    const manual = view((v) => v.breakMusic?.on === true && v.breakMusic.track !== null);
+    await act({ type: 'breakPlay', on: true });
+    await manual;
+    const stopped = view((v) => v.breakMusic?.on === false);
+    await act({ type: 'breakPlay', on: false });
+    await stopped;
+    // A song starting stops it too, and it doesn't come back by itself when the song ends.
+    await act({ type: 'breakPlay', on: true });
+    const [queen] = own.library.search('queen bohemian');
+    if (queen!.song.source.kind !== 'local') throw new Error('expected local');
+    await act({ type: 'addEntry', singerId: singer, song: { kind: 'local', trackId: queen!.song.source.trackId } });
+    const walkUp = view((v) => v.nowPlaying?.stage === 'intro' && v.breakMusic?.on === true);
+    await act({ type: 'callNext' });
+    await walkUp;
+    const singing = view((v) => v.nowPlaying?.stage === 'playing' && v.breakMusic?.on === false);
+    await act({ type: 'play' });
+    await singing;
+    await expect(act({ type: 'breakPlay', on: true })).rejects.toThrow(/song is playing/);
+    const quiet = view((v) => v.nowPlaying === null);
+    display.emit('display:ended', { playId: own.show.state.nowPlaying!.playId });
+    expect((await quiet).breakMusic).toMatchObject({ on: false });
+    expect(own.show.state.settings.breakMusic).toBe(false);
 
     // A track that won't play is skipped over, quietly.
     const liveAgain = view((v) => v.breakMusic?.on === true);

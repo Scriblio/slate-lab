@@ -1,6 +1,7 @@
-// The console's break music card: what's playing between songs, with Skip,
-// Pause and a volume of its own. The music plays by itself whenever nothing
-// is on stage (see src/server/breakmusic.ts), so this is just the remote.
+// The console's break music card: what's playing between songs, with Skip
+// and a volume of its own. With auto play on, the music plays by itself
+// whenever nothing is on stage (see src/server/breakmusic.ts) and the card
+// can pause it; with auto play off, the KJ starts and stops it here.
 
 import { useEffect, useRef, useState } from 'react';
 import * as I from '../common/icons.tsx';
@@ -37,19 +38,33 @@ export function BreakCard() {
     );
   }
 
-  const status = !s.breakMusic ? 'Off' : b.on ? (b.paused ? 'Paused' : 'Playing') : 'Plays when nothing is on stage';
+  const auto = s.breakMusic;
+  const np = view.show.nowPlaying;
+  const songOn = Boolean(np && np.stage !== 'intro');
+  const status = b.on
+    ? b.paused
+      ? 'Paused'
+      : 'Playing'
+    : auto
+      ? 'Plays by itself between songs'
+      : songOn
+        ? 'Press Play when the song ends'
+        : 'Press Play to start the music';
   return (
     <div className="card break-card">
       <div className="card-head">
         <h3>
           <I.Music /> Break music
         </h3>
-        <Toggle checked={s.breakMusic} onChange={(v) => act({ type: 'updateSettings', patch: { breakMusic: v } })} label="Play break music" />
+        <div className="break-auto small" title="On: music plays by itself whenever nothing is on stage. Off: press Play to start it.">
+          <span>Auto play</span>
+          <Toggle checked={auto} onChange={(v) => act({ type: 'updateSettings', patch: { breakMusic: v } })} label="Auto play break music" />
+        </div>
       </div>
       <div className="break-body">
         <div className="break-track">
           <div className="break-status muted small">{status}</div>
-          {b.track && s.breakMusic ? (
+          {b.track && b.on ? (
             <div className="break-name ellipsis" title={b.track.artist ? `${b.track.artist} – ${b.track.title}` : b.track.title}>
               {b.track.artist ? `${b.track.artist} – ` : ''}
               {b.track.title}
@@ -60,10 +75,20 @@ export function BreakCard() {
           )}
         </div>
         <div className="break-actions">
-          <button className="btn icon sm" onClick={() => act({ type: 'breakPause' })} disabled={!b.on || !s.breakMusic} title={b.paused ? 'Resume' : 'Pause'} aria-label={b.paused ? 'Resume break music' : 'Pause break music'}>
-            {b.paused ? <I.Play /> : <I.Pause />}
-          </button>
-          <button className="btn icon sm" onClick={() => act({ type: 'breakSkip' })} disabled={!s.breakMusic} title="Next track" aria-label="Next break music track">
+          {auto ? (
+            <button className="btn icon sm" onClick={() => act({ type: 'breakPause' })} disabled={!b.on} title={b.paused ? 'Resume' : 'Pause'} aria-label={b.paused ? 'Resume break music' : 'Pause break music'}>
+              {b.paused ? <I.Play /> : <I.Pause />}
+            </button>
+          ) : b.on ? (
+            <button className="btn sm" onClick={() => act({ type: 'breakPlay', on: false })} title="Stop the break music">
+              <I.Stop /> Stop
+            </button>
+          ) : (
+            <button className="btn sm primary" onClick={() => act({ type: 'breakPlay', on: true })} disabled={songOn || b.scanning} title={songOn ? 'A song is playing. Start the music when it ends.' : 'Start the break music'}>
+              <I.Play /> Play
+            </button>
+          )}
+          <button className="btn icon sm" onClick={() => act({ type: 'breakSkip' })} disabled={!b.on} title="Next track" aria-label="Next break music track">
             <I.SkipNext />
           </button>
         </div>

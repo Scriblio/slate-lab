@@ -12,7 +12,7 @@ Encore runs on the KJ's laptop. It does three things:
 - **Break music:** a folder of music and videos that plays between singers (Settings → *Break music*, separate from your karaoke library).
   - Music-only files play over moving graphics that follow the sound. Videos fill the whole screen behind the usual text (the show name, QR code and queue, and each singer's introduction), under a soft dark layer so it stays readable.
   - It plays whenever nothing is on stage: between songs, while the next singer walks up, and with an empty list. It fades out when a song starts and comes back after.
-  - Tracks are shuffled, and nothing repeats until everything has played. The console's *Break music* card has Skip, Pause and its own volume, and a switch to turn it off.
+  - Tracks are shuffled, and nothing repeats until everything has played. The console's *Break music* card has Skip and its own volume, and an *Auto play* switch: on, the music plays by itself whenever nothing is on stage (with Pause); off, the KJ starts and stops it with Play and Stop, and a song starting stops it too.
   - Encore doesn't bundle any music. Use your own, or royalty-free libraries (check each track's licence); commercial music in a venue needs the venue's public-performance licences.
 - **The song list on the phone:** under the search box, singers can scroll through your whole library, by artist or by title, and jump with an A–Z bar. Each song shows once, even if you have it in several formats. It loads a page at a time, so a library of tens of thousands of songs is fine. Turn it off in Settings (*Let singers browse the song list*) if you'd rather they only search.
 

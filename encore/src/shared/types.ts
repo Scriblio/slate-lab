@@ -124,7 +124,10 @@ export interface Settings {
   allowYouTube: boolean;
   /** Let singers scroll through the whole library list on their phones. */
   allowBrowse: boolean;
-  /** Play music from the break music folder whenever nothing is on stage. */
+  /**
+   * Auto play: break music plays by itself whenever nothing is on stage. Off,
+   * it plays only after the KJ presses Play, until Stop or the next song.
+   */
   breakMusic: boolean;
   /** How loud the break music is, 0-100 (separate from the karaoke volume). */
   breakVolume: number;

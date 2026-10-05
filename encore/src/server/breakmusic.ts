@@ -15,6 +15,8 @@ export class BreakMusic {
   /** Counts up with every track the screen should start. */
   nonce = 0;
   paused = false;
+  /** With auto play off: the KJ pressed Play. Stop, or a song starting, clears it. */
+  started = false;
   private bag: string[] = [];
   private currentId: string | undefined;
   private lastId: string | undefined;
