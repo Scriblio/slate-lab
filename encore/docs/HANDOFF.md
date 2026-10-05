@@ -53,13 +53,13 @@ Encore is a karaoke hosting (KJ) app by Scriblio (Matthew Lancaster). It's being
   - a `pg_cron` job, `yt-catalog-tick`, that keeps the karaoke catalog built (see `supabase/README.md`);
   - Edge Function secret `YOUTUBE_API_KEY`.
 
-  - **Licensing, written and tested but not yet applied or deployed** (it changes the live project, so Matthew decides when):
-    - the `encore-license` Edge Function, to be deployed with `verify_jwt` **on**;
-    - tables `licenses`, `unlock_codes`, `code_redemptions`, `trials` and `license_attempts` (RLS on; a signed-in KJ may read only their own `licenses` row);
-    - the functions Matthew runs in the SQL editor, `make_unlock_code`, `revoke_unlock_code` and `set_owner`;
-    - Edge Function secret `LICENSE_SIGNING_KEY` (made by `npm run license:key`), and in Auth: the Email provider with the 6-digit code, his own SMTP (Resend), and the "Magic link" and "Confirm signup" templates showing `{{ .Token }}`.
+  - **Licensing: applied and deployed on 2026-10-05 (Matthew approved it), but not switched on yet.**
+    - The migration is applied: tables `licenses`, `unlock_codes`, `code_redemptions`, `trials` and `license_attempts` (RLS on; a signed-in KJ may read only their own `licenses` row), and the functions Matthew runs in the SQL editor, `make_unlock_code`, `revoke_unlock_code` and `set_owner`. Checked on the live project: RLS on everywhere, the public keys can run none of the functions, and the SQL's output matches the app's (the same hash of a code).
+    - The `encore-license` Edge Function is deployed with `verify_jwt` **on**. It also asks the Auth server who a token belongs to, because the platform's check lets an API key through to the function. Until the secret below exists it answers "not switched on yet".
+    - **Still to do, by Matthew:** the Edge Function secret `LICENSE_SIGNING_KEY` (made by `npm run license:key`; the file is in his home folder), and in Auth the Email provider with the 6-digit code, his own SMTP (Resend), and the "Magic link" and "Confirm signup" templates showing `{{ .Token }}`. Then he signs in once and runs `select set_owner('his email');`.
+    - **Not yet seen working live:** a real sign-in, the function signing a pass on Deno (Ed25519 in WebCrypto; its tests run in Node), and Resend delivering the code. They're the first things to check once the steps above are done. If a valid sign-in is turned away, the function's logs say why (`The Auth server turned down a token`).
 
-    Until that's done and he has signed in once, a copy built from this branch can't run a show. Update this note once it's live.
+    Until that's done, a copy built from this branch can't run a show.
 
   Only the publishable key is in the code (`src/shared/cloud.ts`).
 - **Google Cloud** project `encore-karaoke-k7m3` owns the YouTube Data API key, which is restricted to YouTube Data API v3.
@@ -159,8 +159,8 @@ The YouTube API Services policies apply because Encore uses the search API. Brea
 ## Open items
 
 0. **Selling Encore:** the plan is in `docs/LICENSING.md`: $149 once with a year of Encore Cloud, $49 a year for Cloud after that, a 14-day trial, and unlock codes Matthew can give out.
-   - **Step 1 is built but not switched on.** Matthew has to apply the migration, make the signing key (`npm run license:key`) and add it as the secret `LICENSE_SIGNING_KEY`, deploy `encore-license`, set up the sign-in email (Resend), and mark his own account as the owner (`supabase/README.md`, "Licensing").
-   - **Don't install a build from this branch on a laptop you run shows from until that's done.** With no backend it can't get a pass, so it can't start a show.
+   - **Step 1 is built, and its migration and function are applied and deployed (2026-10-05), but it isn't switched on.** Matthew still has to add the secret `LICENSE_SIGNING_KEY` (made by `npm run license:key`), set up the sign-in email (Resend), sign in once, and mark his own account as the owner (`supabase/README.md`, "Licensing", steps 2, 4 and 5).
+   - **Don't install a build from this branch on a laptop you run shows from until that's done.** With no signing key the service can't give it a pass, so it can't start a show.
    - After that: a few beta KJs with unlock codes, then step 2 (Stripe), then step 3 (pricing page, `docs/YOUTUBE_AUDIT.md`, Store identity).
 1. **Real-world checks** (the cloud sandbox couldn't reach YouTube):
    - YouTube playback through the site-hosted player;

@@ -67,11 +67,18 @@ function signingKey(): Promise<Deps['signing']> {
 /** Who the session token belongs to, according to the Auth server (null if it's not a live session). */
 async function whoIs(token: string): Promise<Caller | null> {
   try {
+    // The Auth server wants a project key beside the token. The publishable one is meant for this; the
+    // secret key (which never leaves this function) does if the platform didn't supply it.
     const res = await fetch(`${supabaseUrl}/auth/v1/user`, {
-      headers: { apikey: publishableKey(), Authorization: `Bearer ${token}` },
+      headers: { apikey: publishableKey() || secretKey(), Authorization: `Bearer ${token}` },
       signal: AbortSignal.timeout(5000),
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      // What the answer says about itself, never the token: enough to tell a bad key from a signed-out session in the logs.
+      const why = (await res.json().catch(() => null)) as { error_code?: unknown; message?: unknown } | null;
+      console.error('The Auth server turned down a token:', res.status, String(why?.error_code ?? why?.message ?? '').slice(0, 80));
+      return null;
+    }
     const user = (await res.json()) as { id?: unknown; email?: unknown };
     return typeof user.id === 'string' && typeof user.email === 'string' && user.email ? { userId: user.id, email: user.email } : null;
   } catch {

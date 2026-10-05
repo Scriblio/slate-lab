@@ -64,7 +64,7 @@ Nothing here touches YouTube. Search, pasted links and the player page don't ask
 
 ### Setting it up, once
 
-Do these in order. Steps 1 and 3 change the live project, so check with Matthew first.
+Do these in order. Steps 1 and 3 change the live project, so check with Matthew first. **On the live `encore` project, steps 1 and 3 were done on 2026-10-05 with his go-ahead; steps 2, 4 and 5 are still his.** The list is also how to set up another project, or redo this one.
 
 1. **Apply the migration** (SQL editor, or `supabase db push`): `migrations/20261005000000_licensing.sql`. It makes the tables and the functions below, and gives the public keys no access to any of them.
 2. **Make the signing key.** From the `encore/` folder, run `npm run license:key`. It writes the public key into `src/shared/license-key.ts` (commit that file) and the private key to a file in your home folder, without showing it. Add that file's one line as the Edge Function secret `LICENSE_SIGNING_KEY` (Dashboard → Edge Functions → Secrets), keep a copy in a password manager, then delete the file. Never put it in the code, a commit or a chat. If it's ever lost, run the script again and ship a new release: every installed copy only trusts the public key built into it. (To change keys without breaking installed copies, see the comments at the top of `scripts/make-license-key.mjs`.)
