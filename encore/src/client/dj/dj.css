@@ -1808,6 +1808,58 @@ kbd {
 }
 
 /* ---- printed QR codes (Settings > Print QR codes) ---- */
+.print-notes {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  font-size: 12.5px;
+}
+.print-notes ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: 18px;
+  color: var(--text-2);
+}
+.print-notes b {
+  color: var(--text);
+}
+.link-btn {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.print-options {
+  display: grid;
+  gap: 8px;
+}
+.print-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+.print-option > div {
+  flex: 1;
+  display: grid;
+  gap: 2px;
+}
+.print-fold-select {
+  width: 270px;
+  height: 32px;
+  margin-top: 6px;
+  font-size: 13px;
+}
+
 
 .print-sheet {
   display: none;
@@ -1937,5 +1989,89 @@ kbd {
   }
   .print-card .print-tip span {
     font-size: 8pt;
+  }
+  /* The code alone, as big as the page allows. */
+  .print-qr-only {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 9.6in;
+  }
+  .print-qr-only .print-qr {
+    width: 6.5in;
+    height: 6.5in;
+  }
+  /* A sheet folded in half: the code on the top half, how it works on the bottom half. */
+  .print-tent {
+    display: flex;
+    flex-direction: column;
+    height: 10.1in;
+  }
+  .print-tent-half {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 0.35in;
+    padding: 0.3in 0.35in;
+    break-inside: avoid;
+  }
+  .print-tent-half.flipped {
+    transform: rotate(180deg);
+  }
+  .print-fold {
+    border-top: 1px dashed #999;
+  }
+  .print-tent .print-qr {
+    flex: none;
+    width: 3.7in;
+    height: 3.7in;
+  }
+  .print-tent-words {
+    display: grid;
+    gap: 0.12in;
+  }
+  .print-tent .print-show {
+    font-size: 22pt;
+  }
+  .print-tent .print-scan {
+    font-size: 28pt;
+  }
+  .print-tent .print-how {
+    font-size: 12pt;
+  }
+  .print-tent .print-link {
+    font-size: 11pt;
+  }
+  .print-tent-back {
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: center;
+    gap: 0.12in;
+  }
+  .print-steps-title {
+    font-family: var(--display);
+    font-size: 17pt;
+    font-weight: 800;
+  }
+  .print-steps {
+    display: grid;
+    gap: 0.07in;
+    margin: 0;
+    padding-left: 0.25in;
+    font-size: 10.5pt;
+    line-height: 1.3;
+  }
+  .print-tent-back .print-tip {
+    margin-top: 0.04in;
+  }
+  .print-tent-back .print-tip img {
+    width: 0.8in;
+    height: 0.8in;
+  }
+  .print-tent-back .print-tip strong {
+    font-size: 11pt;
+  }
+  .print-tent-back .print-tip span {
+    font-size: 9pt;
   }
 }

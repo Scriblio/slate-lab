@@ -10,7 +10,7 @@ import * as I from '../common/icons.tsx';
 import { request } from '../common/socket.ts';
 import { Modal, Toggle, useToast, YouTubeTerms } from '../common/ui.tsx';
 import { useDj } from './context.ts';
-import { PrintSheet, type PrintLayout } from './PrintSheet.tsx';
+import { PrintSheet, type PrintLayout, type TentFold } from './PrintSheet.tsx';
 
 export function SettingsModal({ onClose }: { onClose: () => void }) {
   const { view, act, socket } = useDj();
@@ -41,6 +41,8 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   // A new number mounts a new sheet, so printing twice in a row prints twice.
   const [printing, setPrinting] = useState<{ layout: PrintLayout; n: number } | null>(null);
   const [printTip, setPrintTip] = useState(true);
+  const [tentFold, setTentFold] = useState<TentFold>('bottom');
+  const print = (layout: PrintLayout) => setPrinting((p) => ({ layout, n: (p?.n ?? 0) + 1 }));
 
   useEffect(() => {
     request<ServerConfigView>(socket, 'dj:config').then((c) => {
@@ -150,22 +152,78 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
         </Section>
 
         <Section title="Print QR codes">
-          <p className="muted small">Put codes on the tables and at the bar, so people can join without looking up at the screen. Print them, or save a PDF from the print window.</p>
-          {!view.print.lasting && (
+          <p className="muted small">Put codes on the tables and at the bar, so people can join without looking up at the screen. Each button opens the print window, where you can also save a PDF.</p>
+          {view.print.lasting ? (
+            <div className="print-notes">
+              <strong>Good to know</strong>
+              <ul>
+                <li>
+                  <b>Print them once.</b> The code stays the same every show, through restarts and updates.
+                </li>
+                <li>
+                  <b>It changes only</b> if you move Encore to a different computer, uninstall it, or turn off the secure online link. Moving to a new computer? Copy Encore’s data folder over first to keep the same code.
+                  {desktop && (
+                    <>
+                      {' '}
+                      <button className="link-btn" onClick={() => void desktop?.openDataFolder()}>
+                        Open the data folder
+                      </button>
+                    </>
+                  )}
+                </li>
+                <li>
+                  <b>Printed codes need this laptop online.</b> Without internet, the code on the big screen switches to the Wi-Fi link by itself, but printed ones work again only once you’re back online.
+                </li>
+              </ul>
+            </div>
+          ) : (
             <p className="settings-error">
               <I.Alert /> These codes use this laptop’s Wi-Fi address ({view.print.label}), which can change on another night or at another venue.{' '}
-              {config?.onlineJoinAvailable ? 'Turn on the secure online link (under How phones join) for codes that keep working.' : 'Print new ones if it does.'}
+              {config?.onlineJoinAvailable ? 'Turn on the secure online link (under How phones join) for codes that keep working every show.' : 'Print new ones if it does.'}
             </p>
           )}
-          {s.tipLink && <Switch label="Include the tip QR" hint="A small second code for your tip link, under the join code." checked={printTip} onChange={setPrintTip} />}
-          <div className="settings-row">
-            <span className="spacer" />
-            <button className="btn sm" onClick={() => setPrinting((p) => ({ layout: 'cards', n: (p?.n ?? 0) + 1 }))}>
-              <I.Printer /> Table cards (4 per page)
-            </button>
-            <button className="btn sm primary" onClick={() => setPrinting((p) => ({ layout: 'poster', n: (p?.n ?? 0) + 1 }))}>
-              <I.Printer /> Poster
-            </button>
+          {s.tipLink && <Switch label="Include the tip QR" hint="A small second code for your tip link." checked={printTip} onChange={setPrintTip} />}
+          <div className="print-options">
+            <div className="print-option">
+              <div>
+                <strong>Table tent</strong>
+                <span className="muted small">The code on the top half and how to join and leave on the bottom half. Fold it in half for a table stand.</span>
+                <select className="input print-fold-select" value={tentFold} onChange={(e) => setTentFold(e.target.value as TentFold)} aria-label="How the folded sheet stands">
+                  <option value="bottom">Fold at the bottom (in a sign holder)</option>
+                  <option value="top">Fold on top (stands by itself)</option>
+                </select>
+              </div>
+              <button className="btn sm primary" onClick={() => print('tent')}>
+                <I.Printer /> Print
+              </button>
+            </div>
+            <div className="print-option">
+              <div>
+                <strong>Poster</strong>
+                <span className="muted small">One big code with your show name, for the wall or the bar.</span>
+              </div>
+              <button className="btn sm" onClick={() => print('poster')}>
+                <I.Printer /> Print
+              </button>
+            </div>
+            <div className="print-option">
+              <div>
+                <strong>Table cards</strong>
+                <span className="muted small">Four smaller codes to a page, with lines to cut along.</span>
+              </div>
+              <button className="btn sm" onClick={() => print('cards')}>
+                <I.Printer /> Print
+              </button>
+            </div>
+            <div className="print-option">
+              <div>
+                <strong>Just the code</strong>
+                <span className="muted small">The QR code on its own, as big as the page, for your own signs and flyers.</span>
+              </div>
+              <button className="btn sm" onClick={() => print('qr')}>
+                <I.Printer /> Print
+              </button>
+            </div>
           </div>
           {printing && (
             <PrintSheet
@@ -173,7 +231,9 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
               layout={printing.layout}
               showName={s.showName}
               typedLink={view.print.url.includes('#') ? undefined : view.print.label}
-              tip={s.tipLink && printTip ? { text: s.tipText } : undefined}
+              tip={s.tipLink && printTip && printing.layout !== 'qr' ? { text: s.tipText } : undefined}
+              alerts={view.print.url.includes('#')}
+              fold={tentFold}
               onDone={() => setPrinting(null)}
             />
           )}
