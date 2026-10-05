@@ -55,6 +55,8 @@ async function start(): Promise<void> {
     return res.canceled ? [] : res.filePaths;
   });
   ipcMain.handle('encore:open-data-folder', () => shell.openPath(dataDir));
+  // Printed QR codes: the system print window, which can also save a PDF.
+  ipcMain.handle('encore:print', (event) => new Promise<boolean>((done) => event.sender.print({}, (ok) => done(ok))));
 
   buildMenu(dataDir);
   openDj();

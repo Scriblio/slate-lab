@@ -190,6 +190,16 @@ export async function createApp(opts: AppOptions) {
   /** The link in the QR code: the secure online one while it works, else the Wi-Fi one. */
   const joinUrl = () => (onlineReady() ? onlineJoinUrl()! : lanJoinUrl());
   const joinLabel = () => (onlineReady() ? new URL(cloud!.joinOrigin).host : lanJoinUrl().replace(/^https?:\/\//, ''));
+  /**
+   * The link for printed QR codes: the online one whenever it's turned on, since its room and key are kept
+   * in the data folder and it works on any network, even while the internet is briefly down. Otherwise the
+   * Wi-Fi link, which only lasts while this laptop keeps its address (a set public URL always does).
+   */
+  const printLink = (): DjView['print'] => {
+    const online = config.onlineJoin !== false ? onlineJoinUrl() : undefined;
+    if (online) return { url: online, label: new URL(cloud!.joinOrigin).host, lasting: true };
+    return { url: lanJoinUrl(), label: lanJoinUrl().replace(/^https?:\/\//, ''), lasting: Boolean(config.publicUrl) };
+  };
 
   async function startRelay() {
     if (!cloud || relay || config.onlineJoin === false) return;
@@ -231,6 +241,12 @@ export async function createApp(opts: AppOptions) {
 
     if (path === '/api/qr.svg') {
       const svg = await QRCode.toString(joinUrl(), { type: 'svg', margin: 1, errorCorrectionLevel: 'M', color: { dark: '#000000', light: '#ffffff' } });
+      res.writeHead(200, { 'content-type': 'image/svg+xml', 'cache-control': 'no-store' });
+      return void res.end(svg);
+    }
+
+    if (path === '/api/print-qr.svg') {
+      const svg = await QRCode.toString(printLink().url, { type: 'svg', margin: 1, errorCorrectionLevel: 'M', color: { dark: '#000000', light: '#ffffff' } });
       res.writeHead(200, { 'content-type': 'image/svg+xml', 'cache-control': 'no-store' });
       return void res.end(svg);
     }
@@ -737,6 +753,7 @@ export async function createApp(opts: AppOptions) {
       upcoming: list,
       joinUrl: joinUrl(),
       joinLabel: joinLabel(),
+      print: printLink(),
       relay: {
         state: !relay ? (cloud && config.onlineJoin !== false ? 'connecting' : 'off') : relay.state === 'online' && !joinPageOk ? 'page-down' : relay.state,
         onlineHost: cloud ? new URL(cloud.joinOrigin).host : undefined,

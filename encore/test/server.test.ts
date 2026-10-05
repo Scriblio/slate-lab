@@ -632,6 +632,17 @@ describe('YouTube videos that won’t play here', () => {
     await act({ type: 'updateSettings', patch: { nameFilter: true, blockedWords: '' } });
   });
 
+  it('prints QR codes with the Wi-Fi link when there is no online link, and says it may change', async () => {
+    const dj = client({ role: 'dj' });
+    const view = await nextEvent<DjView>(dj, 'dj:view');
+    expect(view.print).toMatchObject({ lasting: false });
+    expect(view.print.url).toMatch(/^http:\/\/.+\/join$/);
+    expect(view.print.label).toBe(view.print.url.replace('http://', ''));
+    const qr = await fetch(`${base}/api/print-qr.svg`);
+    expect(qr.headers.get('content-type')).toBe('image/svg+xml');
+    expect(await qr.text()).toContain('<svg');
+  });
+
   it('shows a tip QR on the screen and a tip button on phones, only for a clean https link', async () => {
     const dj = client({ role: 'dj' });
     const display = client({ role: 'display' });

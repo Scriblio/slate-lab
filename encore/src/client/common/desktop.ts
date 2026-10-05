@@ -4,6 +4,8 @@
 export interface EncoreDesktop {
   pickFolders(): Promise<string[]>;
   openDataFolder(): Promise<string>;
+  /** Opens the system print window for this page; resolves once it closes. Missing in older builds. */
+  print?(): Promise<boolean>;
 }
 
 declare global {

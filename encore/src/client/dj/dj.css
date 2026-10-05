@@ -1806,3 +1806,136 @@ kbd {
   background: var(--surface-2);
   font-size: 0.9em;
 }
+
+/* ---- printed QR codes (Settings > Print QR codes) ---- */
+
+.print-sheet {
+  display: none;
+}
+@media print {
+  @page {
+    margin: 0.4in;
+  }
+  :root {
+    color-scheme: light;
+  }
+  html,
+  body {
+    height: auto !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+  body > *:not(.print-sheet) {
+    display: none !important;
+  }
+  .print-sheet {
+    display: block;
+    color: #000;
+    font-family: var(--font);
+  }
+  .print-poster,
+  .print-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    break-inside: avoid;
+  }
+  .print-poster {
+    height: 9.6in;
+    gap: 0.18in;
+  }
+  .print-show {
+    font-family: var(--display);
+    font-weight: 800;
+    line-height: 1.1;
+  }
+  .print-poster .print-show {
+    font-size: 34pt;
+  }
+  .print-poster .print-qr {
+    width: 5in;
+    height: 5in;
+  }
+  .print-scan {
+    font-family: var(--display);
+    font-weight: 800;
+  }
+  .print-poster .print-scan {
+    font-size: 30pt;
+  }
+  .print-how {
+    margin: 0;
+    max-width: 5.5in;
+    color: #333;
+  }
+  .print-poster .print-how {
+    font-size: 14pt;
+  }
+  .print-link {
+    margin: 0;
+    font-family: ui-monospace, Consolas, monospace;
+    font-weight: 700;
+  }
+  .print-poster .print-link {
+    font-size: 14pt;
+  }
+  .print-tip {
+    display: flex;
+    align-items: center;
+    gap: 0.12in;
+    margin-top: 0.1in;
+    text-align: left;
+  }
+  .print-tip div {
+    display: grid;
+  }
+  .print-tip span {
+    color: #333;
+  }
+  .print-poster .print-tip img {
+    width: 1.3in;
+    height: 1.3in;
+  }
+  .print-poster .print-tip strong {
+    font-size: 16pt;
+  }
+  /* Four to a page, with dashed lines to cut along. */
+  .print-cards {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 4.85in 4.85in;
+  }
+  .print-card {
+    gap: 0.08in;
+    padding: 0.2in;
+    border: 1px dashed #999;
+  }
+  .print-card .print-show {
+    font-size: 16pt;
+  }
+  .print-card .print-qr {
+    width: 2.3in;
+    height: 2.3in;
+  }
+  .print-card .print-scan {
+    font-size: 17pt;
+  }
+  .print-card .print-how {
+    font-size: 8.5pt;
+  }
+  .print-card .print-link {
+    font-size: 9pt;
+  }
+  .print-card .print-tip img {
+    width: 0.75in;
+    height: 0.75in;
+  }
+  .print-card .print-tip strong {
+    font-size: 10pt;
+  }
+  .print-card .print-tip span {
+    font-size: 8pt;
+  }
+}

@@ -255,6 +255,9 @@ describe('online join link, end to end', () => {
     const dj = connect(`http://127.0.0.1:${other.port}`, { auth: { role: 'dj' }, transports: ['websocket'], forceNew: true });
     const view = await new Promise<DjView>((ok) => dj.on('dj:view', ok));
     expect(view.relay).toMatchObject({ state: 'page-down', onlineHost: 'sing.example' });
+    // Printed codes still get the online link: it lasts, and the page coming back is all it needs.
+    expect(view.print).toMatchObject({ lasting: true, label: 'sing.example' });
+    expect(parseJoinFragment(new URL(view.print.url).hash)).not.toBeNull();
     dj.disconnect();
     await other.close();
   });

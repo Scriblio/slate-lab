@@ -10,6 +10,7 @@ import * as I from '../common/icons.tsx';
 import { request } from '../common/socket.ts';
 import { Modal, Toggle, useToast, YouTubeTerms } from '../common/ui.tsx';
 import { useDj } from './context.ts';
+import { PrintSheet, type PrintLayout } from './PrintSheet.tsx';
 
 export function SettingsModal({ onClose }: { onClose: () => void }) {
   const { view, act, socket } = useDj();
@@ -37,6 +38,9 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   const [tipText, setTipText] = useState(s.tipText);
   const [tipAmounts, setTipAmounts] = useState(s.tipAmounts.map(formatTipAmount).join(', '));
   const [confirmNew, setConfirmNew] = useState(false);
+  // A new number mounts a new sheet, so printing twice in a row prints twice.
+  const [printing, setPrinting] = useState<{ layout: PrintLayout; n: number } | null>(null);
+  const [printTip, setPrintTip] = useState(true);
 
   useEffect(() => {
     request<ServerConfigView>(socket, 'dj:config').then((c) => {
@@ -142,6 +146,36 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
                 onChange={(v) => set({ tipAfterSong: v })}
               />
             </>
+          )}
+        </Section>
+
+        <Section title="Print QR codes">
+          <p className="muted small">Put codes on the tables and at the bar, so people can join without looking up at the screen. Print them, or save a PDF from the print window.</p>
+          {!view.print.lasting && (
+            <p className="settings-error">
+              <I.Alert /> These codes use this laptop’s Wi-Fi address ({view.print.label}), which can change on another night or at another venue.{' '}
+              {config?.onlineJoinAvailable ? 'Turn on the secure online link (under How phones join) for codes that keep working.' : 'Print new ones if it does.'}
+            </p>
+          )}
+          {s.tipLink && <Switch label="Include the tip QR" hint="A small second code for your tip link, under the join code." checked={printTip} onChange={setPrintTip} />}
+          <div className="settings-row">
+            <span className="spacer" />
+            <button className="btn sm" onClick={() => setPrinting((p) => ({ layout: 'cards', n: (p?.n ?? 0) + 1 }))}>
+              <I.Printer /> Table cards (4 per page)
+            </button>
+            <button className="btn sm primary" onClick={() => setPrinting((p) => ({ layout: 'poster', n: (p?.n ?? 0) + 1 }))}>
+              <I.Printer /> Poster
+            </button>
+          </div>
+          {printing && (
+            <PrintSheet
+              key={printing.n}
+              layout={printing.layout}
+              showName={s.showName}
+              typedLink={view.print.url.includes('#') ? undefined : view.print.label}
+              tip={s.tipLink && printTip ? { text: s.tipText } : undefined}
+              onDone={() => setPrinting(null)}
+            />
           )}
         </Section>
 

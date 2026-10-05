@@ -360,6 +360,11 @@ export interface DjView {
   upcoming: UpcomingItem[];
   joinUrl: string;
   joinLabel: string;
+  /**
+   * The join link for printed QR codes (served as /api/print-qr.svg). `lasting`
+   * is false when it's this laptop's Wi-Fi address, which can change.
+   */
+  print: { url: string; label: string; lasting: boolean };
   relay: {
     /**
      * 'off': turned off or not configured. 'offline': no internet / relay down.
