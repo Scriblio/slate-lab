@@ -14,8 +14,12 @@ import type { Ack, ClientToServer, DjAction, HandshakeAuth, Role, ServerToClient
 import { parseYouTubeId } from '../shared/text.ts';
 import type { BrowseRequest, DjView, Entry, SearchResult, Song } from '../shared/types.ts';
 import { CLOUD, cloudConfigured } from '../shared/cloud.ts';
+import { LICENSE_OFF, type LicenseView } from '../shared/license.ts';
 import { joinLink, supabaseTransport, type RelayTransport } from '../shared/relay.ts';
+import { ShowAccess } from './access.ts';
+import { Account } from './account.ts';
 import { loadConfig, saveConfig, type Config } from './config.ts';
+import { License } from './license.ts';
 import { KeyMemory } from './keys.ts';
 import { BreakMusic } from './breakmusic.ts';
 import { Library } from './library.ts';
@@ -24,7 +28,7 @@ import type { SongKey } from '../shared/songkey.ts';
 import { serveMedia } from './media.ts';
 import { PushNotifier, turnAlerts } from './push.ts';
 import { loadIdentity, RelayHost, type RelayIdentity } from './relay.ts';
-import { blockedMessage, Show, UserError } from './show.ts';
+import { blockedMessage, NOT_OPEN, Show, UserError } from './show.ts';
 import { YouTube } from './youtube.ts';
 import { REFUSAL_CODES, YouTubeGuard } from './ytguard.ts';
 
@@ -48,8 +52,17 @@ export interface AppOptions {
   cloud?: false | { joinOrigin: string; transport: () => RelayTransport; checkJoinPage?: () => Promise<boolean> };
   /** Encore's YouTube search service. Defaults to shared/cloud.ts (plus env overrides); false turns it off. */
   youtubeProxy?: false | { url: string; key: string };
+  /**
+   * The KJ's license: sign-in, the free trial and unlock codes (see shared/license.ts). Checked by default,
+   * against the service in shared/cloud.ts; `false` skips it (the demo, tests). Left out, the environment
+   * variable ENCORE_LICENSE=off skips it too, for development. Any object, even `{}`, means it is checked
+   * and the environment is ignored: the packaged app does that, so a setting on a KJ's computer can't turn it off.
+   */
+  license?: false | { supabaseUrl?: string; supabaseKey?: string; publicKeys?: readonly { kid: string; key: string }[]; fetchImpl?: typeof fetch; now?: () => number };
   /** How long a phone waits for the console to work out a song's key (default 12 s). */
   keyWaitMs?: number;
+  /** How often the plan is looked at again, so a trial that ends while nothing is happening shows up (default a minute). */
+  planCheckMs?: number;
   quiet?: boolean;
 }
 
@@ -83,6 +96,53 @@ export async function createApp(opts: AppOptions) {
       broadcastQueued = false;
       broadcast();
     });
+  };
+
+  // --- the KJ's license -------------------------------------------------------------
+
+  const licensing = resolveLicense(opts.license);
+  const license = licensing
+    ? new License({
+        dataDir: opts.dataDir,
+        installId: config.installId,
+        account: new Account({ dataDir: opts.dataDir, url: licensing.supabaseUrl, key: licensing.supabaseKey, fetchImpl: licensing.fetchImpl ?? opts.fetchImpl, now: licensing.now }),
+        functionUrl: `${licensing.supabaseUrl.replace(/\/$/, '')}/functions/v1/encore-license`,
+        key: licensing.supabaseKey,
+        publicKeys: licensing.publicKeys,
+        fetchImpl: licensing.fetchImpl ?? opts.fetchImpl,
+        now: licensing.now,
+        log,
+        onChange: () => {
+          void syncCloud();
+          scheduleBroadcast();
+        },
+      })
+    : undefined;
+  await license?.load();
+  const access = new ShowAccess(() => license?.access());
+  /** Can singers join and the KJ call them up? A show that was already running stays open whatever the plan says. */
+  const showOpen = () => {
+    access.observe(show.state.id, show.state.singers.length);
+    return access.showOpen(show.state.id);
+  };
+  /** Is Encore Cloud (the online link and lock-screen alerts) on? The same promise: a running show keeps what it has. */
+  const cloudIncluded = () => {
+    access.observe(show.state.id, show.state.singers.length);
+    return access.cloudOn(show.state.id);
+  };
+  const closedMessage = (): string =>
+    license?.state() === 'offline-expired'
+      ? 'Encore needs to check your license. Connect this laptop to the internet.'
+      : license?.state() === 'signed-out'
+        ? 'Sign in to start your free trial, or enter an unlock code, in Settings → Your Encore.'
+        : license?.view().trialEndsAt
+          ? 'Your free trial has ended. Enter an unlock code in Settings → Your Encore to run shows.'
+          : license?.view().trialAvailable
+            ? 'Start your free trial, or enter an unlock code, in Settings → Your Encore.'
+            : 'This computer has already had its free trial. Enter an unlock code in Settings → Your Encore to run shows.';
+  const needLicense = () => {
+    if (!license) throw new UserError('Licensing is switched off in this copy of Encore.');
+    return license;
   };
 
   const keys = new KeyMemory({ dataDir: opts.dataDir, log });
@@ -128,12 +188,18 @@ export async function createApp(opts: AppOptions) {
     dataDir: opts.dataDir,
     keys,
     blockReason: (videoId) => guard?.blockReason(videoId),
+    closed: () => (showOpen() ? undefined : closedMessage()),
     onNotice: (text) => io?.to('dj').emit('dj:notice', { text }),
     resolveLocal: (id) => {
       const t = library.get(id);
       return t ? { title: t.title, artist: t.artist, source: { kind: 'local', trackId: t.id, format: t.format } } : undefined;
     },
-    onChange: scheduleBroadcast,
+    // The moment the show changes (a first singer joins, say) note whether the plan allows it, so a plan that
+    // runs out an instant later can't make a show that had just begun look as if it never did.
+    onChange: () => {
+      access.observe(show.state.id, show.state.singers.length);
+      scheduleBroadcast();
+    },
     onPlayerCommand: (playId, cmd) => io?.to('display').emit('player:cmd', { playId, ...cmd }),
   });
   await show.load();
@@ -146,6 +212,9 @@ export async function createApp(opts: AppOptions) {
 
   // --- online join link ----------------------------------------------------------
 
+  // `cloud` is the service as configured. Whether the KJ's plan includes Encore Cloud (the online join link
+  // and lock-screen alerts) is cloudIncluded(), and only those two follow it. The YouTube player page below
+  // is built from `cloud` and never from the plan: no YouTube feature may depend on what anyone has paid for.
   const cloud = resolveCloud(opts.cloud);
   // Lock-screen alerts work only on the online join page (push needs https),
   // and this laptop sends them itself, signed with its own key.
@@ -167,7 +236,7 @@ export async function createApp(opts: AppOptions) {
   const ytGuard = guard;
   let relay: RelayHost | undefined;
   let identity: RelayIdentity | undefined;
-  const onlineJoinUrl = () => (cloud && identity ? joinLink(cloud.joinOrigin, { room: identity.room, hostKey: identity.publicKey }) : undefined);
+  const onlineJoinUrl = () => (cloud && identity && cloudIncluded() ? joinLink(cloud.joinOrigin, { room: identity.room, hostKey: identity.publicKey }) : undefined);
   // Only advertise the online link once its page actually loads, so a site
   // that's down (or not set up yet) can never strand singers.
   let joinPageOk = false;
@@ -202,7 +271,7 @@ export async function createApp(opts: AppOptions) {
   };
 
   async function startRelay() {
-    if (!cloud || relay || config.onlineJoin === false) return;
+    if (!cloud || relay || config.onlineJoin === false || !cloudIncluded()) return;
     identity ??= await loadIdentity(opts.dataDir);
     relay = new RelayHost({ transport: cloud.transport(), identity, localUrl: `http://127.0.0.1:${port}`, onState: scheduleBroadcast });
     relay.start();
@@ -214,6 +283,13 @@ export async function createApp(opts: AppOptions) {
     relay?.stop();
     relay = undefined;
     scheduleBroadcast();
+  }
+
+  /** The plan changed: start the online link if it's now included, or stop it if the plan no longer has it and no show is running on it. */
+  async function syncCloud() {
+    if (!cloud || config.onlineJoin === false) return;
+    if (cloudIncluded()) await startRelay().catch((err) => log(`  Online join link: ${(err as Error).message}`));
+    else if (relay) stopRelay();
   }
 
   // --- HTTP ------------------------------------------------------------------
@@ -388,9 +464,10 @@ export async function createApp(opts: AppOptions) {
       respond(ack, () => {
         const id = socket.data.singerId;
         if (!id || !show.singer(id)) throw new UserError('Join the list first.');
+        if (!showOpen()) throw new UserError(NOT_OPEN, 'show-closed');
         if (!rateOk(socket, 'action', 30, 60_000)) throw new UserError('Slow down a little and try again.');
         if (action?.type === 'pushSubscribe' || action?.type === 'pushUnsubscribe') {
-          if (!push) throw new UserError('Lock-screen alerts aren’t available here.');
+          if (!push || !cloudIncluded()) throw new UserError('Lock-screen alerts aren’t available here.');
           if (action.type === 'pushSubscribe') push.subscribe(id, action.subscription);
           else push.unsubscribe(id);
           scheduleBroadcast();
@@ -562,6 +639,8 @@ export async function createApp(opts: AppOptions) {
       case 'unpinEntry':
         return show.unpin(a.entryId);
       case 'callNext':
+        // Said out loud: when the show is closed, Show.callNext just does nothing, so the KJ is told why here.
+        if (!showOpen()) throw new UserError(closedMessage(), 'show-closed');
         return show.callNext()?.id ?? null;
       case 'callEntry':
         return show.callEntry(a.entryId);
@@ -580,6 +659,8 @@ export async function createApp(opts: AppOptions) {
         return null;
       }
       case 'play':
+        // With nothing on stage, Play calls the next singer up.
+        if (!show.state.nowPlaying && !showOpen()) throw new UserError(closedMessage(), 'show-closed');
         return show.play();
       case 'pause':
         return show.pause();
@@ -600,6 +681,8 @@ export async function createApp(opts: AppOptions) {
         push?.reset(show.state.id);
         await archive(old);
         io.to('singer').emit('singer:removed');
+        // The old show's promise ended with it: if the plan no longer has Cloud, so does this one.
+        void syncCloud();
         return null;
       }
       case 'rescanLibrary':
@@ -623,6 +706,24 @@ export async function createApp(opts: AppOptions) {
         return null;
       case 'youtubeCheck':
         await ytGuard.report(String(a.videoId), Boolean(a.ok), a.mode);
+        return null;
+      case 'accountSendCode':
+        await needLicense().sendCode(String(a.email ?? ''));
+        return null;
+      case 'accountVerify':
+        await needLicense().signIn(String(a.email ?? ''), String(a.code ?? ''));
+        return null;
+      case 'accountSignOut':
+        await needLicense().signOut();
+        return null;
+      case 'startTrial':
+        await needLicense().startTrial();
+        return null;
+      case 'redeemCode':
+        await needLicense().redeem(String(a.code ?? ''));
+        return null;
+      case 'refreshLicense':
+        await needLicense().refresh({ report: true });
         return null;
       case 'setConfig':
         return updateConfig(a);
@@ -738,11 +839,16 @@ export async function createApp(opts: AppOptions) {
     return displaySockets()[0];
   }
 
+  function licenseView(): LicenseView {
+    return license ? { ...license.view(), showOpen: showOpen() } : LICENSE_OFF;
+  }
+
   function broadcast() {
     const list = show.upcoming(50);
     const breakOn = updateBreak();
     const displays = displaySockets();
-    if (push) {
+    const cloudOn = cloudIncluded();
+    if (push && cloudOn) {
       push.retain(new Set(show.state.singers.map((s) => s.id)));
       push.update(turnAlerts(show.state, list), onlineJoinUrl());
     }
@@ -755,7 +861,7 @@ export async function createApp(opts: AppOptions) {
       joinLabel: joinLabel(),
       print: printLink(),
       relay: {
-        state: !relay ? (cloud && config.onlineJoin !== false ? 'connecting' : 'off') : relay.state === 'online' && !joinPageOk ? 'page-down' : relay.state,
+        state: !relay ? (cloud && config.onlineJoin !== false && cloudOn ? 'connecting' : 'off') : relay.state === 'online' && !joinPageOk ? 'page-down' : relay.state,
         onlineHost: cloud ? new URL(cloud.joinOrigin).host : undefined,
         lanUrl: lanJoinUrl(),
         phones: relay?.sessionCount ?? 0,
@@ -768,6 +874,7 @@ export async function createApp(opts: AppOptions) {
       songKeys: songKeys.pick(trackIds(show.state.nowPlaying ? [show.state.nowPlaying.entry, ...show.state.entries] : show.state.entries)),
       breakMusic: breakMusic.status(breakOn),
       audioOutput: config.audioOutput,
+      license: licenseView(),
     };
     io.to('dj').emit('dj:view', dj);
     const breakView = breakMusic.count
@@ -789,13 +896,25 @@ export async function createApp(opts: AppOptions) {
       const mine = songKeys.pick(trackIds(view.myEntries));
       s.emit('singer:view', {
         ...view,
-        ...(push ? { push: { key: push.publicKey, on: Boolean(id && push.has(id)) } } : {}),
+        ...(push && cloudOn && !view.notOpen ? { push: { key: push.publicKey, on: Boolean(id && push.has(id)) } } : {}),
         ...(Object.keys(mine).length ? { songKeys: mine } : {}),
       });
     }
   }
 
   // --- lifecycle -------------------------------------------------------------
+
+  // A plan can run out between anything the show does (a free trial ends at nine at night), so each minute
+  // the screens and the online link are brought up to date if the plan's answer changed.
+  let lastPlan = '';
+  const planTimer = setInterval(() => {
+    const plan = license ? JSON.stringify([license.view(), showOpen(), cloudIncluded()]) : '';
+    if (plan === lastPlan) return;
+    lastPlan = plan;
+    void syncCloud();
+    scheduleBroadcast();
+  }, opts.planCheckMs ?? 60_000);
+  planTimer.unref?.();
 
   async function listen(): Promise<string> {
     const bind = (p: number) =>
@@ -817,11 +936,14 @@ export async function createApp(opts: AppOptions) {
     void rescan();
     void rescanBreak();
     await startRelay().catch((err) => console.warn('Online join link unavailable:', (err as Error).message));
+    license?.start();
     return `http://localhost:${port}`;
   }
 
   async function close(): Promise<void> {
     clearTimeout(joinPageTimer);
+    clearInterval(planTimer);
+    license?.stop();
     relay?.stop();
     show.dispose();
     await show.flush().catch(() => {});
@@ -842,6 +964,8 @@ export async function createApp(opts: AppOptions) {
     youtube,
     config,
     push,
+    /** The KJ's license, or undefined when licensing is switched off. */
+    license,
     listen,
     close,
     joinUrl,
@@ -917,6 +1041,21 @@ function resolveCloud(opt: AppOptions['cloud']): Exclude<AppOptions['cloud'], fa
   };
   if (!cloudConfigured(c) || process.env.ENCORE_ONLINE_JOIN === '0') return undefined;
   return { joinOrigin: c.joinOrigin, transport: () => supabaseTransport(c.supabaseUrl, c.supabaseKey) };
+}
+
+/**
+ * Where the KJ's license is checked, or undefined when licensing is off. An explicit option wins and
+ * ignores the environment, so the packaged app can't be told to skip it; with none, ENCORE_LICENSE=off
+ * skips it (development). A copy with no Supabase project configured has nothing to check against.
+ */
+function resolveLicense(opt: AppOptions['license']): { supabaseUrl: string; supabaseKey: string; publicKeys?: readonly { kid: string; key: string }[]; fetchImpl?: typeof fetch; now?: () => number } | undefined {
+  if (opt === false) return undefined;
+  if (opt === undefined && process.env.ENCORE_LICENSE === 'off') return undefined;
+  const given = opt ?? {};
+  const supabaseUrl = given.supabaseUrl ?? CLOUD.supabaseUrl;
+  const supabaseKey = given.supabaseKey ?? CLOUD.supabaseKey;
+  if (!cloudConfigured({ supabaseUrl, supabaseKey })) return undefined;
+  return { supabaseUrl, supabaseKey, publicKeys: given.publicKeys, fetchImpl: given.fetchImpl, now: given.now };
 }
 
 /** Encore's YouTube search service (a Supabase Edge Function), unless turned off. */

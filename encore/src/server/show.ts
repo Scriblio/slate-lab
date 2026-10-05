@@ -55,6 +55,11 @@ export interface ShowDeps {
   onPlayerCommand: (playId: string, cmd: PlayerCommand) => void;
   /** YouTube videos that won't play here, or that the KJ marked not karaoke, are turned away. */
   blockReason?: (videoId: string) => 'refused' | 'not-karaoke' | undefined;
+  /**
+   * Why no new singer can join and nobody can be called up (the KJ's Encore isn't unlocked), in words for
+   * the KJ; undefined while the show is open. A show already running is never closed this way (see access.ts).
+   */
+  closed?: () => string | undefined;
   /** Something the KJ should hear about right away (a singer left, or asked to wait). */
   onNotice?: (text: string) => void;
   /** The key each singer likes for a library song, remembered from night to night. */
@@ -62,6 +67,9 @@ export interface ShowDeps {
 }
 
 const NO_KEY_FOR_YOUTUBE = 'YouTube songs can’t change key: they play in YouTube’s own player. Key change works for songs from the KJ’s library.';
+
+/** What a singer is told when the KJ's Encore isn't unlocked. Plain and neutral: no plans, prices or buttons. */
+export const NOT_OPEN = 'This show isn’t open yet. Ask the KJ.';
 
 /** What the KJ needs to undo a call-up when the singer doesn't show. */
 interface CallSnapshot {
@@ -260,6 +268,7 @@ export class Show {
    * their spot with their code instead.
    */
   addSinger(rawName: string, fromPhone: boolean): Singer {
+    this.requireOpen(fromPhone);
     let name = cleanText(rawName, MAX_NAME);
     if (!name) throw new UserError('Please enter a name.');
     const existing = this.singerNamed(name);
@@ -283,7 +292,14 @@ export class Show {
     return token;
   }
 
+  /** Refuses with the neutral message for a phone, or the KJ's own reason for the KJ, while the show is closed. */
+  private requireOpen(fromPhone: boolean): void {
+    const why = this.deps.closed?.();
+    if (why) throw new UserError(fromPhone ? NOT_OPEN : why, 'show-closed');
+  }
+
   join(name: string): { token: string; singer: Singer } {
+    this.requireOpen(true);
     if (!this.state.settings.joinOpen) throw new UserError('Sign-ups are closed for tonight.');
     const { nameFilter, blockedWords } = this.state.settings;
     if (nameFilter && isBlockedName(String(name ?? ''), parseWords(blockedWords))) {
@@ -301,6 +317,7 @@ export class Show {
    * the code says which one you are.
    */
   reclaim(name: string, code: string): { token: string; singer: Singer } {
+    this.requireOpen(true);
     const key = nameKey(cleanText(name, MAX_NAME));
     const candidates = key ? this.state.singers.filter((s) => nameKey(s.name) === key) : [];
     if (!candidates.length) throw new UserError('Nobody by that name is on the list yet, so just join.', 'not-on-list');
@@ -636,6 +653,8 @@ export class Show {
 
   /** Bring the next singer up (intro card on the display). */
   callNext(): Entry | null {
+    // A closed show calls nobody; this is also the way a finished song moves on, so it just stops there.
+    if (this.deps.closed?.()) return null;
     // Someone is already being called up; "next" means start or no-show them.
     if (this.state.nowPlaying?.stage === 'intro') return this.state.nowPlaying.entry;
     this.finish('skipped');
@@ -650,6 +669,7 @@ export class Show {
   }
 
   callEntry(entryId: string): void {
+    this.requireOpen(false);
     this.finish('skipped');
     const entry = this.entry(entryId);
     if (entry.status !== 'queued') throw new UserError('Approve that request before calling it.');
@@ -987,7 +1007,28 @@ export class Show {
     return sang ? { tipPrompt: { id: `${last.entry.id}:${last.endedAt}`, title: last.entry.song.title } } : {};
   }
 
+  /** All a phone is given while the KJ's Encore isn't unlocked. */
+  private closedView(): SingerView {
+    return {
+      showName: this.state.settings.showName,
+      joinOpen: false,
+      notOpen: true,
+      allowYouTube: false,
+      youtubeSearch: false,
+      canBrowse: false,
+      maxQueuedPerSinger: 0,
+      me: null,
+      myEntries: [],
+      myNextPosition: null,
+      myNextEtaSec: null,
+      nowPlaying: null,
+      upcoming: [],
+      mode: this.state.mode,
+    };
+  }
+
   singerView(singerId: string | undefined, list: UpcomingItem[], youtubeSearch: boolean, hasLibrary = false): SingerView {
+    if (this.deps.closed?.()) return this.closedView();
     const { settings } = this.state;
     const me = singerId ? (this.singer(singerId) ?? null) : null;
     const np = this.state.nowPlaying;

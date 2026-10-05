@@ -6,6 +6,10 @@ Encore runs on the KJ's laptop. It does three things:
 - **Venue screen** (`/display`): plays the song on the TV or projector, introduces each singer, and shows a QR code between songs.
 - **Phone sign-up** (`/join`): singers scan the code, type a name, pick a song and watch their place in line. They don't need an app or an account.
 - **A setup guide on first run:** a new installation opens a three-step guide (add your music folder, open the venue screen, let singers join with the QR code). Skip it any time; run it again from Settings → *Help*. Installations that already had a library from an earlier version don't see it.
+- **Sign-in, a free trial and unlock codes:** a KJ signs in with their email (a 6-digit code, no password) to start a free 14-day trial, and can use an unlock code from Scriblio. Singers never sign in or see any of it: if a KJ's Encore isn't unlocked, a phone just says *This show isn't open yet. Ask the KJ.*
+  - After the trial Encore still opens, and the library, settings and printing work, but no new shows start. A show that is already running is never cut off.
+  - The online join link and lock-screen alerts are *Encore Cloud* and follow the plan. YouTube never does: search, pasted links and the player work the same on every plan.
+  - Settings → *Your Encore* shows the plan in plain words. How it works is in [docs/LICENSING.md](docs/LICENSING.md), and the owner's set-up steps are in [supabase/README.md](supabase/README.md).
 - **Print QR codes:** Settings → *Print QR codes* prints (or saves as a PDF) a table tent (the code on the top half, how to join, take a break and leave on the bottom half; fold it in half for a table stand, in a sign holder or standing by itself), a poster, four table cards to a page, or just the code. Your tip code can go on too. In the desktop app, *Save PDF* saves the printout as a file and opens it, to check it before printing or to send to a print shop (Windows' print window can't preview it). They use the online join link, which stays the same from night to night; with only the Wi-Fi link, Settings warns that the code can change.
 - **Tip your KJ:** paste your Venmo, Cash App or PayPal.me link in Settings → *Tips*. A QR code for it shows on the venue screen between songs, and phones get tip buttons in *The line*. Only plain https links are accepted, and Encore never touches the money.
   - With a Venmo, Cash App or PayPal.me link, phones get quick-tip buttons ($1, $5 and $10 unless you change them) that open the payment app with the amount filled in, plus *Other amount*.
@@ -67,7 +71,7 @@ Open **Settings** (the gear icon) to:
 
 Settings and the current show are saved in `encore/data/`. If the laptop restarts mid-show, Encore picks up where it left off, with the song that was playing paused.
 
-Configuration can also come from the environment: `PORT`, `ENCORE_LIBRARY` (folders separated by `:` on macOS/Linux or `;` on Windows), `DJ_PIN`, `PUBLIC_URL` and `ENCORE_DATA`. For development, `YOUTUBE_API_KEY` makes this copy search YouTube directly with your own key instead of through Encore's search service, and `ENCORE_YOUTUBE_SEARCH=0` turns search off.
+Configuration can also come from the environment: `PORT`, `ENCORE_LIBRARY` (folders separated by `:` on macOS/Linux or `;` on Windows), `DJ_PIN`, `PUBLIC_URL` and `ENCORE_DATA`. For development, `YOUTUBE_API_KEY` makes this copy search YouTube directly with your own key instead of through Encore's search service, and `ENCORE_YOUTUBE_SEARCH=0` turns search off. `ENCORE_LICENSE=off` skips the sign-in and license check when running from source (`npm run demo` and the tests already do); the installed app ignores it.
 
 ### YouTube search
 
@@ -177,6 +181,7 @@ How the code is organized:
 - `src/shared/relay.ts`, `src/server/relay.ts` and `src/client/common/relay-socket.ts` make up the encrypted online join link (P-256 ECDH, HKDF and AES-GCM over Supabase Realtime). On the laptop, each phone becomes an ordinary singer connection, so the online and Wi-Fi links follow the same rules.
 - `src/shared/pitch.ts` is the key-change pitch shifter, pure TypeScript so the tests run it in Node. `src/client/display/pitch-worklet.ts` runs it on the audio thread, `src/client/display/key-change.ts` routes a song through it, and `src/server/keys.ts` remembers singers' keys.
 - `src/server/webpush.ts` and `src/server/push.ts` send the lock-screen alerts: VAPID signing and RFC 8291 encryption with Node's own crypto, and the turn tracking that decides who to alert. `src/sw/sw.js` is the join page's service worker that shows them, and `src/client/sing/alerts.ts` subscribes the phone.
+- `supabase/functions/encore-license/` is the license service, and `src/server/account.ts`, `license.ts` and `access.ts` are its laptop side: sign-in by emailed code, the signed pass that says what the account may do, and the promise that a running show is never cut off. `src/shared/license.ts` turns a pass into a state and a sentence, and `src/client/dj/License.tsx` is the console's side. `Show` refuses new singers and calling anyone up when the plan is closed, and nothing about YouTube asks the license anything.
 - `src/desktop/` is the Electron shell. It runs the same server in-process and adds native windows, the folder picker and menus. `scripts/build-desktop.mjs` bundles it, `electron-builder.yml` packages it, and `npm run icons` redraws the icons in `build/`.
 
 ## Ideas for next

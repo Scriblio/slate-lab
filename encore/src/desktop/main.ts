@@ -43,6 +43,9 @@ async function start(): Promise<void> {
     dataDir,
     distDir: join(app.getAppPath(), 'dist'),
     fallbackLibraryFolder: demo,
+    // The installed app always checks the license and ignores the environment, so a setting on the KJ's
+    // computer can't switch it off. Running from source (npm run desktop) can, with ENCORE_LICENSE=off.
+    license: app.isPackaged ? {} : undefined,
     quiet: true,
   });
   const local = await encore.listen();

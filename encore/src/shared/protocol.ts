@@ -92,6 +92,16 @@ export type DjAction =
   | { type: 'breakPause'; paused?: boolean }
   /** With auto play off: start the break music, or stop it. */
   | { type: 'breakPlay'; on: boolean }
+  /** Sign in: email a 6-digit code (the first time, this makes the account), then trade the code for a session. */
+  | { type: 'accountSendCode'; email: string }
+  | { type: 'accountVerify'; email: string; code: string }
+  | { type: 'accountSignOut' }
+  /** Start the free trial, if this account and this laptop haven't had one. */
+  | { type: 'startTrial' }
+  /** Use an unlock code. */
+  | { type: 'redeemCode'; code: string }
+  /** Check the license online now. */
+  | { type: 'refreshLicense' }
   | { type: 'setConfig'; libraryFolders?: string[]; breakFolders?: string[]; audioOutput?: string; setupDone?: boolean; filenameOrder?: FilenameOrder; onlineJoin?: boolean };
 
 /** A Web Push subscription, as the browser's PushSubscription.toJSON() gives it. */

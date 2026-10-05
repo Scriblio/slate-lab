@@ -10,6 +10,7 @@ import { Modal, useToast } from '../common/ui.tsx';
 import { DjContext, useDj, type DjCtx } from './context.ts';
 import { BreakCard } from './BreakCard.tsx';
 import { Finder } from './Finder.tsx';
+import { LicensePanel, TrialBadge } from './License.tsx';
 import { SetupGuide } from './SetupGuide.tsx';
 import { Rotation } from './Rotation.tsx';
 import { SettingsModal } from './Settings.tsx';
@@ -115,6 +116,7 @@ export function DjApp() {
       <FirstRun socket={socket} />
       <div className="dj">
         <TopBar offline={conn !== 'online'} />
+        <LicensePanel />
         <main className="dj-grid">
           <section className="col col-stage">
             <Stage />
@@ -221,6 +223,7 @@ function TopBar({ offline }: { offline: boolean }) {
             <I.Wifi /> Reconnecting
           </span>
         )}
+        <TrialBadge />
         {!view.show.settings.joinOpen && <span className="badge amber">Sign-ups closed</span>}
         {pending > 0 && <span className="badge amber">{pending} to approve</span>}
         <button className={`join-pill ${view.relay.state === 'online' ? 'online' : ''}`} onClick={() => setQr(true)} title="Show the join QR code">

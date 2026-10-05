@@ -16,7 +16,8 @@ const dev = args.includes('--dev');
 const demo = args.includes('--demo');
 
 const extraLibraryFolders = demo ? [await makeDemoLibrary(resolve(dataDir, 'demo-library'))] : [];
-const app = await createApp({ port, dataDir, dev, host: process.env.HOST, extraLibraryFolders });
+// The demo skips the license check; a real run checks it (ENCORE_LICENSE=off skips it for development).
+const app = await createApp({ port, dataDir, dev, host: process.env.HOST, extraLibraryFolders, license: demo ? false : undefined });
 const local = await app.listen();
 
 const line = '─'.repeat(52);

@@ -2,6 +2,7 @@
 // the phone sign-up page. The server owns the one authoritative ShowState;
 // every client sees a view of it shaped for its role.
 
+import type { LicenseView } from './license.ts';
 import type { SongKey } from './songkey.ts';
 import { DEFAULT_TIP_AMOUNTS } from './tips.ts';
 
@@ -261,6 +262,11 @@ export interface SearchResult {
 export interface SingerView {
   showName: string;
   joinOpen: boolean;
+  /**
+   * There's no show to join yet: the KJ's Encore isn't unlocked. The phone says "This show isn't open
+   * yet. Ask the KJ." and nothing else; singers are never shown plans, prices or upgrade buttons.
+   */
+  notOpen?: boolean;
   allowYouTube: boolean;
   youtubeSearch: boolean;
   /** The KJ lets singers scroll through the library, and there is a library. */
@@ -387,4 +393,6 @@ export interface DjView {
   breakMusic: BreakStatus;
   /** The audio output device the screen plays through ('' = system default). */
   audioOutput: string;
+  /** The KJ's plan: sign-in, free trial, unlock code. Only the console ever sees this. */
+  license: LicenseView;
 }

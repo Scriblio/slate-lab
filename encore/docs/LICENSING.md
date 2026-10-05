@@ -2,7 +2,7 @@
 
 This is the brief for selling Encore. It was agreed with Matthew. Read `docs/HANDOFF.md` first for how the app works; this file covers only licensing.
 
-The work comes in three steps. **Step 1 is the one to build now:** accounts, a free trial, unlock codes and the checks in the app, with no payments yet. Matthew will give codes to a few KJ friends as beta testers and watch what the cloud costs per KJ, then step 2 adds Stripe.
+The work comes in three steps. **Step 1 is built** (accounts, a free trial, unlock codes and the checks in the app, with no payments yet; see "Step 1: as built" below). It waits for Matthew to set up the backend, with the steps in `supabase/README.md` under "Licensing". Matthew will give codes to a few KJ friends as beta testers and watch what the cloud costs per KJ, then step 2 adds Stripe.
 
 ## Decisions already made (don't revisit)
 
@@ -148,6 +148,19 @@ YouTube search is **not** part of Cloud (see the rules above).
   - YouTube search works in every state that can run a show (a test that guards the YouTube rule).
 - **The code format:** generation and normalization (spaces, lowercase, missing dashes).
 
+### Step 1: as built
+
+Built on PR #4. The service is `supabase/functions/encore-license/`, the tables and the functions Matthew runs are `supabase/migrations/20261005000000_licensing.sql`, the laptop side is `src/server/{account,license,access}.ts` with `src/shared/license*.ts`, and the console is `src/client/dj/License.tsx`. How it differs from the plan above, or adds to it:
+
+- **What a code grants is worked out each time, not copied.** When the service signs a pass it reads the codes the account has used that are still on, so turning a code off takes effect at the next check-in without touching any account. `licenses` holds only what that doesn't cover: the owner flag, a purchase (step 2) and the trial.
+- **Signing in starts the trial by itself.** The plan's separate `startTrial` is there too, for a Start button when the automatic one couldn't get through. An account that already owns Encore never uses up its laptop's trial.
+- **The pass** also carries `v` (the format) and `source` (`owner`, `code`, `purchase` or `trial`, so Settings can say "unlock code"). It's an Ed25519 JWT with a key id in its header, and the app ships a list of public keys so a key can be replaced without breaking installed copies. The private key is the Edge Function secret `LICENSE_SIGNING_KEY` (43 characters of base64url); `npm run license:key` makes it without ever showing it.
+- **Extras on the SQL functions:** `make_unlock_code(note, grants, max_uses, expires_in_days)` takes an optional expiry, and `set_owner(email, make_owner)` can undo itself. Codes stack: a Cloud-year code adds a year after whatever Cloud the account already has.
+- **"Never cut off a show that's running" is a ticket** (`src/server/access.ts`). The show that had singers while the plan allowed it stays open, with its online link and alerts, until the KJ starts a new list or Encore is closed. It's kept in memory only, so a restart ends it. Cloud is held separately from the show.
+- **Turning the clock back doesn't help.** The laptop's time never runs earlier than the pass was made, and a clock far ahead is called out in plain words instead of making every fresh pass look stale.
+- **The YouTube player page doesn't follow the plan.** Its address is built from the Cloud settings as configured, never from whether the KJ's plan includes Cloud, so YouTube plays the same on every plan. `test/license-app.test.ts` checks YouTube search, pasted links and that page in all six states.
+- **Production isn't touched yet.** The migration and the function are written and tested (the SQL runs in an in-process Postgres, PGlite, as part of `npm test`) but not applied or deployed. Until Matthew does that and signs in once, a copy built from this branch can't run a show, because there's no backend to give it a pass. `ENCORE_LICENSE=off` skips the check when running from source.
+
 ## Step 2: Stripe (later, after the beta)
 
 - **Products:** "Encore" ($149 once, which also sets Cloud for one year) and "Encore Cloud" ($49 a year, recurring). Test mode first, with keys only as Edge Function secrets.
@@ -168,9 +181,9 @@ YouTube search is **not** part of Cloud (see the rules above).
 - **Update `docs/YOUTUBE_AUDIT.md`:** monetization answers that match the YouTube rules above.
 - **Fill in the Microsoft Store identity values** (`STORE.md`).
 
-## Questions to ask Matthew before deciding
+## The four questions, answered (Matthew, 4 October 2026)
 
-1. After the trial ends with nothing bought, is "the console opens but no new shows" right? Or should there be a small allowance?
-2. Is 14 days the right time offline before a check-in is needed?
-3. Should the trial need an email sign-in? The proposal is yes, since the account is needed to buy anyway.
-4. Which email service should send the sign-in codes (Resend, Postmark, or another)?
+1. **After the trial ends with nothing bought:** the console opens but there are no new shows, as written above. No allowance.
+2. **Time offline before a check-in is needed:** 14 days.
+3. **The trial needs an email sign-in:** yes.
+4. **Email service for the sign-in codes:** Resend.

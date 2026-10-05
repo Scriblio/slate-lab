@@ -4,6 +4,11 @@ The form is at **https://support.google.com/youtube/contact/yt_api_form**. Sign 
 
 Section by section, the answers below match the form's fields. Text in quote blocks can be pasted as is.
 
+> **⚠️ Three answers are out of date since the licensing work (see `docs/LICENSING.md`). Don't submit until they're fixed. This is part of licensing step 3.**
+>
+> - **Monetization (Section 3)** says a one-time purchase through the Microsoft Store. Encore is now sold through Stripe, not the Store's checkout: a one-time purchase of the KJ software ($149, which includes a year of Encore Cloud), then Encore Cloud as an optional yearly subscription ($49), after a 14-day free trial. Cloud is only the online join link and lock-screen alerts. **No YouTube feature is part of any plan, trial or unlock code** (policies III.F.3.a and III.G.1.b): search, pasted links, previews and the player work the same in every state, and `test/license-app.test.ts` checks it. The answer must say so.
+> - **Demo account and Special instructions (Section 4)** say "Encore has no accounts". Singers still have none, but a KJ now signs in with an email address (Encore emails a 6-digit code) to run a show. Give the reviewer a way in: an unlock code (`select make_unlock_code('YouTube review');` in the Supabase SQL editor) and an email address they can receive mail at, and say so in both places.
+
 ## Section 1: Request type
 
 **Complete a compliance audit to request for additional quota.**

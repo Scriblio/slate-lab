@@ -217,8 +217,15 @@ function JoinScreen({
         <p className="eyebrow">Tonight at</p>
         <h1>{view.showName}</h1>
       </div>
-      {notice && <div className="notice">{notice}</div>}
-      {mode === 'claim' ? (
+      {notice && !view.notOpen && <div className="notice">{notice}</div>}
+      {view.notOpen ? (
+        // The KJ's Encore isn't unlocked. Singers are told only this: no plans, prices or buttons.
+        <div className="join-card closed">
+          <I.Clock />
+          <h2>This show isn’t open yet</h2>
+          <p className="muted">Ask the KJ.</p>
+        </div>
+      ) : mode === 'claim' ? (
         <form className="join-card" onSubmit={submitClaim}>
           {taken ? (
             <>

@@ -4,17 +4,23 @@
 
 import { useEffect, useState } from 'react';
 import type { ServerConfigView } from '../../shared/protocol.ts';
+import { planSentence } from '../../shared/license.ts';
 import { desktop } from '../common/desktop.ts';
 import * as I from '../common/icons.tsx';
 import { request } from '../common/socket.ts';
 import { Modal } from '../common/ui.tsx';
 import { useDj } from './context.ts';
+import { SignInForm } from './License.tsx';
 
-const STEPS = ['Your music', 'The big screen', 'Singers'] as const;
+type Step = 'Your free trial' | 'Your music' | 'The big screen' | 'Singers';
 
 export function SetupGuide({ onClose }: { onClose: () => void }) {
   const { view, act, socket } = useDj();
-  const [step, setStep] = useState(0);
+  // Signing in comes first, unless this copy doesn't check licenses (a development build).
+  const STEPS: Step[] = [...(view.license.state === 'off' ? [] : (['Your free trial'] as const)), 'Your music', 'The big screen', 'Singers'];
+  const [index, setStep] = useState(0);
+  const step = STEPS[Math.min(index, STEPS.length - 1)]!;
+  const at = STEPS.indexOf(step);
   const [folders, setFolders] = useState<string[]>([]);
   const [typed, setTyped] = useState('');
   const lib = view.library;
@@ -39,13 +45,35 @@ export function SetupGuide({ onClose }: { onClose: () => void }) {
       <div className="guide">
         <ol className="guide-steps" aria-label="Setup steps">
           {STEPS.map((s, i) => (
-            <li key={s} className={i === step ? 'on' : i < step ? 'done' : ''}>
-              <span>{i < step ? <I.Check /> : i + 1}</span> {s}
+            <li key={s} className={i === at ? 'on' : i < at ? 'done' : ''}>
+              <span>{i < at ? <I.Check /> : i + 1}</span> {s}
             </li>
           ))}
         </ol>
 
-        {step === 0 && (
+        {step === 'Your free trial' && (
+          <div className="guide-body">
+            <h3>Start your free trial</h3>
+            <p className="muted">Sign in with your email to start your free 14-day trial. Your plan goes with your email, so a new computer is just a sign-in.</p>
+            {view.license.email ? (
+              <>
+                <p className="guide-status ok">
+                  <I.Check /> Signed in as {view.license.email}. {planSentence(view.license)}
+                </p>
+                {view.license.problem && (
+                  <p className="settings-error">
+                    <I.Alert /> {view.license.problem}
+                  </p>
+                )}
+              </>
+            ) : (
+              <SignInForm />
+            )}
+            <p className="muted small">Not ready? Skip ahead and sign in later from Settings → Your Encore. You can set up your music and screen without it.</p>
+          </div>
+        )}
+
+        {step === 'Your music' && (
           <div className="guide-body">
             <h3>Add your karaoke music</h3>
             <p className="muted">
@@ -105,7 +133,7 @@ export function SetupGuide({ onClose }: { onClose: () => void }) {
           </div>
         )}
 
-        {step === 1 && (
+        {step === 'The big screen' && (
           <div className="guide-body">
             <h3>Put the song lyrics on the big screen</h3>
             <p className="muted">
@@ -129,7 +157,7 @@ export function SetupGuide({ onClose }: { onClose: () => void }) {
           </div>
         )}
 
-        {step === 2 && (
+        {step === 'Singers' && (
           <div className="guide-body">
             <h3>Let singers join</h3>
             <div className="guide-qr">
@@ -170,13 +198,13 @@ export function SetupGuide({ onClose }: { onClose: () => void }) {
             Skip setup
           </button>
           <span className="spacer" />
-          {step > 0 && (
-            <button className="btn" onClick={() => setStep(step - 1)}>
+          {at > 0 && (
+            <button className="btn" onClick={() => setStep(at - 1)}>
               Back
             </button>
           )}
-          {step < STEPS.length - 1 ? (
-            <button className="btn primary" onClick={() => setStep(step + 1)}>
+          {at < STEPS.length - 1 ? (
+            <button className="btn primary" onClick={() => setStep(at + 1)}>
               Next
             </button>
           ) : (

@@ -10,6 +10,7 @@ import * as I from '../common/icons.tsx';
 import { request } from '../common/socket.ts';
 import { Modal, Toggle, useToast, YouTubeTerms } from '../common/ui.tsx';
 import { useDj } from './context.ts';
+import { YourEncore } from './License.tsx';
 import { PrintSheet, type PrintLayout, type TentFold } from './PrintSheet.tsx';
 
 export function SettingsModal({ onClose }: { onClose: () => void }) {
@@ -58,10 +59,16 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   const foldersChanged = config && folders.trim() !== config.libraryFolders.join('\n').trim();
   const breakChanged = config && breakFolders.trim() !== config.breakFolders.join('\n').trim();
   const brk = view.breakMusic;
+  // The online link and lock-screen alerts are Encore Cloud. A copy with licensing off has them like always.
+  const cloudIncluded = view.license.state === 'off' || view.license.cloud;
 
   return (
     <Modal title="Settings" onClose={onClose} width={640}>
       <div className="settings">
+        <Section title="Your Encore">
+          <YourEncore />
+        </Section>
+
         <Section title="Tonight’s show">
           <Field label="Show name" hint="Shown on phones and the venue screen.">
             <input
@@ -185,7 +192,11 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           ) : (
             <p className="settings-error">
               <I.Alert /> These codes use this laptop’s Wi-Fi address ({view.print.label}), which can change on another night or at another venue.{' '}
-              {config?.onlineJoinAvailable ? 'Turn on the secure online link (under How phones join) for codes that keep working every show.' : 'Print new ones if it does.'}
+              {!config?.onlineJoinAvailable
+                ? 'Print new ones if it does.'
+                : cloudIncluded
+                  ? 'Turn on the secure online link (under How phones join) for codes that keep working every show.'
+                  : 'Codes that keep working every show need Encore Cloud.'}
             </p>
           )}
           {s.tipLink && <Switch label="Include the tip QR" hint="A small second code for your tip link." checked={printTip} onChange={setPrintTip} />}
@@ -458,8 +469,19 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           </p>
         </Section>
 
-        {config?.onlineJoinAvailable && (
+        {config?.onlineJoinAvailable && !cloudIncluded && view.relay.state === 'off' && (
           <Section title="How phones join">
+            <p className="muted small">
+              Encore Cloud: the online link and lock-screen alerts need Cloud. Without it, phones join at <span className="mono">{view.relay.lanUrl}</span>, on the same Wi-Fi as this laptop.
+            </p>
+          </Section>
+        )}
+
+        {config?.onlineJoinAvailable && (cloudIncluded || view.relay.state !== 'off') && (
+          <Section title="How phones join">
+            {!cloudIncluded && (
+              <p className="muted small">Your plan doesn’t include Encore Cloud. The online link carries on for tonight’s show, then switches off.</p>
+            )}
             <Switch
               label="Secure online link"
               hint="The QR code opens a secure https page, so phones don't show a 'not secure' warning and can join on any network, even cellular data. Messages are encrypted end to end. Needs internet; without it, Encore uses the Wi-Fi link automatically."
