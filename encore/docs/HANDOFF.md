@@ -53,13 +53,13 @@ Encore is a karaoke hosting (KJ) app by Scriblio (Matthew Lancaster). It's being
   - a `pg_cron` job, `yt-catalog-tick`, that keeps the karaoke catalog built (see `supabase/README.md`);
   - Edge Function secret `YOUTUBE_API_KEY`.
 
-  - **Licensing: applied and deployed on 2026-10-05 (Matthew approved it), but not switched on yet.**
+  - **Licensing: applied and deployed on 2026-10-05 (Matthew approved it), and switched on and working as of 2026-10-16.**
     - The migration is applied: tables `licenses`, `unlock_codes`, `code_redemptions`, `trials` and `license_attempts` (RLS on; a signed-in KJ may read only their own `licenses` row), and the functions Matthew runs in the SQL editor, `make_unlock_code`, `revoke_unlock_code` and `set_owner`. Checked on the live project: RLS on everywhere, the public keys can run none of the functions, and the SQL's output matches the app's (the same hash of a code).
-    - The `encore-license` Edge Function is deployed with `verify_jwt` **on**. It also asks the Auth server who a token belongs to, because the platform's check lets an API key through to the function. Until the secret below exists it answers "not switched on yet".
-    - **Still to do, by Matthew:** the Edge Function secret `LICENSE_SIGNING_KEY` (made by `npm run license:key`; the file is in his home folder), and in Auth the Email provider with the 6-digit code, his own SMTP (Resend), and the "Magic link" and "Confirm signup" templates showing `{{ .Token }}`. Then he signs in once and runs `select set_owner('his email');`.
-    - **Not yet seen working live:** a real sign-in, the function signing a pass on Deno (Ed25519 in WebCrypto; its tests run in Node), and Resend delivering the code. They're the first things to check once the steps above are done. If a valid sign-in is turned away, the function's logs say why (`The Auth server turned down a token`).
-
-    Until that's done, a copy built from this branch can't run a show.
+    - The `encore-license` Edge Function is deployed with `verify_jwt` **on**. It also asks the Auth server who a token belongs to, because the platform's check lets an API key through to the function. Without the Edge Function secret `LICENSE_SIGNING_KEY` it answers "Licensing isn't switched on yet" (the app shows "Encore's license service isn't switched on yet").
+    - **Switched on:** Matthew added `LICENSE_SIGNING_KEY` (made by `npm run license:key`; it exists nowhere else, so keep a copy in a password manager). Seen working live: a real sign-in with an emailed code, the function signing a pass on Deno, and the 14-day trial. On 2026-10-16 his account was made the owner (`set_owner`) and the installed app showed "Owner. Everything, forever."
+    - **The sign-in email:** the Auth templates "Confirm sign up" and "Magic link or OTP" show `{{ .Token }}` (the stock ones send a link that opens `localhost:3000`, the project's default Site URL, so a customer would see "Unable to connect"). Custom SMTP is on through Resend: sender `hello@scriblio.co`, name Encore, `smtp.resend.com` port 465, user `resend`. It reuses the Resend account and verified `scriblio.co` domain that the Scriblio project (`hvqlizqrcrduzslekbhq`) already uses, so no new DNS was needed (the domain's DNS is at Vercel). A test code requested on 2026-10-16 was accepted by Supabase; that it lands in the inbox from "Encore" is still for Matthew to confirm.
+    - **Loose ends, Matthew's:** two DKIM TXT records at `resend._domainkey.scriblio.co` differ by one character (one is likely a typo from an old paste; compare with the key under Resend → Domains and delete the wrong one in Vercel DNS, since it can make some mail providers' checks flaky). Optionally set Auth → URL Configuration → Site URL to a real page such as `https://sing.scriblio.co/encore`.
+    - If a valid sign-in is turned away, the function's logs say why (`The Auth server turned down a token`).
 
   Only the publishable key is in the code (`src/shared/cloud.ts`).
 - **Google Cloud** project `encore-karaoke-k7m3` owns the YouTube Data API key, which is restricted to YouTube Data API v3.
@@ -159,16 +159,21 @@ The YouTube API Services policies apply because Encore uses the search API. Brea
 ## Open items
 
 0. **Selling Encore:** the plan is in `docs/LICENSING.md`: $149 once with a year of Encore Cloud, $49 a year for Cloud after that, a 14-day trial, and unlock codes Matthew can give out.
-   - **Step 1 is built, and its migration and function are applied and deployed (2026-10-05), but it isn't switched on.** Matthew still has to add the secret `LICENSE_SIGNING_KEY` (made by `npm run license:key`), set up the sign-in email (Resend), sign in once, and mark his own account as the owner (`supabase/README.md`, "Licensing", steps 2, 4 and 5).
-   - **Don't install a build from this branch on a laptop you run shows from until that's done.** With no signing key the service can't give it a pass, so it can't start a show.
-   - After that: a few beta KJs with unlock codes, then step 2 (Stripe), then step 3 (pricing page, `docs/YOUTUBE_AUDIT.md`, Store identity).
+   - **Step 1 is built, live and switched on** (see Infrastructure). The current build asks for a sign-in with an email address and starts a 14-day trial; unlock codes are made in the Supabase SQL editor (`select make_unlock_code('for Dave');`, see `supabase/README.md`). The version is **0.2.0**, the first build with sign-in.
+   - **Leave the old public preview alone:** release `encore-v0.1.0-preview` (`Encore-Karaoke-Setup-0.1.0.exe`, linked from `sing.scriblio.co/encore`) has no sign-in, and on 2026-10-16 Matthew told Google's YouTube API Services team that the installer in the original submission needs no account. Don't replace it or change what `/encore` links to until their review is over. Beta builds go out as a separate pre-release, `encore-v0.2.0-beta`.
+   - **Next:** a few beta KJs with unlock codes, then step 2 (Stripe: Buy Encore and Renew Cloud buttons), then step 3 (pricing page, `docs/YOUTUBE_AUDIT.md`, Store identity). Don't send customers to it before the YouTube quota extension is granted (item 2): the default quota is about 99 uncached searches a day across all KJs.
 1. **Real-world checks** (the cloud sandbox couldn't reach YouTube):
    - YouTube playback through the site-hosted player;
    - whether it plays more videos than before;
    - vibration, chime and wake lock on real iPhone and Android phones;
    - key change by ear on real karaoke tracks: how ±2 and ±4 sound, and that CD+G lyrics still feel in time;
    - lock-screen alerts on a real Android phone (Chrome), and on an iPhone from the home screen. Check whether the home-screen app reopens straight into the show: the manifest has no `start_url`, so it should keep the link from the QR code. If it doesn't, the singer can still get back in with their rejoin code.
-2. **YouTube quota extension:** the answers and evidence are ready in `docs/YOUTUBE_AUDIT.md`. The PDFs are in `docs/youtube-audit/` and aren't committed; regenerate them from the live pages if needed. Matthew submits the form. Apply through the YouTube API Services audit before launch. The free quota is about 99 uncached searches a day across all customers. Caps can be raised with the Supabase secrets `YT_DAILY_SEARCHES`, `YT_DAILY_PER_INSTALL` and `YT_DAILY_PER_IP`.
+2. **YouTube quota extension and compliance review (waiting on Google):**
+   - Matthew submitted the form on 2026-10-04 (the answers are in `docs/YOUTUBE_AUDIT.md`). On 2026-10-07 Google's YouTube API Services team asked for an English screencast of the whole flow (search, pick, play on the venue screen, the end result), and on 2026-10-16 extended the time to **2026-10-21**.
+   - The screencast is on Matthew's YouTube channel, unlisted: https://youtu.be/8ZFxR3iteM0. His reply of 2026-10-16, on Google's email thread, gave the link and the changes since the form: Encore is sold by us through Stripe instead of the Microsoft Store, with a 14-day trial, host sign-in, and no YouTube feature in any plan.
+   - If Google asks to run the new build, make them a code: `select make_unlock_code('YouTube review');`.
+   - The evidence PDFs are in `docs/youtube-audit/` and aren't committed. The privacy policy and terms PDFs there predate the 2026-10-05 update, so regenerate them from the live pages before sending them again.
+   - After approval, raise the caps with the Supabase secrets `YT_DAILY_SEARCHES`, `YT_DAILY_PER_INSTALL` and `YT_DAILY_PER_IP` (see `supabase/README.md`). The free quota is about 99 uncached searches a day across all customers.
 3. **Terms of Use:** say that users of YouTube features agree to the YouTube Terms of Service. Finish `PRIVACY.md` (placeholders in brackets) and host it.
 4. **Microsoft Store:** fill in the Partner Center identity values in `electron-builder.yml` (see `STORE.md`).
 5. **Ideas Matthew liked but didn't build yet:**

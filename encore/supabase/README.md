@@ -64,15 +64,17 @@ Nothing here touches YouTube. Search, pasted links and the player page don't ask
 
 ### Setting it up, once
 
-Do these in order. Steps 1 and 3 change the live project, so check with Matthew first. **On the live `encore` project, steps 1 and 3 were done on 2026-10-05 with his go-ahead; steps 2, 4 and 5 are still his.** The list is also how to set up another project, or redo this one.
+Do these in order. Steps 1 and 3 change the live project, so check with Matthew first. **On the live `encore` project all five are done:** steps 1 and 3 on 2026-10-05 with his go-ahead, and steps 2, 4 and 5 by Matthew by 2026-10-16. The list is also how to set up another project, or redo this one.
 
 1. **Apply the migration** (SQL editor, or `supabase db push`): `migrations/20261005000000_licensing.sql`. It makes the tables and the functions below, and gives the public keys no access to any of them.
 2. **Make the signing key.** From the `encore/` folder, run `npm run license:key`. It writes the public key into `src/shared/license-key.ts` (commit that file) and the private key to a file in your home folder, without showing it. Add that file's one line as the Edge Function secret `LICENSE_SIGNING_KEY` (Dashboard → Edge Functions → Secrets), keep a copy in a password manager, then delete the file. Never put it in the code, a commit or a chat. If it's ever lost, run the script again and ship a new release: every installed copy only trusts the public key built into it. (To change keys without breaking installed copies, see the comments at the top of `scripts/make-license-key.mjs`.)
 3. **Deploy the function** with JWT verification **on**, which is the default and the opposite of `youtube-search` (callers are signed-in KJs): `supabase functions deploy encore-license`.
 4. **Set up the sign-in email** (Dashboard → Authentication):
    - **Providers → Email:** on, with "Allow new users to sign up" on. Nobody types a password.
-   - **SMTP settings:** use your own sender. Supabase's built-in one sends only a few emails an hour, fine for testing and no good for customers. With Resend: host `smtp.resend.com`, port `465`, username `resend`, password a Resend API key, and a sender address on a domain you've verified with Resend (Resend's SMTP page has the current settings).
-   - **Email templates:** edit **both** "Magic link" (used by KJs who've signed in before) and "Confirm signup" (used the first time) so they show the code instead of a link. For example: `<h2>Your Encore code</h2><p>Type this into Encore: <strong>{{ .Token }}</strong></p><p>It expires soon. If you didn't ask for it, ignore this email.</p>`
+   - **Emails → Templates:** edit **both** "Magic link or OTP" (used by KJs who've signed in before) and "Confirm sign up" (used the first time). Replace the whole message body so the email shows the code and no link, for example `<h2>Your Encore code</h2><p>Type this into Encore: <strong>{{ .Token }}</strong></p><p>It expires soon. If you didn't ask for it, ignore this email.</p>`, and change the subjects too (they still say "sign-in link" and "Confirm Your Signup").
+     - Why both, and why the whole body: the stock emails hold a link, `{{ .ConfirmationURL }}`, which opens the project's Site URL (`http://localhost:3000` until it's changed). A customer who clicks it sees "Unable to connect" and never gets the code. Clicking it also confirms the address, which is easy to mistake for it working.
+   - **Emails → SMTP Settings:** use your own sender. Supabase's built-in one has rate limits and isn't meant for production. With Resend: host `smtp.resend.com`, port `465`, username `resend`, and as the password a Resend API key made for this project (Resend → API Keys → Sending access), pasted straight into the dashboard and never into chat or code. The sender address must be on a domain verified in Resend. On the live project it's `hello@scriblio.co`, named Encore, on the domain the Scriblio project already uses, so no new DNS records were needed.
+   - **Optional:** Authentication → URL Configuration → Site URL: set it to a real page such as `https://sing.scriblio.co/encore`, so no link ever leads to localhost.
 5. **Make yourself the owner.** Sign in to Encore once with your email (that makes the account), then in the SQL editor run `select set_owner('you@example.com');` and press **Check again** in Encore, under Settings → Your Encore. `select set_owner('you@example.com', false);` undoes it, which is handy for trying the trial yourself.
 
 ### Giving out and turning off unlock codes
@@ -118,3 +120,11 @@ order by l.created_at desc;
 - **The code** is in `functions/encore-license/`: `core.ts` has no Deno imports, `pass.ts` and `codes.ts` are shared with the app, and `store.ts` is the REST layer over the database functions. `test/license-*.test.ts` run it all, including the real SQL in an in-process Postgres (PGlite).
 
 Secrets: `LICENSE_SIGNING_KEY` (required). Optional: `LICENSE_KEY_ID` (default `k1`, goes in the pass header), `LICENSE_PASS_DAYS` and `LICENSE_TRIAL_DAYS` (default 14), `LICENSE_REDEEM_PER_HOUR` (10), `LICENSE_REDEEM_PER_IP_HOUR` (30), and `LICENSE_SALT` (defaults to the project's secret key). The Supabase URL and keys the function needs are provided automatically.
+
+### When something's off
+
+- **The app says "Encore's license service isn't switched on yet":** the secret `LICENSE_SIGNING_KEY` isn't set (Dashboard → Edge Functions → Secrets, where only the names and a digest are shown), or isn't a usable key (the function's logs then say `LICENSE_SIGNING_KEY is not a usable key`). The 14-day trial doesn't start while this is the case. Add it, wait a minute, press **Check again**.
+- **The sign-in email has a link, or the link opens localhost:** the templates still hold `{{ .ConfirmationURL }}` (see step 4). Fix both templates.
+- **No email arrives:** look in spam, then Authentication → Logs for a send error, and Resend → Logs. Supabase allows one code per account a minute, and the built-in sender only a few emails an hour.
+- **"The Auth server turned down a token" in the function's logs:** the KJ's session is no longer valid. They sign in again.
+- **The codes are wrong or used up:** `select c.note, c.uses, c.max_uses, c.revoked from unlock_codes c order by c.created_at desc;` (see "Giving out and turning off unlock codes").

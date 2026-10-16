@@ -238,7 +238,10 @@ describe('the snapshot the service reads', () => {
 });
 
 describe('counting tries', () => {
-  const take = (buckets: string[], limits: number[], window = '2026-10-05T10:00:00Z') => t.value<string | null>('select license_take($1, $2, $3)', [buckets, limits, window]);
+  // The current hour, so these counters are "recent" whenever the tests run: license_prune() forgets anything over 2 days old.
+  const thisHour = Math.floor(Date.now() / 3_600_000) * 3_600_000;
+  const hourAt = (offset: number) => new Date(thisHour + offset * 3_600_000).toISOString();
+  const take = (buckets: string[], limits: number[], window = hourAt(0)) => t.value<string | null>('select license_take($1, $2, $3)', [buckets, limits, window]);
 
   it('lets each bucket have its limit, then names the one that is full', async () => {
     for (let i = 0; i < 3; i++) expect(await take(['acct:a'], [3])).toBeNull();
@@ -253,9 +256,9 @@ describe('counting tries', () => {
   });
 
   it('starts again each hour', async () => {
-    expect(await take(['acct:c'], [1], '2026-10-05T10:00:00Z')).toBeNull();
-    expect(await take(['acct:c'], [1], '2026-10-05T10:00:00Z')).toBe('acct:c');
-    expect(await take(['acct:c'], [1], '2026-10-05T11:00:00Z')).toBeNull();
+    expect(await take(['acct:c'], [1], hourAt(-1))).toBeNull();
+    expect(await take(['acct:c'], [1], hourAt(-1))).toBe('acct:c');
+    expect(await take(['acct:c'], [1], hourAt(0))).toBeNull();
   });
 
   it('refuses mismatched lists', async () => {

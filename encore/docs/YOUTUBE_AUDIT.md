@@ -4,7 +4,7 @@ The form is at **https://support.google.com/youtube/contact/yt_api_form**. Sign 
 
 Section by section, the answers below match the form's fields. Text in quote blocks can be pasted as is.
 
-> **⚠️ Three answers are out of date since the licensing work (see `docs/LICENSING.md`). Don't submit until they're fixed. This is part of licensing step 3.**
+> **Status, 2026-10-16: submitted on 4 October; Google has asked for a screencast (see "Review history" at the end).** The sections below are what was submitted. Three answers were out of date a day later, once the plan moved to the licensing design in `docs/LICENSING.md`, and Google was told about the changes in Matthew's reply of 16 October. **If the form is ever submitted again** (for a bigger quota, say), use "Corrected answers" at the end of this file instead of the Monetization, Demo account and Special instructions answers below:
 >
 > - **Monetization (Section 3)** says a one-time purchase through the Microsoft Store. Encore is now sold through Stripe, not the Store's checkout: a one-time purchase of the KJ software ($149, which includes a year of Encore Cloud), then Encore Cloud as an optional yearly subscription ($49), after a 14-day free trial. Cloud is only the online join link and lock-screen alerts. **No YouTube feature is part of any plan, trial or unlock code** (policies III.F.3.a and III.G.1.b): search, pasted links, previews and the player work the same in every state, and `test/license-app.test.ts` checks it. The answer must say so.
 > - **Demo account and Special instructions (Section 4)** say "Encore has no accounts". Singers still have none, but a KJ now signs in with an email address (Encore emails a 6-digit code) to run a show. Give the reviewer a way in: an unlock code (`select make_unlock_code('YouTube review');` in the Supabase SQL editor) and an email address they can receive mail at, and say so in both places.
@@ -141,3 +141,33 @@ Read each one, then tick them all and submit. Afterwards, click **Download submi
 Raise the caps to match the grant with the Supabase Edge Function secrets `YT_DAILY_SEARCHES` (overall), `YT_DAILY_PER_INSTALL` and `YT_DAILY_PER_IP` (see `supabase/README.md`). For 100,000 units: about 950 overall, 150 per installation and 200 per IP.
 
 Google re-audits periodically. Keep the policies, the 30-day storage limits and the player rules (no overlays, no ad blocking) as they are, and use this same form to tell YouTube before the use case changes.
+
+## Corrected answers (use these if the form is submitted again)
+
+**Monetization (Section 3), "Other":**
+
+> Desktop app sold directly by us, with payments through Stripe: a 14-day free trial, then a one-time purchase of $149 that includes the first year of Encore Cloud (a secure online join link and lock-screen alerts for singers' phones), then an optional $49 a year for Cloud. YouTube features (search, pasted links, previews and playback in YouTube's embedded player) are included in every plan, trial and unlock code at no extra charge and are never sold separately. No advertising.
+
+**Demo account (Section 4):**
+
+> A reviewer can sign in with any email address (Encore emails a 6-digit code) and gets the 14-day free trial. We can also give an unlock code on request.
+
+**Special instructions for access (Section 4):** the same steps as above, with a sign-in first:
+
+> Install Encore on Windows 10 or 11 from the link on https://sing.scriblio.co/encore. Windows SmartScreen may warn because the installer isn't code-signed yet: click More info, then Run anyway. On first start, type your email address, then the 6-digit code Encore emails you; the 14-day trial starts by itself.
+>
+> Demo songs are included, so no music library is needed:
+>
+> 1. Type a name in "Add a walk-up singer" and press Enter.
+> 2. In the Songs panel, choose the singer under "Adding for", type a song (e.g. "happy birthday karaoke") and click "Search YouTube". Click + on a result.
+> 3. Click "Open screen" (top right) to open the venue screen, then "Call up" and "Start song". The video plays in YouTube's embedded player.
+>
+> Singers can also join from a phone by scanning the QR code on the venue screen.
+
+## Review history
+
+- **2026-10-04:** form submitted by Matthew.
+- **2026-10-07:** the YouTube API Services team said there wasn't enough to start the compliance review and asked, within seven business days, for an English screencast of the end-to-end flow: search for karaoke videos, select and play one, show it on the venue screen, and the end result.
+- **2026-10-15:** Matthew asked for more time. **2026-10-16:** Google extended it to 2026-10-21.
+- **2026-10-16:** the screencast (2 min 53 s, English captions and voice-over, unlisted) went up on Matthew's channel at https://youtu.be/8ZFxR3iteM0, and Matthew replied on Google's thread with the link and an update on the business model (sold through Stripe, 14-day trial, host sign-in, no YouTube feature in any plan; the privacy policy and terms were updated on 2026-10-05). The original evidence PDFs weren't attached again.
+- The video was recorded on the installed build with the song "Happy Birthday" (Let's Sing Karaoke, 1:28), played all the way through. It shows the search results with the YouTube Terms and Privacy line, the queue, the venue screen playing the video in YouTube's embedded player, and the performance logged under Tonight. The tip QR code is blurred while the venue screen is idle.

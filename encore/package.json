@@ -1,6 +1,6 @@
 {
   "name": "encore-karaoke",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "A modern karaoke hosting app: rotation modes, YouTube + local library playback, and phone sign-ups.",
   "type": "module",
