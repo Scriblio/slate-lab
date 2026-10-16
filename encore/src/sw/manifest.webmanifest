@@ -1,0 +1,12 @@
+{
+  "name": "Encore Karaoke",
+  "short_name": "Karaoke",
+  "description": "Join the karaoke list, pick your songs, and get a buzz when it's your turn.",
+  "display": "standalone",
+  "background_color": "#07070c",
+  "theme_color": "#07070c",
+  "icons": [
+    { "src": "/icon-256.png", "sizes": "256x256", "type": "image/png" },
+    { "src": "/apple-touch-icon.png", "sizes": "300x300", "type": "image/png" }
+  ]
+}

@@ -1,0 +1,61 @@
+# Desktop packaging. `npm run dist:win` builds the Windows installer
+# (desktop + Start menu shortcuts); `npm run dist:store` builds the package
+# you upload to the Microsoft Store. See STORE.md.
+
+appId: com.scriblio.encore
+productName: Encore Karaoke
+copyright: Copyright © 2026 Scriblio
+
+directories:
+  output: release
+  buildResources: build
+
+# The main process is bundled by scripts/build-desktop.mjs, so the app
+# ships without node_modules.
+files:
+  - dist/**/*
+  - dist-desktop/**/*
+  - package.json
+  - "!node_modules/**/*"
+
+win:
+  icon: build/icon.png
+  target: [nsis]
+
+nsis:
+  artifactName: Encore-Karaoke-Setup-${version}.${ext}
+  oneClick: true
+  perMachine: false
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+  shortcutName: Encore Karaoke
+  runAfterFinish: true
+  deleteAppDataOnUninstall: false
+
+appx:
+  artifactName: Encore-Karaoke-${version}.${ext}
+  # Replace these three with the values from Partner Center → your app →
+  # Product management → Product identity, after you reserve the name.
+  identityName: Scriblio.EncoreKaraoke
+  publisher: CN=00000000-0000-0000-0000-000000000000
+  publisherDisplayName: Scriblio
+  applicationId: EncoreKaraoke
+  displayName: Encore Karaoke
+  backgroundColor: "#07070c"
+  languages: [en-US]
+  # Phones on the venue Wi-Fi connect to the app to join the list.
+  capabilities:
+    - internetClient
+    - internetClientServer
+    - privateNetworkClientServer
+
+mac:
+  category: public.app-category.music
+  target: [dmg]
+
+linux:
+  category: AudioVideo
+  target: [AppImage]
+
+# Updates are delivered by the Store (or a new installer), not auto-update.
+publish: null

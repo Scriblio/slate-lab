@@ -1,0 +1,9 @@
+node_modules/
+dist/
+data/
+*.log
+release/
+dist-desktop/
+dist-sing/
+# `npm run license:key` writes the private signing key outside the repo; this is the safety net if one lands inside.
+*signing-key*
