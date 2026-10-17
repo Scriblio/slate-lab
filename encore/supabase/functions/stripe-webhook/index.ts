@@ -5,8 +5,9 @@
 //
 // Secrets: STRIPE_WEBHOOK_SECRET (the endpoint's signing secret, "whsec_..."; until it's set
 // every call is answered "not switched on yet"). Optional: STRIPE_GRACE_DAYS (default 7). It
-// also reads STRIPE_PRICE_MONTHLY and STRIPE_SECRET_KEY, the two the license service has too: the
-// first to tell Encore Monthly's invoices from Cloud's, the second only to stop a subscription
+// also reads STRIPE_PRICE_MONTHLY, STRIPE_PRICE_CLOUD and STRIPE_SECRET_KEY, which the license
+// service has too: the prices to tell Encore Monthly's invoices from Cloud's, and both from the
+// other products sold on the same Stripe account (Scriblio's), the key only to stop a subscription
 // renewing once Encore is bought outright.
 // Nothing here may ever log the body, a header or a secret.
 
@@ -47,6 +48,7 @@ Deno.serve(async (req) => {
       store,
       graceDays: Number.isFinite(graceDays) && graceDays > 0 ? graceDays : GRACE_DAYS,
       monthlyPrice: env('STRIPE_PRICE_MONTHLY'),
+      cloudPrice: env('STRIPE_PRICE_CLOUD'),
       stripe,
     });
     return Response.json(reply.body, { status: reply.status, headers: { 'Cache-Control': 'no-store' } });

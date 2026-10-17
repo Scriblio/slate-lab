@@ -65,8 +65,9 @@ const appCheckout = (user: string, over: Record<string, unknown> = {}) =>
   event('checkout.session.completed', { id: 'cs_app', mode: 'payment', payment_status: 'paid', client_reference_id: user, customer: 'cus_A', metadata: { user_id: user, kind: 'app' }, ...over });
 const cloudCheckout = (user: string, over: Record<string, unknown> = {}) =>
   event('checkout.session.completed', { id: 'cs_cloud', mode: 'subscription', payment_status: 'paid', client_reference_id: user, customer: 'cus_A', subscription: 'sub_A', metadata: { user_id: user, kind: 'cloud' }, ...over });
+// A Cloud subscription's invoice, as Stripe sends it: the subscription carries the stamp checkout put on it.
 const invoice = (type: 'invoice.paid' | 'invoice.payment_failed', over: Record<string, unknown> = {}) =>
-  event(type, { customer: 'cus_A', subscription: 'sub_A', attempt_count: 1, lines: { data: [{ period: { start: nowSeconds(), end: nowSeconds() + SECONDS_IN_YEAR } }] }, ...over });
+  event(type, { customer: 'cus_A', subscription: 'sub_A', subscription_details: { metadata: { kind: 'cloud' } }, attempt_count: 1, lines: { data: [{ period: { start: nowSeconds(), end: nowSeconds() + SECONDS_IN_YEAR } }] }, ...over });
 
 describe('reading an event', () => {
   const read = (e: unknown) => plan(e, Date.UTC(2026, 9, 20), 7);
@@ -118,7 +119,7 @@ describe('reading an event', () => {
     const start = 1_800_000_000;
     const e = event('invoice.paid', {
       customer: 'cus_A',
-      parent: { subscription_details: { subscription: 'sub_new', metadata: { user_id: 'user-9' } } },
+      parent: { subscription_details: { subscription: 'sub_new', metadata: { user_id: 'user-9', kind: 'cloud' } } },
       lines: { data: [{ period: { start, end: start + 100_000 } }] },
     });
     expect(read(e)).toMatchObject({ subscription: 'sub_new', user: 'user-9' });
@@ -147,17 +148,19 @@ describe('reading an event', () => {
     });
 
     it('can tell by the price when the invoice carries no stamp, in either shape of line', () => {
-      const old = invoice('invoice.paid', { lines: { data: [{ price: { id: 'price_monthly' }, period: { start, end: start + MONTH } }] } });
-      const fresh = invoice('invoice.paid', { lines: { data: [{ pricing: { price_details: { price: 'price_monthly' } }, period: { start, end: start + MONTH } }] } });
+      const old = invoice('invoice.paid', { subscription_details: undefined, lines: { data: [{ price: { id: 'price_monthly' }, period: { start, end: start + MONTH } }] } });
+      const fresh = invoice('invoice.paid', { subscription_details: undefined, lines: { data: [{ pricing: { price_details: { price: 'price_monthly' } }, period: { start, end: start + MONTH } }] } });
       for (const e of [old, fresh]) expect(plan(e, 0, 7, 'price_monthly')).toMatchObject({ appFrom: paid.from, appTo: paid.to, from: null, to: null });
-      // Without that price on the list, the same invoice is a Cloud year, as before Encore Monthly existed.
-      expect(plan(old, 0, 7)).toMatchObject({ from: paid.from, to: paid.to, appFrom: null, appTo: null });
+      // Without that price on the list, an invoice with no stamp isn't known to be Encore's.
+      expect(plan(old, 0, 7)).toBeNull();
     });
 
-    it('keeps treating an unstamped invoice as Cloud, and a stamped Cloud one as Cloud even if the price were wrong', () => {
-      expect(read(invoice('invoice.paid', { lines }))).toMatchObject({ from: paid.from, to: paid.to, appFrom: null });
+    it('takes a stamped Cloud invoice as Cloud even if the price were wrong, and an unstamped one only by Cloud’s own price', () => {
       const stamped = invoice('invoice.paid', { subscription_details: { metadata: { kind: 'cloud' } }, lines: { data: [{ price: { id: 'price_monthly' }, period: { start, end: start + MONTH } }] } });
-      expect(plan(stamped, 0, 7, 'price_monthly')).toMatchObject({ from: paid.from, appFrom: null });
+      expect(plan(stamped, 0, 7, 'price_monthly', 'price_cloud')).toMatchObject({ from: paid.from, appFrom: null });
+      const unstamped = (price: string) => invoice('invoice.paid', { subscription_details: undefined, lines: { data: [{ price: { id: price }, period: { start, end: start + MONTH } }] } });
+      expect(plan(unstamped('price_cloud'), 0, 7, 'price_monthly', 'price_cloud')).toMatchObject({ from: paid.from, to: paid.to, appFrom: null });
+      expect(plan(unstamped('price_other'), 0, 7, 'price_monthly', 'price_cloud')).toBeNull();
     });
 
     it('leaves a failed renewal to the license service’s grace: nothing is added, and Cloud’s week of grace is not started', () => {
@@ -186,6 +189,43 @@ describe('reading an event', () => {
     for (const type of ['customer.created', 'customer.subscription.deleted', 'charge.refunded', 'payment_intent.succeeded', 'invoice.created']) {
       expect(read(event(type, { id: 'x', customer: 'cus_A' })), type).toBeNull();
     }
+  });
+
+  // Scriblio's own subscriptions are sold from the same Stripe account, so its renewals reach this endpoint too.
+  describe('another product sold from the same Stripe account', () => {
+    const start = 1_800_000_000;
+    const MONTH = 30 * 24 * 60 * 60;
+    // What theirs look like: their own metadata (no `kind`) and their own price.
+    const theirs = (type: 'invoice.paid' | 'invoice.payment_failed', over: Record<string, unknown> = {}) =>
+      invoice(type, {
+        customer: 'cus_scriblio',
+        subscription: 'sub_scriblio',
+        subscription_details: { metadata: { user_id: 'scriblio-user', plan: 'pro' } },
+        lines: { data: [{ price: { id: 'price_scriblio_pro' }, period: { start, end: start + MONTH } }] },
+        ...over,
+      });
+    const ours = (e: unknown) => plan(e, Date.UTC(2026, 9, 20), 7, 'price_monthly', 'price_cloud');
+
+    it('leaves a paid invoice alone, in either shape of invoice', () => {
+      expect(ours(theirs('invoice.paid'))).toBeNull();
+      const fresh = event('invoice.paid', {
+        customer: 'cus_scriblio',
+        parent: { subscription_details: { subscription: 'sub_scriblio', metadata: { user_id: 'scriblio-user', plan: 'pro' } } },
+        lines: { data: [{ pricing: { price_details: { price: 'price_scriblio_pro' } }, period: { start, end: start + MONTH } }] },
+      });
+      expect(ours(fresh)).toBeNull();
+    });
+
+    it('leaves a failed payment alone, so it starts no week of Cloud grace for anyone', () => {
+      expect(ours(theirs('invoice.payment_failed'))).toBeNull();
+    });
+
+    it('leaves their checkouts alone: they carry no kind', () => {
+      const topup = event('checkout.session.completed', { mode: 'payment', payment_status: 'paid', client_reference_id: 'scriblio-user', customer: 'cus_scriblio', metadata: { user_id: 'scriblio-user', type: 'topup_checkout' } });
+      const subscribed = event('checkout.session.completed', { mode: 'subscription', payment_status: 'paid', client_reference_id: 'scriblio-user', customer: 'cus_scriblio', subscription: 'sub_scriblio', metadata: { user_id: 'scriblio-user', plan: 'pro' } });
+      expect(ours(topup)).toBeNull();
+      expect(ours(subscribed)).toBeNull();
+    });
   });
 
   it('calls something that is not an event bad', () => {
@@ -281,6 +321,18 @@ describe('a purchase, start to finish', () => {
     const user = await t.addUser('unpaid@example.com');
     expect((await deliver(appCheckout(user, { payment_status: 'unpaid', customer: 'cus_unpaid' }))).body.result).toBe('ignored');
     expect(await t.rows('select 1 from licenses where user_id = $1', [user])).toHaveLength(0);
+  });
+
+  it('answers "ignored", not a refusal, to another product’s renewal on the same Stripe account, so Stripe does not send it again for days', async () => {
+    const start = nowSeconds();
+    const theirs = invoice('invoice.paid', {
+      customer: 'cus_scriblio',
+      subscription: 'sub_scriblio',
+      subscription_details: { metadata: { user_id: 'scriblio-user', plan: 'pro' } },
+      lines: { data: [{ price: { id: 'price_scriblio_pro' }, period: { start, end: start + 30 * 24 * 60 * 60 } }] },
+    });
+    expect(await deliver(theirs)).toEqual({ status: 200, body: { ok: true, result: 'ignored' } });
+    expect(await t.rows('select 1 from stripe_events where id = $1', [theirs.id])).toHaveLength(0);
   });
 });
 
