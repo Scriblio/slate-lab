@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--suppress XmlUnusedNamespaceDeclaration -->
+<Package
+   xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+   xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+   xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
+   xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities">
+  <!-- use single quotes to avoid double quotes escaping in the publisher value  -->
+  <Identity Name="Scriblio.EncoreKaraoke"
+    ProcessorArchitecture="x64"
+    Publisher='CN=00000000-0000-0000-0000-000000000000'
+    Version="0.2.0.0" />
+  <Properties>
+    <DisplayName>Encore Karaoke</DisplayName>
+    <PublisherDisplayName>Scriblio</PublisherDisplayName>
+    <Description>A modern karaoke hosting app: rotation modes, YouTube + local library playback, and phone sign-ups.</Description>
+    <Logo>assets\StoreLogo.png</Logo>
+  </Properties>
+  <Resources>
+    <Resource Language="en-US" />
+  </Resources>
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.14316.0" MaxVersionTested="10.0.14316.0" />
+  </Dependencies>
+  <Capabilities>
+  <Capability Name="internetClient"/>
+  <Capability Name="internetClientServer"/>
+  <Capability Name="privateNetworkClientServer"/>
+  <rescap:Capability Name="runFullTrust"/>
+</Capabilities>
+  <Applications>
+    <Application Id="EncoreKaraoke" Executable="app\Encore Karaoke.exe" EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements
+       BackgroundColor="#07070c"
+       DisplayName="Encore Karaoke"
+       Square150x150Logo="assets\Square150x150Logo.png"
+       Square44x44Logo="assets\Square44x44Logo.png"
+       Description="A modern karaoke hosting app: rotation modes, YouTube + local library playback, and phone sign-ups.">
+        
+        <uap:DefaultTile Wide310x150Logo="assets\Wide310x150Logo.png" Square310x310Logo="assets\LargeTile.png" Square71x71Logo="assets\SmallTile.png" />
+        <uap:SplashScreen Image="assets\SplashScreen.png" />
+      </uap:VisualElements>
+      
+    </Application>
+  </Applications>
+</Package>
