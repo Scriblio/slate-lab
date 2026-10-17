@@ -24,7 +24,7 @@ The policies quoted here are Microsoft Store Policies 7.20 (14 September 2026): 
 | Product identity in `electron-builder.yml` | Still the placeholder `CN=00000000-…`. The publisher is the same for every app on the account: Squatchy's installed manifest says `CN=BFB91569-38F5-414F-860A-C7113DA89E49`. Only the product name has to be reserved in Partner Center, and its Package/Identity/Name copied in. |
 | A demo account for the certifiers | Not made. Encore needs a sign-in, so policy 10.3.1 requires one (see below). |
 | Google's YouTube review and quota extension | Waiting for Google's answer (Matthew's reply of 16 October, with the screencast, met their 21 October deadline). Don't send customers before the extension is granted: the free quota is about 99 uncached searches a day across everyone. |
-| Wording for `TERMS.md` and `PRIVACY.md` | Proposed in `docs/LICENSING.md`, waiting for Matthew's approval. Both must be updated before real money. |
+| Wording for `TERMS.md` and `PRIVACY.md` | Drafted on the branch `claude/encore-legal` (draft PR #8) with the support address `encore-support@scriblio.co`, which exists since 2026-10-17 as an alias on the `scriblio@scriblio.co` mailbox (`scriblio.co`'s mail is a GoDaddy-run Microsoft 365). A test email to it arrived in the `scriblio@` inbox on 2026-10-17. Waiting for Matthew's approval; both must be published before real money. |
 | Real-world checks | Open (`docs/HANDOFF.md`, item 1): real phones, a real YouTube playback at a venue, key change by ear. The beta KJs are the way to cover them. |
 
 ## 1. Get the installer (desktop icon)
@@ -118,7 +118,7 @@ Certification usually takes a few business days. If it fails, the report says wh
 
 ## Things to decide before charging money
 
-- **Stripe live mode.** Everything is built to be tried in Stripe's test mode first (`supabase/README.md`). Real money also needs the Stripe account activated for live payments, the live prices, webhook and keys, the terms and privacy wording approved, a refund routine, and a decision on tax.
+- **Stripe live mode.** Everything is built to be tried in Stripe's test mode first (`supabase/README.md`). The Stripe account is already activated for live payments (no open tasks on 2026-10-17), but it is an *Individual* account in Matthew's own name while the Terms name ALM Partners LLC, so it has to be switched to the LLC first (decided 2026-10-17, not yet done). Real money then needs the live prices, webhook and keys, the terms and privacy wording approved, a refund routine, and a decision on tax.
 - **YouTube.** Encore plays YouTube through YouTube's official embedded player and never downloads videos. That keeps it within YouTube's terms. Still:
   - Market Encore as KJ software, not as "free karaoke from YouTube".
   - Search goes through your one Google Cloud project, via the `youtube-search` Supabase function; the key never ships inside the app (see [supabase/README.md](supabase/README.md)). The YouTube policies forbid both shipping the key and asking KJs for their own.
