@@ -118,7 +118,7 @@ Certification usually takes a few business days. If it fails, the report says wh
 
 ## Things to decide before charging money
 
-- **Stripe live mode.** Everything is built to be tried in Stripe's test mode first (`supabase/README.md`). The Stripe account is already activated for live payments (no open tasks on 2026-10-17), but it is an *Individual* account in Matthew's own name while the Terms name ALM Partners LLC, so decide who sells first. Real money then needs the live prices, webhook and keys, the terms and privacy wording approved, a refund routine, and a decision on tax.
+- **Stripe live mode.** Everything is built to be tried in Stripe's test mode first (`supabase/README.md`). The Stripe account is already activated for live payments (no open tasks on 2026-10-17), but it is an *Individual* account in Matthew's own name while the Terms name ALM Partners LLC, so it has to be switched to the LLC first (decided 2026-10-17, not yet done). Real money then needs the live prices, webhook and keys, the terms and privacy wording approved, a refund routine, and a decision on tax.
 - **YouTube.** Encore plays YouTube through YouTube's official embedded player and never downloads videos. That keeps it within YouTube's terms. Still:
   - Market Encore as KJ software, not as "free karaoke from YouTube".
   - Search goes through your one Google Cloud project, via the `youtube-search` Supabase function; the key never ships inside the app (see [supabase/README.md](supabase/README.md)). The YouTube policies forbid both shipping the key and asking KJs for their own.
