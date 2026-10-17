@@ -11,6 +11,11 @@
 // code simply stops counting, so it stops working the next time that laptop checks
 // in. The pass is good for two weeks without a check-in.
 //
+// Paying is two more questions (billing.ts): checkout, which makes a Stripe-hosted page to
+// buy Encore or a year of Cloud on, and portal, Stripe's page for managing a card or a
+// subscription. Neither gives anything: only Stripe's webhook (../stripe-webhook) does,
+// by writing the same columns an unlock code's grants sit beside.
+//
 // No YouTube feature is ever part of a pass: YouTube search and playback don't ask
 // this service anything, and a plan can't switch them on or off (YouTube's policies
 // forbid charging for them).
@@ -30,6 +35,8 @@ export interface LicenseRow {
   cloudForever: boolean;
   trialEndsAt: number | null;
   owner: boolean;
+  /** Set once they have paid by card: Stripe's id for them, which the billing portal needs. */
+  stripeCustomerId: string | null;
 }
 
 /** Everything needed to work out one account's pass, from one database trip. */
@@ -61,12 +68,26 @@ export interface Limits {
   redeemPerAccount: number;
   /** ... and a network address. */
   redeemPerIp: number;
+  /** Checkout and billing pages an account may ask for an hour. */
+  billingPerAccount?: number;
+}
+
+/** Taking payment through Stripe (stripe.ts). */
+export interface Payments {
+  /** The address of a Stripe-hosted page to buy Encore, or a year of Cloud, on. */
+  checkout(args: { kind: 'app' | 'cloud'; userId: string; email: string; customer: string | null }): Promise<string>;
+  /** The address of Stripe's page for seeing payments and changing a card or a subscription. */
+  portal(customer: string): Promise<string>;
+  /** This customer already has a Cloud subscription that is running (or being retried). */
+  hasSubscription(customer: string): Promise<boolean>;
 }
 
 export interface Deps {
   store: Store;
   /** The private key. Unset until the LICENSE_SIGNING_KEY secret is added. */
   signing?: { key: CryptoKey; kid: string };
+  /** Unset until the Stripe secrets are added: then nothing can be bought and the console shows no prices. */
+  payments?: Payments;
   limits?: Limits;
   /** Days a pass is good for without a check-in. */
   passDays?: number;
@@ -83,17 +104,38 @@ export interface Caller {
   email: string;
 }
 
+export interface Failure {
+  ok: false;
+  error: string;
+  code: string;
+}
+
 export type Reply = {
   status: number;
-  body: { ok: true; pass: string; trialAvailable: boolean; trial?: TrialResult } | { ok: false; error: string; code: string };
+  body:
+    | {
+        ok: true;
+        pass: string;
+        trialAvailable: boolean;
+        /** Payments are switched on: the console may show Buy buttons. Not part of the pass: nothing here grants anything. */
+        payments: boolean;
+        /** This account has paid by card, so Stripe's billing portal has something to show. */
+        billing: boolean;
+        trial?: TrialResult;
+      }
+    | Failure;
 };
 
+/** The answer to checkout and portal: where to send the KJ's browser. */
+export type LinkReply = { status: number; body: { ok: true; url: string } | Failure };
+
 export const DEFAULT_LIMITS: Limits = { redeemPerAccount: 10, redeemPerIp: 30 };
+export const DEFAULT_BILLING_PER_HOUR = 20;
 export const PASS_DAYS = 14;
 export const TRIAL_DAYS = 14;
 
 const DAY = 24 * 60 * 60 * 1000;
-const HOUR = 60 * 60 * 1000;
+export const HOUR = 60 * 60 * 1000;
 const INSTALL_ID = /^[A-Za-z0-9_-]{16,64}$/;
 
 // --- what an account has --------------------------------------------------------------
@@ -194,7 +236,8 @@ export async function handleRedeem(input: unknown, caller: Caller, ip: string, d
 
 async function answer(caller: Caller, installId: string, deps: Deps, trial?: TrialResult): Promise<Reply> {
   const now = (deps.now ?? Date.now)();
-  const plan = evaluate(await deps.store.snapshot(caller.userId, installId));
+  const snapshot = await deps.store.snapshot(caller.userId, installId);
+  const plan = evaluate(snapshot);
   const iat = Math.floor(now / 1000);
   const payload: PassPayload = {
     v: 1,
@@ -210,19 +253,29 @@ async function answer(caller: Caller, installId: string, deps: Deps, trial?: Tri
     exp: iat + Math.round(((deps.passDays ?? PASS_DAYS) * DAY) / 1000),
   };
   const pass = await signPass(payload, deps.signing!.key, deps.signing!.kid);
-  return { status: 200, body: { ok: true, pass, trialAvailable: plan.trialAvailable, ...(trial ? { trial } : {}) } };
+  return {
+    status: 200,
+    body: {
+      ok: true,
+      pass,
+      trialAvailable: plan.trialAvailable,
+      payments: Boolean(deps.payments),
+      billing: Boolean(snapshot.license?.stripeCustomerId),
+      ...(trial ? { trial } : {}),
+    },
+  };
 }
 
-// --- helpers ------------------------------------------------------------------------------
+// --- helpers (billing.ts uses them too) -----------------------------------------------------
 
-function readInstallId(input: unknown): string | null {
+export function readInstallId(input: unknown): string | null {
   const id = (input as { installId?: unknown } | null)?.installId;
   return typeof id === 'string' && INSTALL_ID.test(id) ? id : null;
 }
 
-const badInstall = () => fail(400, 'bad-request', 'Update Encore to check your license.');
-const notConfigured = () => fail(503, 'not-configured', 'Licensing isn’t switched on yet.');
+export const badInstall = () => fail(400, 'bad-request', 'Update Encore to check your license.');
+export const notConfigured = () => fail(503, 'not-configured', 'Licensing isn’t switched on yet.');
 
-function fail(status: number, code: string, error: string): Reply {
+export function fail(status: number, code: string, error: string): { status: number; body: Failure } {
   return { status, body: { ok: false, code, error } };
 }

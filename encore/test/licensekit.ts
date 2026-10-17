@@ -1,9 +1,30 @@
 // Throwaway keys and passes for the licensing tests. The real signing key is
 // never anywhere near the tests.
 
+import type { Payments } from '../supabase/functions/encore-license/core.ts';
 import { b64url, importPassKeys, importSigningKey, type PassPayload } from '../supabase/functions/encore-license/pass.ts';
 
 export const DAY = 24 * 60 * 60 * 1000;
+
+/** A Stripe that records what it was asked and answers with plausible pages (billing.test.ts covers what the real one is asked). */
+export function fakePayments(subscribed: string[] = []) {
+  const asked = { checkout: [] as Parameters<Payments['checkout']>[0][], portal: [] as string[], looked: [] as string[] };
+  const payments: Payments = {
+    async checkout(args) {
+      asked.checkout.push(args);
+      return `https://checkout.stripe.com/c/pay/cs_test_${asked.checkout.length}`;
+    },
+    async portal(customer) {
+      asked.portal.push(customer);
+      return `https://billing.stripe.com/p/session/test_${customer}`;
+    },
+    async hasSubscription(customer) {
+      asked.looked.push(customer);
+      return subscribed.includes(customer);
+    },
+  };
+  return { payments, asked };
+}
 
 export async function makeKeys(kid = 'k1') {
   const pair = (await globalThis.crypto.subtle.generateKey('Ed25519', true, ['sign', 'verify'])) as CryptoKeyPair;

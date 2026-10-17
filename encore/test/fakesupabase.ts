@@ -5,6 +5,7 @@
 // fake `fetch`, so nothing touches the network.
 
 import { randomBytes } from 'node:crypto';
+import { handleCheckout, handlePortal } from '../supabase/functions/encore-license/billing.ts';
 import { handleRedeem, handleStartTrial, handleStatus, type Caller, type Deps } from '../supabase/functions/encore-license/core.ts';
 import type { World } from './licenseworld.ts';
 
@@ -154,7 +155,11 @@ export function fakeSupabase(opts: {
             ? await handleStartTrial(body, caller, deps)
             : body?.action === 'redeem'
               ? await handleRedeem(body, caller, '203.0.113.7', deps)
-              : await handleStatus(body, caller, deps);
+              : body?.action === 'checkout'
+                ? await handleCheckout(body, caller, deps)
+                : body?.action === 'portal'
+                  ? await handlePortal(body, caller, deps)
+                  : await handleStatus(body, caller, deps);
         return json(reply.body, reply.status);
       }
 

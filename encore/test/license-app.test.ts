@@ -13,7 +13,7 @@ import type { ClientToServer, ServerToClient } from '../src/shared/protocol.ts';
 import { MemoryHub } from '../src/shared/relay.ts';
 import type { DjView, SearchResult, SingerView } from '../src/shared/types.ts';
 import { fakeSupabase, SUPABASE_KEY, SUPABASE_URL, type FakeSupabase } from './fakesupabase.ts';
-import { DAY, makeKeys } from './licensekit.ts';
+import { DAY, fakePayments, makeKeys } from './licensekit.ts';
 import { memoryWorld, type World } from './licenseworld.ts';
 
 type Client = Socket<ServerToClient, ClientToServer>;
@@ -54,7 +54,7 @@ async function youtubeFetch(input: string | URL | Request, init?: RequestInit): 
   return Response.json({}, { status: 404 });
 }
 
-async function start(opts: { cloud?: boolean; license?: boolean; planCheckMs?: number; dataDir?: string } = {}) {
+async function start(opts: { cloud?: boolean; license?: boolean; planCheckMs?: number; dataDir?: string; watchEveryMs?: number } = {}) {
   const app = await createApp({
     port: 0,
     host: '127.0.0.1',
@@ -63,7 +63,7 @@ async function start(opts: { cloud?: boolean; license?: boolean; planCheckMs?: n
     fetchImpl: youtubeFetch,
     youtubeProxy: { url: SEARCH_URL, key: 'pk_test' },
     cloud: opts.cloud ? { joinOrigin: ORIGIN, transport: () => hub.transport(), checkJoinPage: async () => true } : false,
-    license: opts.license === false ? false : { supabaseUrl: SUPABASE_URL, supabaseKey: SUPABASE_KEY, publicKeys: [{ kid: keys.kid, key: keys.publicKey }], fetchImpl: fake.fetch, now },
+    license: opts.license === false ? false : { supabaseUrl: SUPABASE_URL, supabaseKey: SUPABASE_KEY, publicKeys: [{ kid: keys.kid, key: keys.publicKey }], fetchImpl: fake.fetch, now, watchEveryMs: opts.watchEveryMs },
     planCheckMs: opts.planCheckMs,
   });
   apps.push(app);
@@ -448,6 +448,85 @@ async function endTheTrial2(a: Running) {
   await until(() => a.view().license.state === 'licensed' && !a.view().license.trialDaysLeft);
 }
 
+describe('buying, from the console', () => {
+  /** The service with Stripe switched on (a fake one: billing.test.ts covers what is asked of it). */
+  function withStripe() {
+    const stripe = fakePayments();
+    fake = fakeSupabase({ world, signing: keys.signing, now, deps: { payments: stripe.payments } });
+    return stripe;
+  }
+  const account = () => fake.accounts().find((c) => c.email === 'kj@example.com')!;
+  /** What Stripe's webhook does once the money has moved. */
+  const paid = (customer = 'cus_console') => world.purchase(account().userId, { appForever: true, cloudUntil: clock.t + 365 * DAY, customer });
+
+  it('shows no prices and no buttons until the service has Stripe switched on', async () => {
+    const a = await start();
+    await a.signIn();
+    expect(a.view().license.payments).toBeUndefined();
+    await expect(a.act({ type: 'checkout', kind: 'app' })).rejects.toMatchObject({ code: 'payments-off', message: 'Buying isn’t switched on yet.' });
+  });
+
+  it('opens Stripe’s page, then notices the payment by itself: the trial’s end no longer matters', async () => {
+    const stripe = withStripe();
+    const a = await start({ watchEveryMs: 20 });
+    await a.signIn();
+    await endTheTrial(a);
+    expect(a.view().license).toMatchObject({ state: 'ended', payments: true, showOpen: false });
+    // The console's own message, to the KJ, says what to do.
+    await expect(a.act({ type: 'addSinger', name: 'Pat' })).rejects.toMatchObject({ message: expect.stringMatching(/free trial has ended\. Buy Encore or enter an unlock code in Settings → Your Encore/) });
+
+    expect(await a.act<{ url: string }>({ type: 'checkout', kind: 'app' })).toEqual({ url: 'https://checkout.stripe.com/c/pay/cs_test_1' });
+    await until(() => a.view().license.buying === true);
+    expect(stripe.asked.checkout[0]).toMatchObject({ kind: 'app', email: 'kj@example.com' });
+
+    await paid();
+    await until(() => a.view().license.state === 'licensed');
+    expect(a.view().license).toMatchObject({ app: true, cloud: true, source: 'purchase', billing: true, showOpen: true });
+    expect(a.view().license.buying).toBeUndefined();
+    // The show opens, with nobody having typed a thing.
+    await a.act({ type: 'addSinger', name: 'Pat' });
+    const p = a.phone();
+    await p.ready();
+    await expect(ack(p.socket, 'singer:join', 'Robin')).resolves.toBeTruthy();
+  });
+
+  it('opens the billing page for someone who has paid, and says why in plain words when it can’t be opened', async () => {
+    withStripe();
+    const a = await start();
+    await a.signIn();
+    await expect(a.act({ type: 'billing' })).rejects.toMatchObject({ code: 'no-billing' });
+    await expect(a.act({ type: 'checkout', kind: 'forever' as 'app' })).rejects.toMatchObject({ message: 'Unknown thing to buy.' });
+    await paid('cus_billing');
+    await ack(a.dj, 'dj:action', { type: 'refreshLicense' });
+    await until(() => a.view().license.billing === true);
+    expect(await a.act<{ url: string }>({ type: 'billing' })).toEqual({ url: 'https://billing.stripe.com/p/session/test_cus_billing' });
+    await expect(a.act({ type: 'checkout', kind: 'app' })).rejects.toMatchObject({ code: 'already-owned' });
+  });
+
+  it('is never shown to a phone, whatever the plan, and a phone cannot ask for it', async () => {
+    withStripe();
+    const a = await start({ cloud: true });
+    const p = a.phone();
+    await p.ready();
+    const wording = /license|trial|price|\$|unlock|upgrade|buy|subscri|cloud|plan|payment|billing|stripe|checkout/i;
+    const seen = async (label: string) => expect(JSON.stringify(p.view()), label).not.toMatch(wording);
+    await seen('signed out');
+    await a.signIn();
+    await seen('on the trial');
+    await endTheTrial(a);
+    await until(() => JSON.stringify(p.view()).includes('notOpen'));
+    await seen('after the trial, with buying on');
+    await paid();
+    await ack(a.dj, 'dj:action', { type: 'refreshLicense' });
+    await until(() => a.view().license.state === 'licensed');
+    await ack(p.socket, 'singer:join', 'Robin');
+    await seen('after buying, in the show');
+    // Only the console has any way to ask: a phone's socket has no such action at all.
+    const answered = await Promise.race([ack(p.socket, 'dj:action', { type: 'checkout', kind: 'app' }).then(() => 'answered', () => 'answered'), new Promise((r) => setTimeout(() => r('silence'), 200))]);
+    expect(answered).toBe('silence');
+  });
+});
+
 describe('YouTube, in every state', () => {
   /** Put the app in each state a KJ can be in. */
   const STATES: { name: string; ready: (a: Running) => Promise<void>; expected: string }[] = [
@@ -469,6 +548,17 @@ describe('YouTube, in every state', () => {
         await a.signIn();
         await ack(a.dj, 'dj:action', { type: 'redeemCode', code: await world.makeCode('everything') });
         await until(() => a.view().license.state === 'licensed');
+      },
+    },
+    {
+      name: 'after buying Encore, with Stripe switched on',
+      expected: 'licensed',
+      ready: async (a) => {
+        await a.signIn();
+        const kj = fake.accounts().find((c) => c.email === 'kj@example.com')!;
+        await world.purchase(kj.userId, { appForever: true, cloudUntil: clock.t + 365 * DAY, customer: 'cus_youtube' });
+        await ack(a.dj, 'dj:action', { type: 'refreshLicense' });
+        await until(() => a.view().license.state === 'licensed' && a.view().license.source === 'purchase');
       },
     },
     {
@@ -537,7 +627,7 @@ describe('YouTube, in every state', () => {
     };
     for (const [name, text] of Object.entries(handlers)) {
       expect(text.length, name).toBeGreaterThan(80);
-      expect(text, `${name} must not depend on the plan (YouTube policies III.F.3.a and III.G.1.b)`).not.toMatch(/license|showOpen|cloudIncluded|closedMessage|access\./);
+      expect(text, `${name} must not depend on the plan (YouTube policies III.F.3.a and III.G.1.b)`).not.toMatch(/license|showOpen|cloudIncluded|closedMessage|access\.|checkout|billing|payments|stripe/i);
     }
     // And the player page comes from the service as configured, never from the plan.
     expect(src).toMatch(/frameUrl: cloud \? /);

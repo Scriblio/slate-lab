@@ -1,11 +1,11 @@
-// The KJ's plan in the console: signing in, the free trial, unlock codes, and the
+// The KJ's plan in the console: signing in, the free trial, unlock codes, buying, and the
 // notice when Encore isn't unlocked. Only the console ever shows any of this; singers
 // are never shown plans, prices or upgrade buttons (their phone just says the show
 // isn't open yet).
 
 import { useState, type FormEvent, type ReactNode } from 'react';
 import type { DjAction } from '../../shared/protocol.ts';
-import { formatDay, planSentence } from '../../shared/license.ts';
+import { formatDay, offersOf, planSentence, PRICES } from '../../shared/license.ts';
 import * as I from '../common/icons.tsx';
 import { request } from '../common/socket.ts';
 import { useDj } from './context.ts';
@@ -166,6 +166,90 @@ export function UnlockForm() {
   );
 }
 
+/** Ask for one of Stripe's pages and open it in the browser. A failure is kept to show beside the buttons. */
+function useStripePage() {
+  const { socket } = useDj();
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [link, setLink] = useState<{ url: string; which: string } | null>(null);
+  async function open(action: Extract<DjAction, { type: 'checkout' | 'billing' }>, which: string) {
+    setBusy(which);
+    setError(null);
+    setLink(null);
+    try {
+      const { url } = await request<{ url: string }>(socket, 'dj:action', action);
+      // The desktop app sends this to the default browser. Whatever opens it, the address is kept in case it doesn't.
+      window.open(url, '_blank');
+      setLink({ url, which });
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  }
+  return { busy, error, link, open };
+}
+
+/**
+ * Buying Encore, or keeping Cloud going, on Stripe's own page, which opens in the browser; Encore
+ * notices by itself when the payment goes through. Nothing here unlocks anything: the license
+ * service does, once Stripe says it's paid. Only the console shows this; singers never see prices.
+ */
+export function Offers() {
+  const { view } = useDj();
+  const l = view.license;
+  const offers = offersOf(l, Date.now());
+  const page = useStripePage();
+  if (!offers.app && !offers.cloud && !offers.manage && !l.buying) return null;
+  const busy = Boolean(page.busy);
+  return (
+    <div className="offers">
+      {offers.app && (
+        <div className="offer">
+          <button className="btn primary" disabled={busy} onClick={() => void page.open({ type: 'checkout', kind: 'app' }, 'app')}>
+            {page.busy === 'app' ? <I.Loader /> : <I.Card />} Buy Encore · {PRICES.app}
+          </button>
+          <span className="muted small">One payment, yours to keep. It includes a year of Encore Cloud: the online join link and lock-screen alerts.</span>
+        </div>
+      )}
+      {offers.cloud && (
+        <div className="offer">
+          <button className={`btn ${l.cloud ? '' : 'primary'}`} disabled={busy} onClick={() => void page.open({ type: 'checkout', kind: 'cloud' }, 'cloud')}>
+            {page.busy === 'cloud' ? <I.Loader /> : <I.Card />} {l.cloud ? 'Keep Cloud going' : 'Add Cloud'} · {PRICES.cloud} a year
+          </button>
+          <span className="muted small">Cloud is the online join link and lock-screen alerts. It renews every year, and you can stop it any time in Manage billing.</span>
+        </div>
+      )}
+      {offers.manage && (
+        <div className="offer">
+          <button className="btn sm" disabled={busy} onClick={() => void page.open({ type: 'billing' }, 'billing')}>
+            {page.busy === 'billing' ? <I.Loader /> : <I.Card />} Manage billing
+          </button>
+          <span className="muted small">See your payments, update your card, or stop Cloud renewing.</span>
+        </div>
+      )}
+      {/* Microsoft Store policy 10.8.2: the app names who takes the payment. */}
+      {(offers.app || offers.cloud || offers.manage) && <p className="muted small">Payments are taken by Stripe, on its own secure page. Encore never sees your card.</p>}
+      {l.buying && (
+        <p className="guide-status" role="status">
+          <I.Loader /> Finish paying in your browser. Encore updates by itself when it goes through.
+        </p>
+      )}
+      {/* A payment page that is still being waited on, or the billing page just asked for. Once the payment lands, the link goes. */}
+      {page.link && (l.buying || page.link.which === 'billing') && (
+        <p className="muted small">
+          The page opens in your browser. If it didn’t,{' '}
+          <a href={page.link.url} target="_blank" rel="noreferrer">
+            open it here
+          </a>
+          .
+        </p>
+      )}
+      <Problem text={page.error} />
+    </div>
+  );
+}
+
 /** "4 October 2026, 11:44 PM", in the KJ's own time zone. */
 const when = (iso: string) => `${formatDay(iso)}, ${new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
 
@@ -199,6 +283,12 @@ export function YourEncore() {
               : 'Encore Cloud isn’t part of your plan, so phones join with the Wi-Fi link and there are no lock-screen alerts.'}
           </span>
         )}
+        {/* Microsoft Store policy 10.8.4: say in advance what a trial's end changes. */}
+        {l.state === 'trial' && (
+          <span className="muted small">
+            After the trial, Encore still opens and your library, settings and printing keep working. To start new shows you’ll need {l.payments ? 'to buy Encore or use an unlock code' : 'an unlock code'}.
+          </span>
+        )}
         {l.validUntil && l.state !== 'offline-expired' && (
           <span className="muted small">
             {l.checkedAt ? `Checked ${when(l.checkedAt)}. ` : ''}Works without internet until {formatDay(l.validUntil)}.
@@ -213,6 +303,7 @@ export function YourEncore() {
           </button>
         </div>
       )}
+      <Offers />
       {l.state !== 'owner' && (
         <div className="field">
           <span className="field-label">Have an unlock code?</span>
@@ -288,8 +379,13 @@ export function LicensePanel() {
     );
   } else {
     title = l.trialEndsAt ? 'Your free trial has ended' : 'This computer has already had its free trial';
-    body = 'Enter an unlock code to keep running shows. Your library, settings and printing still work.';
-    action = <UnlockForm />;
+    body = `${l.payments ? 'Buy Encore, or enter an unlock code,' : 'Enter an unlock code'} to keep running shows. Your library, settings and printing still work.`;
+    action = (
+      <div className="offers">
+        <Offers />
+        <UnlockForm />
+      </div>
+    );
   }
 
   return (

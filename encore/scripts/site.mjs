@@ -1,7 +1,8 @@
 // The public pages on the join site: Encore's page (/encore), and the Privacy
 // Policy and Terms of Use (/privacy, /terms), rendered from PRIVACY.md and
-// TERMS.md so there's one copy of each. Plain static HTML: no scripts, so the
-// site's strict CSP applies unchanged.
+// TERMS.md so there's one copy of each, and /thanks, where Stripe sends a KJ
+// after paying. Plain static HTML: no scripts, so the site's strict CSP applies
+// unchanged.
 
 /** The small slice of Markdown those files use: headings, paragraphs, nested lists, bold, italics and links. */
 export function renderMarkdown(md) {
@@ -92,13 +93,13 @@ footer a { color: var(--muted); }
 `;
 
 /** A whole page: header, content and the footer with the policy links. */
-export function page({ title, description, body }) {
+export function page({ title, description, body, noindex = false }) {
   return `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="${escape(description)}">
+${noindex ? '<meta name="robots" content="noindex">\n' : ''}<meta name="description" content="${escape(description)}">
 <link rel="icon" href="/favicon.ico" sizes="any">
 <title>${escape(title)}</title>
 <style>${STYLE}</style>
@@ -115,6 +116,27 @@ Scriblio, a brand of ALM Partners LLC · <a href="mailto:mattclancaster@gmail.co
 </body>
 </html>
 `;
+}
+
+/**
+ * Where Stripe sends a KJ after paying, and back from its billing page. It only reassures: Encore itself
+ * notices the payment (the app looks every few seconds), so nothing here unlocks anything, and nothing
+ * here names a price.
+ */
+export function thanksPage() {
+  return page({
+    title: 'Thank you: Encore Karaoke',
+    description: 'Thanks for your payment. Encore notices it by itself within a minute.',
+    noindex: true,
+    body: `
+<h1>Thank you.</h1>
+<p class="lede">You can close this tab and go back to Encore. It keeps an eye out for your payment and unlocks by itself, usually within a few seconds.</p>
+<div class="card">
+<p><strong>Nothing has changed yet?</strong> In Encore, open <strong>Settings</strong>, find <strong>Your Encore</strong>, and press <strong>Check again</strong>. Some payments take a minute or two to come through.</p>
+<p>Still stuck? Email <a href="mailto:mattclancaster@gmail.com">mattclancaster@gmail.com</a> from the address you signed in to Encore with, and we’ll sort it out.</p>
+</div>
+`,
+  });
 }
 
 /** Encore's own page: what it is, how it uses YouTube, and where the policies are. */

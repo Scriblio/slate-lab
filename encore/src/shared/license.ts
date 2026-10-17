@@ -45,6 +45,12 @@ export interface LicenseView {
   source?: PassSource;
   /** A free trial can still be started on this account. */
   trialAvailable?: boolean;
+  /** Buying is switched on (see offersOf for what may be offered). Only the console is ever told: singers never see plans or prices. */
+  payments?: boolean;
+  /** This account has paid by card, so Stripe has a billing page for it. */
+  billing?: boolean;
+  /** A payment page was opened, and Encore is waiting for the purchase to go through. */
+  buying?: boolean;
   /** The last time the license was checked online (ISO), and when the saved answer stops being good without a check. */
   checkedAt?: string;
   validUntil?: string;
@@ -84,6 +90,41 @@ export function cloudActive(cloudUntil: string | null, now: number): boolean {
 /** Whole days left, rounded up, so the last day reads "1 day left" rather than "0". */
 export function daysLeft(untilMs: number, now: number): number {
   return Math.max(0, Math.ceil((untilMs - now) / DAY));
+}
+
+/**
+ * What the console says things cost. The prices themselves are Stripe's (the two price ids in the
+ * license service's secrets, and the Checkout page shows the real amount before anyone pays), so
+ * change these together with them. Only the console shows any of it.
+ */
+export const PRICES = { app: '$149', cloud: '$49' } as const;
+
+/** Cloud is "ending soon" this long before it runs out, which is when Renew is offered. */
+export const RENEW_WITHIN_DAYS = 60;
+
+export interface Offers {
+  /** Buy Encore (it includes a year of Cloud). */
+  app: boolean;
+  /** Add a year of Cloud, or keep it going. */
+  cloud: boolean;
+  /** Open Stripe's billing page. */
+  manage: boolean;
+}
+
+/**
+ * What the console may offer to buy right now. Nothing unless payments are switched on and the
+ * license has been checked; never to the owner, to someone who has Encore already, or to a
+ * Cloud that never ends. This only decides which buttons show: what is for sale is checked again
+ * by the license service, and nothing is unlocked by a button.
+ */
+export function offersOf(v: LicenseView, now: number): Offers {
+  const none: Offers = { app: false, cloud: false, manage: false };
+  if (!v.payments || !v.email) return none;
+  const manage = Boolean(v.billing) && v.state !== 'owner';
+  if (v.state === 'trial' || v.state === 'ended') return { app: true, cloud: false, manage };
+  if (v.state !== 'licensed' || v.cloudUntil === 'forever') return { ...none, manage };
+  const endsSoon = v.cloudUntil !== undefined && Date.parse(v.cloudUntil) - now < RENEW_WITHIN_DAYS * DAY;
+  return { app: false, cloud: !v.cloud || endsSoon, manage };
 }
 
 /** "3 May 2027", in the computer's own time zone (or the one given: the tests pin UTC). */

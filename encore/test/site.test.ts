@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { encorePage, page, renderMarkdown } from '../scripts/site.mjs';
+import { encorePage, page, renderMarkdown, thanksPage } from '../scripts/site.mjs';
 
 const root = join(import.meta.dirname, '..');
 const read = (f: string) => readFileSync(join(root, f), 'utf8');
@@ -34,9 +34,31 @@ describe('the public pages', () => {
   });
 
   it('puts the policy links on every page', () => {
-    for (const html of [encorePage(), page({ title: 't', description: 'd', body: '' })]) {
+    for (const html of [encorePage(), thanksPage(), page({ title: 't', description: 'd', body: '' })]) {
       for (const href of ['/privacy', '/terms', 'https://www.youtube.com/t/terms', 'https://policies.google.com/privacy']) expect(html).toContain(`href="${href}"`);
       expect(html).not.toMatch(/<script/i); // the site's CSP allows only its own scripts; these pages need none
     }
+  });
+
+  describe('the page Stripe sends a KJ to after paying', () => {
+    const html = thanksPage();
+
+    it('tells them what to do if Encore has not noticed, and keeps out of search results', () => {
+      expect(html).toContain('<title>Thank you: Encore Karaoke</title>');
+      expect(html).toMatch(/Check again/);
+      expect(html).toContain('<meta name="robots" content="noindex">');
+      // The other pages are for finding.
+      expect(encorePage()).not.toContain('noindex');
+    });
+
+    it('names no price and unlocks nothing: it is only a page', () => {
+      expect(html).not.toMatch(/\$\s?\d|price|per year|subscri/i);
+      expect(html).not.toMatch(/<script|<form|<input/i);
+    });
+
+    it('is built into the join site as /thanks, next to the other pages', () => {
+      const build = read('scripts/build-sing.mjs');
+      expect(build).toMatch(/join\(out, 'thanks\.html'\), thanksPage\(\)/);
+    });
   });
 });

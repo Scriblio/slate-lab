@@ -27,8 +27,8 @@ export interface World {
   setOwner(email: string): Promise<void>;
   /** Move the end of someone's trial. */
   endTrialAt(userId: string, ms: number): Promise<void>;
-  /** What a purchase would set (the payment step isn't built; this is how a test stands in for it). */
-  purchase(userId: string, fields: { appForever?: boolean; cloudUntil?: number | null; cloudForever?: boolean }): Promise<void>;
+  /** What a purchase sets once Stripe's webhook has run (stripe-sql.test.ts covers the real thing; this stands in for it). */
+  purchase(userId: string, fields: { appForever?: boolean; cloudUntil?: number | null; cloudForever?: boolean; customer?: string }): Promise<void>;
   /** Has this laptop's one trial been used? */
   trialsOn(installId: string): Promise<number>;
   close(): Promise<void>;
@@ -58,7 +58,7 @@ export function memoryWorld(opts: { now?: () => number } = {}): World {
   const attempts = new Map<string, number>();
   const row = (userId: string): LicenseRow => {
     let r = licenses.get(userId);
-    if (!r) licenses.set(userId, (r = { appForever: false, cloudUntil: null, cloudForever: false, trialEndsAt: null, owner: false }));
+    if (!r) licenses.set(userId, (r = { appForever: false, cloudUntil: null, cloudForever: false, trialEndsAt: null, owner: false, stripeCustomerId: null }));
     return r;
   };
 
@@ -134,7 +134,7 @@ export function memoryWorld(opts: { now?: () => number } = {}): World {
       row(userId).trialEndsAt = ms;
     },
     async purchase(userId, f) {
-      Object.assign(row(userId), { appForever: f.appForever ?? false, cloudUntil: f.cloudUntil ?? null, cloudForever: f.cloudForever ?? false });
+      Object.assign(row(userId), { appForever: f.appForever ?? false, cloudUntil: f.cloudUntil ?? null, cloudForever: f.cloudForever ?? false, stripeCustomerId: f.customer ?? null });
     },
     async trialsOn(installId) {
       return trials.has(installId) ? 1 : 0;
@@ -181,9 +181,9 @@ export async function sqlWorld(): Promise<World> {
     },
     async purchase(userId, f) {
       await t.db.query(
-        `insert into licenses (user_id, app_forever, cloud_until, cloud_forever, source) values ($1, $2, case when $3::double precision is null then null else to_timestamp($3::double precision / 1000) end, $4, 'stripe')
-         on conflict (user_id) do update set app_forever = excluded.app_forever, cloud_until = excluded.cloud_until, cloud_forever = excluded.cloud_forever`,
-        [userId, f.appForever ?? false, f.cloudUntil ?? null, f.cloudForever ?? false],
+        `insert into licenses (user_id, app_forever, cloud_until, cloud_forever, source, stripe_customer_id) values ($1, $2, case when $3::double precision is null then null else to_timestamp($3::double precision / 1000) end, $4, 'stripe', $5)
+         on conflict (user_id) do update set app_forever = excluded.app_forever, cloud_until = excluded.cloud_until, cloud_forever = excluded.cloud_forever, stripe_customer_id = excluded.stripe_customer_id`,
+        [userId, f.appForever ?? false, f.cloudUntil ?? null, f.cloudForever ?? false, f.customer ?? null],
       );
     },
     async trialsOn(installId) {

@@ -55,6 +55,7 @@ export function SetupGuide({ onClose }: { onClose: () => void }) {
           <div className="guide-body">
             <h3>Start your free trial</h3>
             <p className="muted">Sign in with your email to start your free 14-day trial. Your plan goes with your email, so a new computer is just a sign-in.</p>
+            <p className="muted small">After the 14 days, Encore still opens and your library, settings and printing keep working. To start new shows you’ll need {view.license.payments ? 'to buy Encore or use an unlock code' : 'an unlock code'}.</p>
             {view.license.email ? (
               <>
                 <p className="guide-status ok">

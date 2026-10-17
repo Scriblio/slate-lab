@@ -59,3 +59,7 @@ linux:
 
 # Updates are delivered by the Store (or a new installer), not auto-update.
 publish: null
+
+# Once everything is built, switch off Windows' redirection of AppData in the Store package, so
+# Show -> Open Data Folder works and uninstalling keeps the KJ's data (scripts/patch-appx.mjs, STORE.md).
+afterAllArtifactBuild: ./scripts/after-all-artifact-build.cjs

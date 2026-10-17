@@ -14,6 +14,7 @@ export interface RawSnapshot {
     cloud_forever: boolean;
     trial_ends_at: string | null;
     owner: boolean;
+    stripe_customer_id?: string | null;
   } | null;
   grants: { grants: Grant; redeemedAt: string }[] | null;
   installHadTrial: boolean;
@@ -28,6 +29,7 @@ export function toSnapshot(raw: RawSnapshot): Snapshot {
       cloudForever: raw.license.cloud_forever,
       trialEndsAt: ms(raw.license.trial_ends_at),
       owner: raw.license.owner,
+      stripeCustomerId: raw.license.stripe_customer_id ?? null,
     },
     grants: (raw.grants ?? []).map((g) => ({ grants: g.grants, redeemedAt: Date.parse(g.redeemedAt) })),
     installHadTrial: Boolean(raw.installHadTrial),

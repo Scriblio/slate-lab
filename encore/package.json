@@ -18,6 +18,7 @@
     "desktop": "npm run build:desktop && electron .",
     "dist:win": "npm run build:desktop && electron-builder --win nsis",
     "dist:store": "npm run build:desktop && electron-builder --win appx",
+    "store:patch": "node scripts/patch-appx.mjs",
     "dist:mac": "npm run build:desktop && electron-builder --mac",
     "dist:linux": "npm run build:desktop && electron-builder --linux AppImage",
     "icons": "electron scripts/make-icons.mjs",

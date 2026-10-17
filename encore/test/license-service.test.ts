@@ -354,10 +354,15 @@ describe('reading the database’s answer', () => {
         installHadTrial: true,
       }),
     ).toEqual({
-      license: { appForever: true, cloudUntil: Date.UTC(2027, 4, 3, 12, 0, 0, 250), cloudForever: false, trialEndsAt: null, owner: false },
+      license: { appForever: true, cloudUntil: Date.UTC(2027, 4, 3, 12, 0, 0, 250), cloudForever: false, trialEndsAt: null, owner: false, stripeCustomerId: null },
       grants: [{ grants: 'cloud_year', redeemedAt: Date.UTC(2026, 9, 5, 9, 30) }],
       installHadTrial: true,
     });
     expect(toSnapshot({ license: null, grants: null, installHadTrial: false })).toEqual({ license: null, grants: [], installHadTrial: false });
+  });
+
+  it('carries the Stripe customer, when the account has paid by card', () => {
+    const raw = { license: { app_forever: true, cloud_until: null, cloud_forever: false, trial_ends_at: null, owner: false, stripe_customer_id: 'cus_123' }, grants: [], installHadTrial: false };
+    expect(toSnapshot(raw).license).toMatchObject({ stripeCustomerId: 'cus_123' });
   });
 });

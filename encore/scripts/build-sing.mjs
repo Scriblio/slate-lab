@@ -5,7 +5,7 @@ import react from '@vitejs/plugin-react';
 import { copyFile, readFile, rename, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { build } from 'vite';
-import { encorePage, page, renderMarkdown } from './site.mjs';
+import { encorePage, page, renderMarkdown, thanksPage } from './site.mjs';
 
 const root = resolve(import.meta.dirname, '..');
 const client = join(root, 'src/client');
@@ -51,6 +51,7 @@ await copyFile(join(root, 'src/ytframe/yt-frame.js'), join(out, 'yt-frame.js'));
 
 // Encore's public page and its Privacy Policy and Terms of Use (see site.mjs).
 await writeFile(join(out, 'encore.html'), encorePage());
+await writeFile(join(out, 'thanks.html'), thanksPage()); // where Stripe sends a KJ after paying
 await copyFile(join(root, 'src/site/encore-console.png'), join(out, 'encore-console.png'));
 for (const [file, name, title] of [
   ['PRIVACY.md', 'privacy', 'Privacy Policy'],

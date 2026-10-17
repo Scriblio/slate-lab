@@ -58,12 +58,24 @@ export interface AppOptions {
    * variable ENCORE_LICENSE=off skips it too, for development. Any object, even `{}`, means it is checked
    * and the environment is ignored: the packaged app does that, so a setting on a KJ's computer can't turn it off.
    */
-  license?: false | { supabaseUrl?: string; supabaseKey?: string; publicKeys?: readonly { kid: string; key: string }[]; fetchImpl?: typeof fetch; now?: () => number };
+  license?: false | LicenseOptionsForApp;
   /** How long a phone waits for the console to work out a song's key (default 12 s). */
   keyWaitMs?: number;
   /** How often the plan is looked at again, so a trial that ends while nothing is happening shows up (default a minute). */
   planCheckMs?: number;
   quiet?: boolean;
+}
+
+/** Where the license is checked, and (for tests) the clock and how a purchase is watched for. */
+interface LicenseOptionsForApp {
+  supabaseUrl?: string;
+  supabaseKey?: string;
+  publicKeys?: readonly { kid: string; key: string }[];
+  fetchImpl?: typeof fetch;
+  now?: () => number;
+  /** After a payment page is opened: how often to look for the purchase, and for how long. */
+  watchEveryMs?: number;
+  watchForMs?: number;
 }
 
 interface SocketData {
@@ -111,6 +123,8 @@ export async function createApp(opts: AppOptions) {
         publicKeys: licensing.publicKeys,
         fetchImpl: licensing.fetchImpl ?? opts.fetchImpl,
         now: licensing.now,
+        watchEveryMs: licensing.watchEveryMs,
+        watchForMs: licensing.watchForMs,
         log,
         onChange: () => {
           void syncCloud();
@@ -130,16 +144,19 @@ export async function createApp(opts: AppOptions) {
     access.observe(show.state.id, show.state.singers.length);
     return access.cloudOn(show.state.id);
   };
-  const closedMessage = (): string =>
-    license?.state() === 'offline-expired'
+  // Said to the KJ in the console (never to a singer, who is only told the show isn't open yet).
+  const closedMessage = (): string => {
+    const unlock = license?.view().payments ? 'Buy Encore or enter an unlock code' : 'Enter an unlock code';
+    return license?.state() === 'offline-expired'
       ? 'Encore needs to check your license. Connect this laptop to the internet.'
       : license?.state() === 'signed-out'
         ? 'Sign in to start your free trial, or enter an unlock code, in Settings → Your Encore.'
         : license?.view().trialEndsAt
-          ? 'Your free trial has ended. Enter an unlock code in Settings → Your Encore to run shows.'
+          ? `Your free trial has ended. ${unlock} in Settings → Your Encore to run shows.`
           : license?.view().trialAvailable
             ? 'Start your free trial, or enter an unlock code, in Settings → Your Encore.'
-            : 'This computer has already had its free trial. Enter an unlock code in Settings → Your Encore to run shows.';
+            : `This computer has already had its free trial. ${unlock} in Settings → Your Encore to run shows.`;
+  };
   const needLicense = () => {
     if (!license) throw new UserError('Licensing is switched off in this copy of Encore.');
     return license;
@@ -725,6 +742,11 @@ export async function createApp(opts: AppOptions) {
       case 'refreshLicense':
         await needLicense().refresh({ report: true });
         return null;
+      case 'checkout':
+        if (a.kind !== 'app' && a.kind !== 'cloud') throw new UserError('Unknown thing to buy.');
+        return { url: await needLicense().checkout(a.kind) };
+      case 'billing':
+        return { url: await needLicense().billingPortal() };
       case 'setConfig':
         return updateConfig(a);
       default:
@@ -1048,14 +1070,14 @@ function resolveCloud(opt: AppOptions['cloud']): Exclude<AppOptions['cloud'], fa
  * ignores the environment, so the packaged app can't be told to skip it; with none, ENCORE_LICENSE=off
  * skips it (development). A copy with no Supabase project configured has nothing to check against.
  */
-function resolveLicense(opt: AppOptions['license']): { supabaseUrl: string; supabaseKey: string; publicKeys?: readonly { kid: string; key: string }[]; fetchImpl?: typeof fetch; now?: () => number } | undefined {
+function resolveLicense(opt: AppOptions['license']): (LicenseOptionsForApp & { supabaseUrl: string; supabaseKey: string }) | undefined {
   if (opt === false) return undefined;
   if (opt === undefined && process.env.ENCORE_LICENSE === 'off') return undefined;
   const given = opt ?? {};
   const supabaseUrl = given.supabaseUrl ?? CLOUD.supabaseUrl;
   const supabaseKey = given.supabaseKey ?? CLOUD.supabaseKey;
   if (!cloudConfigured({ supabaseUrl, supabaseKey })) return undefined;
-  return { supabaseUrl, supabaseKey, publicKeys: given.publicKeys, fetchImpl: given.fetchImpl, now: given.now };
+  return { ...given, supabaseUrl, supabaseKey };
 }
 
 /** Encore's YouTube search service (a Supabase Edge Function), unless turned off. */

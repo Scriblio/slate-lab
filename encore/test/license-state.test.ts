@@ -1,7 +1,7 @@
 // What a pass means: the six states, what each allows, and how the plan reads in words.
 
 import { describe, expect, it } from 'vitest';
-import { accessOf, cloudActive, daysLeft, formatDay, planSentence, stateOf, type LicenseView } from '../src/shared/license.ts';
+import { accessOf, cloudActive, daysLeft, formatDay, offersOf, planSentence, PRICES, RENEW_WITHIN_DAYS, stateOf, type LicenseView } from '../src/shared/license.ts';
 import { DAY, passPayload } from './licensekit.ts';
 
 const NOW = Date.UTC(2026, 10, 5, 12, 0, 0);
@@ -66,6 +66,54 @@ describe('days left', () => {
     expect(daysLeft(NOW + 1, NOW)).toBe(1);
     expect(daysLeft(NOW, NOW)).toBe(0);
     expect(daysLeft(NOW - 5 * DAY, NOW)).toBe(0);
+  });
+});
+
+describe('what the console offers to buy', () => {
+  const offers = (over: Partial<LicenseView>) => offersOf(view({ email: 'kj@example.com', payments: true, ...over }), NOW);
+  const none = { app: false, cloud: false, manage: false };
+
+  it('offers nothing until the service says buying is switched on, or before anyone is signed in', () => {
+    for (const state of ['trial', 'ended', 'licensed', 'owner', 'signed-out', 'offline-expired'] as const) {
+      expect(offersOf(view({ state, email: 'kj@example.com' }), NOW), `${state}, payments off`).toEqual(none);
+      expect(offersOf(view({ state, payments: true }), NOW), `${state}, no email`).toEqual(none);
+    }
+  });
+
+  it('offers Encore to someone on the trial or whose trial is over, and nothing else', () => {
+    expect(offers({ state: 'trial', trialDaysLeft: 9 })).toEqual({ app: true, cloud: false, manage: false });
+    expect(offers({ state: 'ended', trialEndsAt: iso(NOW - DAY) })).toEqual({ app: true, cloud: false, manage: false });
+  });
+
+  it('offers nothing to the owner, whatever else is true', () => {
+    expect(offers({ state: 'owner', cloud: true, cloudUntil: 'forever' })).toEqual(none);
+    expect(offers({ state: 'owner', billing: true })).toEqual(none);
+  });
+
+  it('offers nothing while the license can’t be checked', () => {
+    expect(offers({ state: 'offline-expired' })).toEqual(none);
+    expect(offers({ state: 'signed-out' })).toEqual(none);
+  });
+
+  it('offers Cloud, never Encore again, to someone who has it: when Cloud is gone, never was, or is nearly over', () => {
+    expect(offers({ state: 'licensed', source: 'purchase', cloud: false })).toEqual({ app: false, cloud: true, manage: false });
+    expect(offers({ state: 'licensed', source: 'code', cloud: false, cloudUntil: iso(NOW - 40 * DAY) })).toEqual({ app: false, cloud: true, manage: false });
+    expect(offers({ state: 'licensed', source: 'purchase', cloud: true, cloudUntil: iso(NOW + (RENEW_WITHIN_DAYS - 1) * DAY) })).toEqual({ app: false, cloud: true, manage: false });
+  });
+
+  it('leaves Cloud alone while it has a long way to run, or never ends', () => {
+    expect(offers({ state: 'licensed', source: 'purchase', cloud: true, cloudUntil: iso(NOW + (RENEW_WITHIN_DAYS + 1) * DAY) })).toEqual(none);
+    expect(offers({ state: 'licensed', source: 'code', cloud: true, cloudUntil: 'forever' })).toEqual(none);
+  });
+
+  it('offers the billing page to anyone who has paid by card, and not otherwise', () => {
+    expect(offers({ state: 'licensed', source: 'purchase', cloud: true, cloudUntil: iso(NOW + 300 * DAY), billing: true })).toEqual({ app: false, cloud: false, manage: true });
+    expect(offers({ state: 'ended', billing: true })).toEqual({ app: true, cloud: false, manage: true });
+    expect(offers({ state: 'licensed', source: 'code', cloud: true, cloudUntil: 'forever', billing: true }).manage).toBe(true);
+  });
+
+  it('names the prices in one place, as dollars', () => {
+    expect(PRICES).toEqual({ app: '$149', cloud: '$49' });
   });
 });
 

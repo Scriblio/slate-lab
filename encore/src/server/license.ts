@@ -7,6 +7,9 @@
 //   - A pass lasts two weeks. Past that without a check-in, Encore asks to go online.
 //   - The pass is bound to this installation and this account, so another laptop's
 //     pass, or one for another KJ, is no use here.
+//   - Buying is Stripe's page in the KJ's own browser. This only asks the service for the
+//     page's address, then looks every few seconds for the purchase to go through and
+//     picks up the new pass. Nothing is unlocked by opening a page, or by a screen saying so.
 //
 // Nothing here decides anything from what the screens say: access comes only from a
 // pass the service signed. A show that is already running is never cut off; that
@@ -15,6 +18,7 @@
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { importPassKeys, readPass, type PassKey, type PassPayload } from '../../supabase/functions/encore-license/pass.ts';
+import { stripePage } from '../../supabase/functions/encore-license/stripe.ts';
 import { LICENSE_PUBLIC_KEYS } from '../shared/license-key.ts';
 import { accessOf, daysLeft, stateOf, type Access, type LicenseState, type LicenseView } from '../shared/license.ts';
 import { Account, OfflineError } from './account.ts';
@@ -36,6 +40,9 @@ export interface LicenseOptions {
   log?: (text: string) => void;
   /** The plan may have changed. */
   onChange?: () => void;
+  /** After a payment page is opened: how often to look for the purchase, and for how long (defaults: 10 seconds, 15 minutes). */
+  watchEveryMs?: number;
+  watchForMs?: number;
 }
 
 /** What the license service answers. */
@@ -44,6 +51,11 @@ interface Reply {
   pass?: string;
   trialAvailable?: boolean;
   trial?: 'started' | 'account' | 'install' | 'owned';
+  /** Payments are switched on, and this account has a Stripe billing page. */
+  payments?: boolean;
+  billing?: boolean;
+  /** The address of a payment page (checkout and portal answers). */
+  url?: string;
   error?: string;
   code?: string;
 }
@@ -56,11 +68,18 @@ interface Saved {
 }
 
 const CHECK_EVERY = 12 * 60 * 60 * 1000;
+const WATCH_EVERY = 10_000;
+const WATCH_FOR = 15 * 60_000;
 
 export class License {
   private pass: PassPayload | null = null;
   private checkedAt: number | undefined;
   private trialAvailable = false;
+  /** The service says payments are switched on / this account has a billing page. Learned from every answer, not saved. */
+  private payments = false;
+  private billing = false;
+  /** A payment page was opened, and we're looking for the purchase to go through. */
+  private watch: { timer: ReturnType<typeof setInterval>; until: number; before: string; looking: boolean } | undefined;
   /** The last thing that went wrong, in plain words, until something works. */
   private problem: string | undefined;
   private keys: PassKey[] = [];
@@ -105,6 +124,7 @@ export class License {
   stop(): void {
     clearInterval(this.timer);
     this.timer = undefined;
+    this.stopWatching();
   }
 
   // --- what the pass means ----------------------------------------------------------------
@@ -138,6 +158,9 @@ export class License {
       ...(state === 'trial' && trialEnds !== undefined ? { trialDaysLeft: daysLeft(trialEnds, now) } : {}),
       ...(p?.source && state !== 'offline-expired' ? { source: p.source } : {}),
       ...(this.trialAvailable && this.opts.account.signedIn && !hasApp ? { trialAvailable: true } : {}),
+      ...(this.payments && this.opts.account.signedIn ? { payments: true } : {}),
+      ...(this.billing && this.opts.account.signedIn ? { billing: true } : {}),
+      ...(this.watch ? { buying: true } : {}),
       ...(this.checkedAt ? { checkedAt: new Date(this.checkedAt).toISOString() } : {}),
       ...(p ? { validUntil: new Date(p.exp * 1000).toISOString() } : {}),
       ...(this.problem ? { problem: this.problem } : {}),
@@ -203,6 +226,80 @@ export class License {
     });
   }
 
+  // --- paying ---------------------------------------------------------------------------------
+
+  /**
+   * The address of a Stripe page to buy Encore, or a year of Cloud, on. The KJ pays there, in
+   * their own browser; meanwhile this looks every few seconds for the purchase to go through.
+   */
+  async checkout(kind: 'app' | 'cloud'): Promise<string> {
+    const url = this.pageOf(await this.call({ action: 'checkout', kind }));
+    this.watchPurchase();
+    return url;
+  }
+
+  /** The address of Stripe's page for seeing payments, changing a card or cancelling Cloud. */
+  async billingPortal(): Promise<string> {
+    return this.pageOf(await this.call({ action: 'portal' }));
+  }
+
+  /**
+   * One look for a purchase going through. True once the plan has changed; the watch ends then,
+   * or when the time is up or the KJ has signed out, and the screens are told.
+   */
+  async checkPurchase(): Promise<boolean> {
+    const watch = this.watch;
+    if (!watch || watch.looking) return false;
+    if (this.clock() >= watch.until || !this.opts.account.signedIn) {
+      this.stopWatching();
+      this.opts.onChange?.();
+      return false;
+    }
+    watch.looking = true;
+    let changed = false;
+    try {
+      await this.ask({ action: 'status' });
+      changed = this.planKey() !== watch.before;
+    } catch {
+      // no internet for a moment, say: the next look tries again
+    } finally {
+      watch.looking = false;
+    }
+    if (changed) {
+      this.stopWatching();
+      this.problem = undefined;
+      this.opts.onChange?.();
+    }
+    return changed;
+  }
+
+  /** Only a page that is really Stripe's goes to the browser. */
+  private pageOf(reply: Reply): string {
+    try {
+      return stripePage(reply.url);
+    } catch {
+      throw new UserError('Encore got a payment page it couldn’t trust, so it didn’t open it. Update Encore and try again.', 'bad-page');
+    }
+  }
+
+  private watchPurchase(): void {
+    this.stopWatching();
+    const timer = setInterval(() => void this.checkPurchase(), this.opts.watchEveryMs ?? WATCH_EVERY);
+    timer.unref?.();
+    this.watch = { timer, until: this.clock() + (this.opts.watchForMs ?? WATCH_FOR), before: this.planKey(), looking: false };
+    this.opts.onChange?.();
+  }
+
+  private stopWatching(): void {
+    if (this.watch) clearInterval(this.watch.timer);
+    this.watch = undefined;
+  }
+
+  /** What a purchase changes: whether Encore is theirs, and until when Cloud lasts. */
+  private planKey(): string {
+    return `${this.pass?.app}|${this.pass?.cloudUntil}|${this.pass?.owner}|${this.pass?.source}`;
+  }
+
   // --- inside --------------------------------------------------------------------------------
 
   /** Whatever happens, even a failure, the screens are told to look again: the pass may have just gone stale or been forgotten. */
@@ -229,6 +326,13 @@ export class License {
 
   /** One question to the license service, and the pass in the answer kept. */
   private async ask(body: Record<string, unknown>): Promise<Reply> {
+    const reply = await this.call(body);
+    await this.accept(reply);
+    return reply;
+  }
+
+  /** One question to the license service: its answer, or the reason in plain words that there isn't one. */
+  private async call(body: Record<string, unknown>): Promise<Reply> {
     const account = this.opts.account;
     let token = await account.accessToken();
     if (!token) {
@@ -249,10 +353,10 @@ export class License {
     if (!reply?.ok) {
       const message = reply?.error;
       // A reply that isn't ours (an outage page, say) is a hiccup; one of ours is the answer the KJ should hear.
-      if (message && typeof message === 'string' && res.status < 500) throw new UserError(message, reply?.code);
+      // ("Buying isn't switched on" is ours too, though it comes with a 503 like "licensing isn't switched on".)
+      if (message && typeof message === 'string' && (res.status < 500 || reply?.code === 'payments-off')) throw new UserError(message, reply?.code);
       throw new UserError(res.status === 503 ? 'Encore’s license service isn’t switched on yet.' : 'Encore’s license service had a problem. Try again in a minute.', 'server');
     }
-    await this.accept(reply);
     return reply;
   }
 
@@ -279,6 +383,8 @@ export class License {
     this.pass = pass;
     this.checkedAt = this.clock();
     this.trialAvailable = Boolean(reply.trialAvailable);
+    this.payments = Boolean(reply.payments);
+    this.billing = Boolean(reply.billing);
     await this.save(reply.pass!);
     // A computer clock far ahead of the real time would make every fresh pass look too old.
     if (this.clock() >= pass.exp * 1000) {
@@ -296,9 +402,12 @@ export class License {
 
   /** Forget the pass (signed out, or it was another account's). */
   private async forget(): Promise<void> {
+    this.stopWatching();
     this.pass = null;
     this.checkedAt = undefined;
     this.trialAvailable = false;
+    this.payments = false;
+    this.billing = false;
     this.problem = undefined;
     await rm(this.file, { force: true });
   }
