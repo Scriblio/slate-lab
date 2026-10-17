@@ -140,7 +140,7 @@ Nothing here touches YouTube, and no purchase changes a YouTube feature (YouTube
 
 Do the whole thing in **Stripe's test mode** first (the "Test mode" switch at the top of the Stripe Dashboard). Test and live mode have separate keys, products, webhooks and customers, so you do it all again, with the live ones, when you're ready. Steps 4 and 5 change the live Supabase project, so check with Matthew first.
 
-1. **Get the join site's `/thanks` page live,** since Stripe sends a KJ there after paying (`sing.scriblio.co/thanks`; it only says "thank you" and what to do if Encore hasn't noticed). That means this branch merged and Vercel's production branch set to `main`.
+1. **The join site's `/thanks` page,** where Stripe sends a KJ after paying (`sing.scriblio.co/thanks`; it only says "thank you" and what to do if Encore hasn't noticed). **Already live** (2026-10-17): Vercel's production branch is `main`, and the page is in the join site's build.
 2. **In Stripe, make the two prices** (Product catalog → Add product):
    - **Encore:** a one-time price, $149 USD.
    - **Encore Cloud:** a recurring price, $49 USD every year.
