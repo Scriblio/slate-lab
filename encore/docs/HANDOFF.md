@@ -15,7 +15,7 @@ Encore is a karaoke hosting (KJ) app by Scriblio (Matthew Lancaster). It's being
 | --- | --- |
 | Install | `npm ci` (use `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci` if you don't need Electron) |
 | Typecheck | `npm run typecheck` |
-| Tests | `npm test` (753 tests; some run the licensing and payments SQL in an in-process Postgres, so the first start takes a moment; the Store-package patch tests run the real `makeappx` where the Windows SDK is installed) |
+| Tests | `npm test` (759 tests; some run the licensing and payments SQL in an in-process Postgres, so the first start takes a moment; the Store-package patch tests run the real `makeappx` where the Windows SDK is installed) |
 | Run with a demo library | `npm run demo`, then open http://localhost:4747/dj (venue screen at `/display`, phone page at `/join`) |
 | Desktop app | `npm run build:desktop && npm run desktop` |
 | Windows installer | built by GitHub Actions on every push to the branch: download the "Encore-Karaoke-Windows" artifact from the run; `npm run dist:win` needs Windows |
@@ -54,6 +54,7 @@ Encore is a karaoke hosting (KJ) app by Scriblio (Matthew Lancaster). It's being
 - **Encore Monthly (licensing step 2b, decided 2026-10-17):** $29 a month for Encore and Cloud while subscribed, beside the $149 and the $49 a year. **Applied and deployed to the live project on 2026-10-17 (Matthew said "deploy Monthly") and switched on against Stripe's sandbox; the code is on the branch `claude/encore-monthly` ([#7](https://github.com/Scriblio/slate-lab/pull/7)), not merged yet, so don't redeploy these functions from `main` until it is.** The plan is in `docs/LICENSING.md` ("Step 2b"); how it was switched on, and how to do it again for live mode, is in `supabase/README.md` ("Encore Monthly") and under Infrastructure below.
   - **One new date, `licenses.app_until`** (the end of the last paid month), worked out like a Cloud year from the paid invoices, so cancelling needs no event. The license service gives Encore and Cloud until three days after it (`SUBSCRIPTION_GRACE_DAYS`), and the signed pass runs out then too (`source: 'subscription'`, `appUntil` named in it).
   - **A subscriber may buy Encore outright:** the webhook then sets their monthly subscription to cancel at its period's end (`stripe-webhook/stripe.ts`).
+  - **When it lapses** the pass keeps naming `appUntil` (no longer working, just the date), the console says "Encore Monthly ended on …" / "Your Encore Monthly has ended" (never free-trial wording) and no free trial is offered to someone who has paid. This was found by trying it on the installed app on 2026-10-17 and fixed on the branch; **it needs `encore-license` redeployed** (the core.ts change) and a new installer to be live.
   - **Off until `STRIPE_PRICE_MONTHLY` exists** (it exists in the sandbox since 2026-10-17; for live mode it has to be set again to the live price): no *Subscribe* button, and everything else as before. The console's wording (`PRICES`, `MONTHS_TO_BREAK_EVEN`, `offersOf` in `src/shared/license.ts`) must match the price in Stripe.
 
 ## Infrastructure (set up by Matthew; never commit secrets)

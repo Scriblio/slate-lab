@@ -621,7 +621,8 @@ describe('buying', () => {
     it('keeps working a few days past the paid month and then stops: the pass runs out with the grace, even offline', async () => {
       const l = await shop();
       await world.endTrialAt(l.account.userId!, clock.t - DAY);
-      await subscribed(l.account.userId!, clock.t + 10 * DAY);
+      const paidUntil = clock.t + 10 * DAY;
+      await subscribed(l.account.userId!, paidUntil);
       await l.license.refresh();
       expect(l.license.state()).toBe('licensed');
 
@@ -635,10 +636,13 @@ describe('buying', () => {
       expect(l.license.state()).toBe('offline-expired');
       expect(l.license.access()).toEqual({ shows: false, cloud: false });
 
-      // Online, the service says the subscription isn't paid for any more.
+      // Online, the service says the subscription isn't paid for any more, and the console is told that it ended
+      // (not that a free trial did, even though this account had one), with a free trial not on offer to someone who paid.
       await l.license.refresh();
       expect(l.license.state()).toBe('ended');
-      expect(l.license.view().appUntil).toBeUndefined();
+      expect(l.license.view()).toMatchObject({ state: 'ended', app: false, cloud: false, appUntil: new Date(paidUntil).toISOString() });
+      expect(l.license.view().trialAvailable).toBeUndefined();
+      expect(said(l.license)).toBe('Encore Monthly ended on 15 November 2026.');
     });
 
     it('lets a subscriber buy Encore outright, and notices when that goes through', async () => {

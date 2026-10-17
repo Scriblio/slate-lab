@@ -212,7 +212,7 @@ export function Offers() {
           </button>
           <span className="muted small">
             {l.source === 'subscription'
-              ? 'One payment, yours to keep. Your monthly subscription stops renewing when you buy, and you keep the month you paid for.'
+              ? `One payment, yours to keep. Your monthly subscription stops renewing when you buy${l.appUntil && Date.parse(l.appUntil) > Date.now() ? ', and you keep the month you paid for' : ''}.`
               : 'One payment, yours to keep. It includes a year of Encore Cloud: singers can join from any network, with a QR code that never changes, and get lock-screen alerts.'}
           </span>
         </div>
@@ -242,7 +242,11 @@ export function Offers() {
           <button className="btn sm" disabled={busy} onClick={() => void page.open({ type: 'billing' }, 'billing')}>
             {page.busy === 'billing' ? <I.Loader /> : <I.Card />} Manage billing
           </button>
-          <span className="muted small">See your payments, update your card, or stop {l.source === 'subscription' ? 'Encore Monthly' : 'Cloud'} renewing.</span>
+          <span className="muted small">
+            {l.appUntil && l.state === 'ended'
+              ? 'See your payments or update your card.'
+              : `See your payments, update your card, or stop ${l.source === 'subscription' ? 'Encore Monthly' : 'Cloud'} renewing.`}
+          </span>
         </div>
       )}
       {/* Microsoft Store policy 10.8.2: the app names who takes the payment. */}
@@ -440,7 +444,8 @@ export function LicensePanel() {
       </button>
     );
   } else {
-    title = l.trialEndsAt ? 'Your free trial has ended' : 'This computer has already had its free trial';
+    // Someone who paid for Encore Monthly is told it ended, not that a free trial did.
+    title = l.appUntil ? 'Your Encore Monthly has ended' : l.trialEndsAt ? 'Your free trial has ended' : 'This computer has already had its free trial';
     body = `${l.payments ? (l.monthly ? 'Buy Encore, subscribe, or enter an unlock code,' : 'Buy Encore, or enter an unlock code,') : 'Enter an unlock code'} to keep running shows. Your library, settings and printing still work.`;
     action = (
       <div className="offers">

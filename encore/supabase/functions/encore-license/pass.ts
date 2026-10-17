@@ -25,7 +25,7 @@ export interface PassPayload {
   cloudUntil: string | null;
   /** When the free trial ends (or ended): an ISO date, or null if there has been none. */
   trialUntil: string | null;
-  /** Encore Monthly only: the end of the month that was paid for (an ISO date), so Settings can say so. The pass itself runs out a few days after it. Absent for everyone else. */
+  /** Encore Monthly only: the end of the last month that was paid for (an ISO date), so Settings can say so. While it is paid for, the pass itself runs out a few days after it; once it has run out, this says that it ended. Absent for everyone else. */
   appUntil?: string | null;
   owner: boolean;
   source: PassSource | null;

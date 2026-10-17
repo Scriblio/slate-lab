@@ -152,11 +152,13 @@ export async function createApp(opts: AppOptions) {
       ? 'Encore needs to check your license. Connect this laptop to the internet.'
       : license?.state() === 'signed-out'
         ? 'Sign in to start your free trial, or enter an unlock code, in Settings → Your Encore.'
-        : license?.view().trialEndsAt
-          ? `Your free trial has ended. ${unlock} in Settings → Your Encore to run shows.`
-          : license?.view().trialAvailable
-            ? 'Start your free trial, or enter an unlock code, in Settings → Your Encore.'
-            : `This computer has already had its free trial. ${unlock} in Settings → Your Encore to run shows.`;
+        : license?.view().appUntil
+          ? `Your Encore Monthly has ended. ${unlock} in Settings → Your Encore to run shows.`
+          : license?.view().trialEndsAt
+            ? `Your free trial has ended. ${unlock} in Settings → Your Encore to run shows.`
+            : license?.view().trialAvailable
+              ? 'Start your free trial, or enter an unlock code, in Settings → Your Encore.'
+              : `This computer has already had its free trial. ${unlock} in Settings → Your Encore to run shows.`;
   };
   const needLicense = () => {
     if (!license) throw new UserError('Licensing is switched off in this copy of Encore.');

@@ -164,6 +164,19 @@ describe('Encore Monthly', () => {
     expect(planSentence(v(iso(paidTo)), 'UTC', paidTo + DAY)).toBe('Encore Monthly: the month paid for ended on 17 November 2026. Update your card in Manage billing to keep going.');
     expect(planSentence(view({ state: 'licensed', source: 'subscription' }), 'UTC', NOW)).toBe('Encore Monthly. Cloud is included.');
   });
+
+  it('says that it ended, not that a free trial did, once the grace is over', () => {
+    const ended = (over: Partial<LicenseView> = {}) => view({ state: 'ended', appUntil: iso(paidTo), ...over });
+    expect(planSentence(ended(), 'UTC', paidTo + 5 * DAY)).toBe('Encore Monthly ended on 17 November 2026.');
+    // Whatever else is known about a trial, the subscription is what ended.
+    expect(planSentence(ended({ trialEndsAt: iso(NOW - 20 * DAY) }), 'UTC', paidTo + 5 * DAY)).toBe('Encore Monthly ended on 17 November 2026.');
+    expect(planSentence(ended({ appUntil: undefined, trialEndsAt: iso(NOW - 20 * DAY) }), 'UTC', paidTo + 5 * DAY)).toBe('Your free trial ended on 16 October 2026.');
+  });
+
+  it('offers what it offers after any ended plan: buying or subscribing again, and Manage billing', () => {
+    const ended = view({ state: 'ended', email: 'kj@example.com', appUntil: iso(paidTo), payments: true, monthly: true, billing: true });
+    expect(offersOf(ended, paidTo + 5 * DAY)).toEqual({ app: true, monthly: true, cloud: false, manage: true });
+  });
 });
 
 describe('the plan in words', () => {

@@ -160,7 +160,10 @@ export interface Plan {
   app: boolean;
   /** Encore is theirs for good, so a subscription (or a second purchase) would be a mistake. */
   appForever: boolean;
-  /** Encore Monthly: the end of the month that was paid for, while it is theirs that way. Null otherwise. */
+  /**
+   * Encore Monthly: the end of the last month that was paid for, while it is theirs that way and after it has run out (so
+   * the console can say that it ended, rather than talk of a free trial). Null if they never subscribed, or have Encore for good.
+   */
   appUntil: string | null;
   cloudUntil: string | null;
   trialUntil: string | null;
@@ -197,12 +200,13 @@ export function evaluate(snap: Snapshot, now = Date.now()): Plan {
   return {
     app,
     appForever,
-    appUntil: subscribed ? new Date(lic!.appUntil!).toISOString() : null,
+    appUntil: !appForever && lic?.appUntil != null ? new Date(lic.appUntil).toISOString() : null,
     cloudUntil: cloudForever ? 'forever' : cloudEnd === null ? null : new Date(cloudEnd).toISOString(),
     trialUntil: trialEndsAt === null ? null : new Date(trialEndsAt).toISOString(),
     owner,
     source: owner ? 'owner' : codeApp ? 'code' : lic?.appForever ? 'purchase' : subscribed ? 'subscription' : trialEndsAt !== null ? 'trial' : null,
-    trialAvailable: !app && trialEndsAt === null && !snap.installHadTrial,
+    // Not offered to someone who has paid for a month of Encore Monthly, even if it has run out: they aren't a newcomer.
+    trialAvailable: !app && trialEndsAt === null && !snap.installHadTrial && lic?.appUntil == null,
   };
 }
 

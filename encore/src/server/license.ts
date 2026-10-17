@@ -157,7 +157,8 @@ export class License {
       app: hasApp,
       cloud: accessOf(p, now).cloud,
       ...(state === 'licensed' && p?.cloudUntil ? { cloudUntil: p.cloudUntil } : {}),
-      ...(state === 'licensed' && p?.appUntil ? { appUntil: p.appUntil } : {}),
+      // While Encore Monthly is paid for, and after it has run out (so the console can say it ended).
+      ...((state === 'licensed' || state === 'ended') && p?.appUntil ? { appUntil: p.appUntil } : {}),
       ...(p?.trialUntil ? { trialEndsAt: p.trialUntil } : {}),
       ...(state === 'trial' && trialEnds !== undefined ? { trialDaysLeft: daysLeft(trialEnds, now) } : {}),
       ...(p?.source && state !== 'offline-expired' ? { source: p.source } : {}),

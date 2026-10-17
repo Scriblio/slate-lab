@@ -195,14 +195,15 @@ describe.each([
       expect(b.exp - b.iat).toBe(14 * 24 * 60 * 60);
     });
 
-    it('keeps working through its grace days, and then stops', async () => {
+    it('keeps working through its grace days, and then stops, still naming the month that was paid for so the console can say it ended', async () => {
       const paidUntil = Date.now() + 5 * DAY;
       const kj = await subscribe('monthly-grace@example.com', paidUntil);
       const install = laptop();
       expect(await passOf(await status(kj, install, at(paidUntil + 2 * DAY)))).toMatchObject({ app: true, source: 'subscription' });
       const over = await passOf(await status(kj, install, at(paidUntil + 3 * DAY + 1000)));
-      expect(over).toMatchObject({ app: false, cloudUntil: null, source: null });
-      expect(over.appUntil).toBeUndefined();
+      expect(over).toMatchObject({ app: false, cloudUntil: null, source: null, appUntil: new Date(paidUntil).toISOString() });
+      // It no longer runs out with the grace: it is an ordinary pass, good for the usual two weeks without a check-in.
+      expect(over.exp - over.iat).toBe(14 * 24 * 60 * 60);
     });
 
     it('is outranked by the owner, an unlock code and a purchase, which say nothing of the month', async () => {
@@ -243,11 +244,19 @@ describe.each([
       expect(await w.trialsOn(install)).toBe(0);
     });
 
-    it('leaves someone whose subscription ran out free to start a free trial, if they never had one', async () => {
-      const kj = await subscribe('monthly-lapsed-trial@example.com', Date.now() - 10 * DAY);
-      const install = laptop();
-      expect((await status(kj, install)).body).toMatchObject({ trialAvailable: true });
-      expect((await startTrial(kj, install)).body).toMatchObject({ trial: 'started' });
+    it('does not offer a free trial to someone who has paid for a month, even after it ran out: they are not a newcomer', async () => {
+      const lapsed = await subscribe('monthly-lapsed-trial@example.com', Date.now() - 10 * DAY);
+      expect((await status(lapsed, laptop())).body).toMatchObject({ trialAvailable: false });
+      // Someone who never subscribed is unchanged.
+      expect((await status(await w.kj('monthly-newcomer@example.com'), laptop())).body).toMatchObject({ trialAvailable: true });
+    });
+
+    it('says nothing of the month to someone who never subscribed, or who has Encore for good', async () => {
+      const never = await passOf(await status(await w.kj('monthly-never@example.com'), laptop()));
+      expect(never.appUntil).toBeUndefined();
+      const owner = await subscribe('monthly-never-owner@example.com', Date.now() - 10 * DAY);
+      await w.setOwner(owner.email);
+      expect((await passOf(await status(owner, laptop()))).appUntil).toBeUndefined();
     });
   });
 

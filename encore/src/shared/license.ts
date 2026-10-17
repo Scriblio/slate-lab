@@ -50,7 +50,7 @@ export interface LicenseView {
   payments?: boolean;
   /** Encore Monthly can be subscribed to, too. */
   monthly?: boolean;
-  /** Encore Monthly: the end of the month that was paid for (ISO). The pass carries on a few days past it. */
+  /** Encore Monthly: the end of the last month that was paid for (ISO). While it's paid for the pass carries on a few days past it; in the 'ended' state it says when the subscription ran out. */
   appUntil?: string;
   /** This account has paid by card, so Stripe has a billing page for it. */
   billing?: boolean;
@@ -172,6 +172,8 @@ export function planSentence(v: LicenseView, timeZone?: string, now = Date.now()
       return `Encore is yours${how}. Cloud isn’t included.`;
     }
     case 'ended':
+      // Someone who has paid for Encore Monthly is told that it ended, not that a free trial did.
+      if (v.appUntil) return `Encore Monthly ended on ${day(v.appUntil)}.`;
       // No trial date means this account never had one: either it hasn't started, or this laptop already used its one.
       return v.trialEndsAt ? `Your free trial ended on ${day(v.trialEndsAt)}.` : v.trialAvailable ? 'Your free trial hasn’t started yet.' : 'This computer has already had its free trial.';
     case 'offline-expired':
