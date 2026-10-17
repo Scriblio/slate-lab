@@ -213,7 +213,7 @@ export function Offers() {
           <span className="muted small">
             {l.source === 'subscription'
               ? 'One payment, yours to keep. Your monthly subscription stops renewing when you buy, and you keep the month you paid for.'
-              : 'One payment, yours to keep. It includes a year of Encore Cloud: the online join link and lock-screen alerts.'}
+              : 'One payment, yours to keep. It includes a year of Encore Cloud: singers can join from any network, with a QR code that never changes, and get lock-screen alerts.'}
           </span>
         </div>
       )}
@@ -232,7 +232,9 @@ export function Offers() {
           <button className={`btn ${l.cloud ? '' : 'primary'}`} disabled={busy} onClick={() => void page.open({ type: 'checkout', kind: 'cloud' }, 'cloud')}>
             {page.busy === 'cloud' ? <I.Loader /> : <I.Card />} {l.cloud ? 'Keep Cloud going' : 'Add Cloud'} · {PRICES.cloud} a year
           </button>
-          <span className="muted small">Cloud is the online join link and lock-screen alerts. It renews every year, and you can stop it any time in Manage billing.</span>
+          <span className="muted small">
+            Cloud lets singers join from any network, with a QR code that never changes, and get lock-screen alerts. Without it they join over this laptop’s Wi-Fi. It renews every year, and you can stop it any time in Manage billing; it keeps working to the end of the year you paid for.
+          </span>
         </div>
       )}
       {offers.manage && (
@@ -265,6 +267,48 @@ export function Offers() {
   );
 }
 
+/**
+ * What Encore Cloud does and doesn't do, in the words a KJ would use. It is the online join link (the
+ * secure page, with the same QR code every show) and the lock-screen alerts that need it; nothing
+ * else is Cloud. In particular YouTube is in every plan, so nothing here is something that is paid for.
+ */
+export function CloudExplainer({ open }: { open?: boolean }) {
+  return (
+    <details className="cloud-explainer" open={open}>
+      <summary>What does Cloud do?</summary>
+      <div className="cloud-notes">
+        <strong>With Cloud</strong>
+        <ul>
+          <li>
+            <b>Singers can join from any network,</b> even mobile data. The QR code opens a secure page, so phones don’t warn “not secure”.
+          </li>
+          <li>
+            <b>The QR code is the same at every show.</b> Print it once, put it on the tables, and it keeps working.
+          </li>
+          <li>
+            <b>Lock-screen alerts.</b> Singers can turn on a nudge on their phone for when they’re up next, and when they’re called.
+          </li>
+        </ul>
+        <strong>Without Cloud</strong>
+        <ul>
+          <li>
+            <b>Singers join over your venue’s Wi-Fi,</b> so their phones must be on the same network as this laptop.
+          </li>
+          <li>
+            <b>The QR code holds this laptop’s Wi-Fi address,</b> which can change on another night or at another venue, so printed codes can stop working.
+          </li>
+          <li>
+            <b>No lock-screen alerts.</b>
+          </li>
+        </ul>
+        <p className="muted small">
+          Either way, the show, the queue, the big screen, your song library, printing, and YouTube search and playback all work the same. Cloud needs this laptop to be online: if the internet drops, the code on the big screen switches to the Wi-Fi link by itself. If Cloud runs out in the middle of a show, tonight’s show keeps it until you start a new list or close Encore.
+        </p>
+      </div>
+    </details>
+  );
+}
+
 /** "4 October 2026, 11:44 PM", in the KJ's own time zone. */
 const when = (iso: string) => `${formatDay(iso)}, ${new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
 
@@ -294,8 +338,8 @@ export function YourEncore() {
         {(l.state === 'trial' || l.state === 'licensed' || l.state === 'owner') && (
           <span className="muted small">
             {l.cloud
-              ? 'Encore Cloud is on: the online join link and lock-screen alerts.'
-              : 'Encore Cloud isn’t part of your plan, so phones join with the Wi-Fi link and there are no lock-screen alerts.'}
+              ? 'Encore Cloud is on: singers can join from any network, the QR code never changes, and they can get lock-screen alerts.'
+              : 'Encore Cloud isn’t part of your plan. Singers join over this laptop’s Wi-Fi, a printed QR code can go stale at another venue, and there are no lock-screen alerts.'}
           </span>
         )}
         {/* Microsoft Store policy 10.8.4: say in advance what a trial's end changes. */}
@@ -312,6 +356,8 @@ export function YourEncore() {
         )}
       </div>
       <Problem text={l.problem} />
+      {/* Open while Cloud is being offered, so the KJ sees what it is before deciding. */}
+      {(l.state === 'trial' || l.state === 'licensed' || l.state === 'ended') && <CloudExplainer open={offersOf(l, Date.now()).cloud} />}
       {l.trialAvailable && (
         <div className="settings-row">
           <button className="btn primary" onClick={() => act({ type: 'startTrial' }, 'Your free trial has started')}>
