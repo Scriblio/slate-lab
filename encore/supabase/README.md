@@ -146,6 +146,11 @@ Do the whole thing in **Stripe's test mode** first (the "Test mode" switch at th
    - **Encore Cloud:** a recurring price, $49 USD every year.
 
    Copy each price's id (it starts `price_`).
+
+   Give each product a **description**: Stripe shows it on its payment page, in the customer portal and on receipts, so it is where a customer reads what they are buying. It should say what the console says (Settings → Your Encore → *What does Cloud do?*). The sandbox products carry exactly this wording; use it again in live mode:
+   - **Encore Karaoke:** Karaoke hosting software for Windows. One payment, yours to keep. Includes a year of Encore Cloud: singers can join from any network, with a QR code that never changes, and get lock-screen alerts. After that year, Cloud is optional at $49 a year.
+   - **Encore Cloud:** Singers can join your show from any network, with a QR code that never changes, and get lock-screen alerts. Renews every year; cancel any time in Manage billing and it keeps working to the end of the year you paid for.
+   - **Encore Monthly:** Encore Karaoke and Encore Cloud for as long as you're subscribed: singers can join from any network, with a QR code that never changes, and get lock-screen alerts. Renews every month; cancel any time in Manage billing and it keeps working to the end of the month you paid for.
 3. **In Stripe, set up the rest:**
    - **Settings → Billing → Customer portal:** turn it on. Let customers update their payment method and cancel subscriptions (at the end of the period is the kinder choice). Save. Without this, *Manage billing* fails.
    - **Settings → Customer emails:** turn on emails for successful payments, so customers get a receipt.
@@ -184,7 +189,7 @@ To rehearse a failed renewal or a year passing, use Stripe's **test clocks** (se
 
 Built on top of the payments above, **not applied or deployed yet**. It does nothing until its price secret exists, and the plan is in [`docs/LICENSING.md`](../docs/LICENSING.md) ("Step 2b"). Steps 3 to 5 change the live project, so check with Matthew first.
 
-1. **In Stripe, make the price:** Product catalog → Add product → *Encore Monthly*, a recurring price of $29 USD every month, in the same category as the other two (Electronically Supplied Services). In the sandbox this is `price_1URYLZFGM3Hi9qsLnCz3eW5T`. The customer portal needs nothing new (cancelling at the end of the period is already on).
+1. **In Stripe, make the price:** Product catalog → Add product → *Encore Monthly*, with the description given in step 2 of the Stripe steps above and a recurring price of $29 USD every month, in the same category as the other two (Electronically Supplied Services). In the sandbox this is `price_1URYLZFGM3Hi9qsLnCz3eW5T`. The customer portal needs nothing new (cancelling at the end of the period is already on).
 2. **Apply the migration** `migrations/20261018000000_monthly.sql`. It adds `licenses.app_until`, replaces `license_stripe_apply` with a version that also takes a paid month (the old ten-argument one is dropped, so there is one function for the webhook to find), and makes `revoke_purchase` end paid months too.
 3. **Redeploy both functions** (`stripe-webhook` with JWT verification still **off**, `encore-license` still **on**). The webhook now also reads `STRIPE_PRICE_MONTHLY` and `STRIPE_SECRET_KEY` (both already set for the license service): the first to tell a monthly invoice from a Cloud one, the second only to stop a subscription renewing when its owner buys Encore outright.
 4. **Add the secret** `STRIPE_PRICE_MONTHLY` (the price id from step 1; it isn't sensitive). Until it exists the console shows no *Subscribe* button, and Encore and Cloud are sold exactly as before. Do the migration and the deploy first, so that nothing can be bought before the webhook understands it.
