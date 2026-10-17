@@ -2,7 +2,7 @@
 
 This is the brief for selling Encore. It was agreed with Matthew. Read `docs/HANDOFF.md` first for how the app works; this file covers only licensing.
 
-The work comes in three steps. **Step 1 is built and live** (accounts, a free trial, unlock codes and the checks in the app, with no payments yet; see "Step 1: as built" below; the set-up steps are in `supabase/README.md` under "Licensing"). **Step 2 (Stripe) is built and tested, and not switched on:** nothing has been applied or deployed to the live project (see "Step 2: as built" below, and "Payments" in `supabase/README.md` for the steps that switch it on). Matthew gives codes to a few KJ friends as beta testers and watches what the cloud costs per KJ, then switches on payments in Stripe's test mode first.
+The work comes in three steps. **Step 1 is built and live** (accounts, a free trial, unlock codes and the checks in the app, with no payments yet; see "Step 1: as built" below; the set-up steps are in `supabase/README.md` under "Licensing"). **Step 2 (Stripe) is built, tested and deployed to the live project (17 October 2026), and not switched on:** the migration is applied and both functions are deployed, but none of the four Stripe secrets exist yet, so nothing can be bought (see "Step 2: as built" below, and "Payments" in `supabase/README.md` for the steps that switch it on). Matthew gives codes to a few KJ friends as beta testers and watches what the cloud costs per KJ, then switches on payments in Stripe's test mode first.
 
 ## Decisions already made (don't revisit)
 
@@ -168,7 +168,7 @@ The plan was: two Stripe products ("Encore", $149 once, which also gives Cloud f
 
 ### Step 2: as built
 
-Built on the branch `claude/encore-stripe`. **Nothing is applied or deployed to the live project yet.** Matthew's go-ahead is needed first, and the steps are in `supabase/README.md` under "Payments (Stripe)". Until the Stripe secrets exist, everything here is dark: the webhook answers "not switched on", the license service offers no page to pay on, and the console shows no prices and no buttons.
+Built on the branch `claude/encore-stripe` (merged as PR #5). **Applied and deployed to the live project on 17 October 2026, with Matthew's go-ahead:** the migration (recorded as `20261017124619_stripe`), `stripe-webhook` (version 1) and `encore-license` (version 4). The steps that switch it on are in `supabase/README.md` under "Payments (Stripe)". Until the Stripe secrets exist, everything here is dark: the webhook answers "not switched on", the license service offers no page to pay on, and the console shows no prices and no buttons.
 
 **What a purchase is.** Stripe only ever sets the same two columns an unlock code's grants sit beside, `licenses.app_forever` and `licenses.cloud_until`, plus `stripe_customer_id`, `stripe_subscription_id` and `source = 'stripe'`. So the pass, the laptop and every state in the app needed no new idea of what a customer has: a purchase is `app_forever`, and the pass says `source: 'purchase'`. Unlock-code grants are still worked out at each check-in, and stack with a purchase.
 
