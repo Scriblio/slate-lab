@@ -11,11 +11,12 @@
 // karaoke" here is sent there, and videos enough other KJs have reported are
 // treated the same way here (queued ones are checked, and swapped if hidden).
 
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { mkdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { YOUTUBE_REFUSALS } from '../shared/protocol.ts';
 import { normalize } from '../shared/text.ts';
 import type { Entry, SearchResult, Song, YouTubeEmbed, YouTubeMode } from '../shared/types.ts';
+import { writeFileAtomic } from './atomicfile.ts';
 import type { Show } from './show.ts';
 
 export const REFUSAL_CODES = new Set(YOUTUBE_REFUSALS);
@@ -89,8 +90,7 @@ export class YouTubeGuard {
     const data = JSON.stringify(Object.fromEntries(this.refused));
     this.saving = this.saving.then(async () => {
       await mkdir(this.deps.dataDir!, { recursive: true });
-      await writeFile(`${file}.tmp`, data);
-      await rename(`${file}.tmp`, file);
+      await writeFileAtomic(file, data);
     });
     return this.saving.catch(() => {});
   }

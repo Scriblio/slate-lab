@@ -4,11 +4,12 @@
 // track. Kept on this laptop only, in data/keys.json, and forgotten after a year
 // without use.
 
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { mkdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { clampKey } from '../shared/pitch.ts';
 import { nameKey } from '../shared/text.ts';
 import type { Song } from '../shared/types.ts';
+import { writeFileAtomic } from './atomicfile.ts';
 
 const YEAR_MS = 365 * 24 * 60 * 60_000;
 const MAX_ENTRIES = 5000;
@@ -81,9 +82,7 @@ export class KeyMemory {
     const run = async () => {
       const data: Saved = { version: 1, keys: Object.fromEntries(this.keys) };
       await mkdir(this.opts.dataDir!, { recursive: true });
-      const tmp = `${file}.${process.pid}.tmp`;
-      await writeFile(tmp, JSON.stringify(data));
-      await rename(tmp, file);
+      await writeFileAtomic(file, JSON.stringify(data));
     };
     this.saving = this.saving.then(run, run).catch((err: Error) => this.opts.log?.(`  Could not save key changes: ${err.message}`));
   }

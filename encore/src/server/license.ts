@@ -15,13 +15,14 @@
 // pass the service signed. A show that is already running is never cut off; that
 // promise lives in access.ts, which asks this for the plan.
 
-import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { importPassKeys, readPass, type PassKey, type PassPayload } from '../../supabase/functions/encore-license/pass.ts';
 import { stripePage } from '../../supabase/functions/encore-license/stripe.ts';
 import { LICENSE_PUBLIC_KEYS } from '../shared/license-key.ts';
 import { accessOf, daysLeft, stateOf, type Access, type LicenseState, type LicenseView } from '../shared/license.ts';
 import { Account, OfflineError } from './account.ts';
+import { writeFileAtomic } from './atomicfile.ts';
 import { UserError } from './show.ts';
 
 export interface LicenseOptions {
@@ -115,12 +116,12 @@ export class License {
     }
   }
 
-  /** Check in now (if signed in) and every 12 hours. */
-  start(): void {
-    if (this.timer) return;
+  /** Check in now (if signed in) and every 12 hours. Resolves when that first check is done and its pass is kept. */
+  start(): Promise<void> {
+    if (this.timer) return Promise.resolve();
     this.timer = setInterval(() => void this.refresh(), CHECK_EVERY);
     this.timer.unref?.();
-    void this.refresh();
+    return this.refresh();
   }
 
   stop(): void {
@@ -400,9 +401,7 @@ export class License {
   private async save(token: string): Promise<void> {
     const saved: Saved = { pass: token, checkedAt: this.checkedAt ?? this.clock(), trialAvailable: this.trialAvailable };
     await mkdir(this.opts.dataDir, { recursive: true });
-    const tmp = `${this.file}.${process.pid}.tmp`;
-    await writeFile(tmp, JSON.stringify(saved), { mode: 0o600 });
-    await rename(tmp, this.file);
+    await writeFileAtomic(this.file, JSON.stringify(saved), { mode: 0o600 });
   }
 
   /** Forget the pass (signed out, or it was another account's). */

@@ -7,9 +7,10 @@
 // singer leaves, when the KJ starts a new show, or when the phone's push
 // service says the subscription has ended.
 
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { ShowState, UpcomingItem } from '../shared/types.ts';
+import { writeFileAtomic } from './atomicfile.ts';
 import { UserError } from './show.ts';
 import {
   generateVapidKeys,
@@ -231,9 +232,7 @@ export class PushNotifier {
     const file = join(dir, 'push-subscriptions.json');
     const run = async () => {
       const data: SavedSubscriptions = { showId: this.showId, subs: Object.fromEntries(this.subs) };
-      const tmp = `${file}.${process.pid}.tmp`;
-      await writeFile(tmp, JSON.stringify(data), { mode: 0o600 });
-      await rename(tmp, file);
+      await writeFileAtomic(file, JSON.stringify(data), { mode: 0o600 });
     };
     this.saving = this.saving.then(run, run).catch((err: Error) => this.opts.log?.(`  Could not save alert subscriptions: ${err.message}`));
   }

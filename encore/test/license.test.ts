@@ -28,7 +28,8 @@ beforeEach(async () => {
   keys = await makeKeys();
   fake = fakeSupabase({ world, signing: keys.signing, now });
 });
-afterEach(() => rm(dir, { recursive: true, force: true }));
+// A few tests end with a check still being saved, so try the clean-up again if the folder is busy for a moment.
+afterEach(() => rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 }));
 
 /** A laptop: its license and account over one data folder. Call open() to read what was saved, as a start does. */
 async function laptop(over: { installId?: string; publicKeys?: { kid: string; key: string }[]; serverClock?: () => number; dataDir?: string; watchEveryMs?: number; watchForMs?: number } = {}) {
@@ -234,10 +235,9 @@ describe('when the trial is over', () => {
     const l = await laptop();
     await l.signIn();
     const before = fake.to('/functions/v1/encore-license').length;
-    l.license.start();
-    await new Promise((r) => setTimeout(r, 20));
+    await l.license.start(); // the check on start, finished and kept, so nothing is still being saved when the test ends
     l.license.stop();
-    expect(fake.to('/functions/v1/encore-license').length).toBe(before + 1); // the check on start
+    expect(fake.to('/functions/v1/encore-license').length).toBe(before + 1);
   });
 });
 
@@ -495,8 +495,14 @@ describe('buying', () => {
     const l = await shop({ watchEveryMs: 15 });
     await l.license.checkout('app');
     await paid(l.account.userId!);
-    await vi.waitFor(() => expect(l.license.state()).toBe('licensed'), { timeout: 3000 });
-    expect(l.license.view().buying).toBeUndefined();
+    // The new pass is kept an instant before the looking is ended, so wait for both.
+    await vi.waitFor(
+      () => {
+        expect(l.license.state()).toBe('licensed');
+        expect(l.license.view().buying).toBeUndefined();
+      },
+      { timeout: 3000 },
+    );
     l.license.stop();
   });
 
