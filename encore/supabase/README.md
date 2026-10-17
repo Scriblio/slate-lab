@@ -5,7 +5,7 @@ The project `encore` (ref `oohgawkfnwhjlqlihhju`) does three jobs:
 1. **The online join link.** Phones and the KJ laptop exchange end-to-end encrypted messages over Realtime broadcast. Nothing to deploy; it needs only the publishable key in `src/shared/cloud.ts`.
 2. **YouTube search** for every copy of Encore, through one YouTube API key: the `youtube-search` Edge Function, a few tables, and a catalog of popular karaoke videos.
 3. **Licensing:** KJs sign in with an emailed code, get a 14-day free trial, and can use unlock codes you give them (the `encore-license` Edge Function and a few tables). See [Licensing](#licensing-sign-in-the-free-trial-and-unlock-codes) below.
-4. **Payments:** KJs buy Encore, or keep Cloud going, on Stripe's own pages (the `stripe-webhook` Edge Function, two more actions of `encore-license`, and a few more columns). Built and tested, **not switched on yet**. See [Payments (Stripe)](#payments-stripe) below.
+4. **Payments:** KJs buy Encore, or keep Cloud going, on Stripe's own pages (the `stripe-webhook` Edge Function, two more actions of `encore-license`, and a few more columns). Deployed (2026-10-17), **not switched on yet**: it needs the four Stripe secrets. See [Payments (Stripe)](#payments-stripe) below.
 
 ## YouTube search
 
@@ -132,13 +132,13 @@ Secrets: `LICENSE_SIGNING_KEY` (required). Optional: `LICENSE_KEY_ID` (default `
 
 ## Payments (Stripe)
 
-`functions/stripe-webhook`, two more actions of `functions/encore-license` (`checkout` and `portal`), and the migration `migrations/20261016000000_stripe.sql` let a KJ buy Encore ($149 once, with a year of Cloud) and keep Cloud going ($49 a year) on Stripe's own pages. The plan and how it works are in [`docs/LICENSING.md`](../docs/LICENSING.md) ("Step 2: as built"). **Built and tested, not applied or deployed to the live project yet.** Until the Stripe secrets exist, everything here is dark: the console shows no prices and no buttons, and the webhook answers "not switched on".
+`functions/stripe-webhook`, two more actions of `functions/encore-license` (`checkout` and `portal`), and the migration `migrations/20261016000000_stripe.sql` let a KJ buy Encore ($149 once, with a year of Cloud) and keep Cloud going ($49 a year) on Stripe's own pages. The plan and how it works are in [`docs/LICENSING.md`](../docs/LICENSING.md) ("Step 2: as built"). **Applied and deployed to the live project on 2026-10-17, and dark.** Until the Stripe secrets exist, everything here is off: the console shows no prices and no buttons, and the webhook answers "not switched on".
 
 Nothing here touches YouTube, and no purchase changes a YouTube feature (YouTube's policies forbid charging for them).
 
 ### Switching it on, in this order
 
-Do the whole thing in **Stripe's test mode** first (the "Test mode" switch at the top of the Stripe Dashboard). Test and live mode have separate keys, products, webhooks and customers, so you do it all again, with the live ones, when you're ready. Steps 4 and 5 change the live Supabase project, so check with Matthew first. **Done so far (2026-10-17):** the sandbox side of steps 2 and 3, with the ids in `docs/HANDOFF.md`; nothing in live mode, and nothing in Supabase yet.
+Do the whole thing in **Stripe's test mode** first (the "Test mode" switch at the top of the Stripe Dashboard). Test and live mode have separate keys, products, webhooks and customers, so you do it all again, with the live ones, when you're ready. Steps 4 and 5 change the live Supabase project, so check with Matthew first. **Done so far (2026-10-17):** the sandbox side of steps 2 and 3, with the ids in `docs/HANDOFF.md`, and steps 4 and 5 on the live Supabase project (with Matthew's go-ahead). Left: step 6, the four secrets, and trying a purchase. Nothing is in live mode.
 
 1. **The join site's `/thanks` page,** where Stripe sends a KJ after paying (`sing.scriblio.co/thanks`; it only says "thank you" and what to do if Encore hasn't noticed). **Already live** (2026-10-17): Vercel's production branch is `main`, and the page is in the join site's build.
 2. **In Stripe, make the two prices** (Product catalog → Add product):
