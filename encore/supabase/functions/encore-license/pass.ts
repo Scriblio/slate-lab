@@ -8,8 +8,8 @@
 // browsers all have. Plain TypeScript with no imports, so the app and the tests
 // use this very file.
 
-/** How Encore became theirs, so Settings can say so ("yours forever (unlock code)"). */
-export type PassSource = 'owner' | 'code' | 'purchase' | 'trial';
+/** How Encore became theirs, so Settings can say so ("yours forever (unlock code)"). 'subscription' is Encore Monthly, which is theirs only while it's paid for. */
+export type PassSource = 'owner' | 'code' | 'purchase' | 'subscription' | 'trial';
 
 export interface PassPayload {
   /** The pass format. */
@@ -25,6 +25,8 @@ export interface PassPayload {
   cloudUntil: string | null;
   /** When the free trial ends (or ended): an ISO date, or null if there has been none. */
   trialUntil: string | null;
+  /** Encore Monthly only: the end of the month that was paid for (an ISO date), so Settings can say so. The pass itself runs out a few days after it. Absent for everyone else. */
+  appUntil?: string | null;
   owner: boolean;
   source: PassSource | null;
   /** Seconds since 1970. Past `exp`, the laptop must check in again before it trusts this pass. */
@@ -134,7 +136,7 @@ export async function readPass(token: string, keys: readonly PassKey[]): Promise
   }
 }
 
-const SOURCES: readonly unknown[] = ['owner', 'code', 'purchase', 'trial'];
+const SOURCES: readonly unknown[] = ['owner', 'code', 'purchase', 'subscription', 'trial'];
 
 function isPassPayload(p: unknown): p is PassPayload {
   if (!p || typeof p !== 'object') return false;
@@ -149,6 +151,7 @@ function isPassPayload(p: unknown): p is PassPayload {
     typeof x.owner === 'boolean' &&
     (x.cloudUntil === 'forever' || date(x.cloudUntil)) &&
     date(x.trialUntil) &&
+    (x.appUntil === undefined || date(x.appUntil)) &&
     (x.source === null || SOURCES.includes(x.source)) &&
     Number.isSafeInteger(x.iat) &&
     Number.isSafeInteger(x.exp)

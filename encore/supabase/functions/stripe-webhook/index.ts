@@ -4,11 +4,15 @@
 // strangers out is the signature, checked against STRIPE_WEBHOOK_SECRET before anything is read.
 //
 // Secrets: STRIPE_WEBHOOK_SECRET (the endpoint's signing secret, "whsec_..."; until it's set
-// every call is answered "not switched on yet"). Optional: STRIPE_GRACE_DAYS (default 7).
+// every call is answered "not switched on yet"). Optional: STRIPE_GRACE_DAYS (default 7). It
+// also reads STRIPE_PRICE_MONTHLY and STRIPE_SECRET_KEY, the two the license service has too: the
+// first to tell Encore Monthly's invoices from Cloud's, the second only to stop a subscription
+// renewing once Encore is bought outright.
 // Nothing here may ever log the body, a header or a secret.
 
 import { GRACE_DAYS, handleWebhook } from './core.ts';
 import { restStore } from './store.ts';
+import { stripeRenewals } from './stripe.ts';
 
 const env = (name: string) => Deno.env.get(name) || undefined;
 
@@ -24,6 +28,9 @@ function secretKey(): string {
 
 const store = restStore((env('SUPABASE_URL') ?? '').replace(/\/$/, ''), secretKey());
 const graceDays = Number(env('STRIPE_GRACE_DAYS'));
+// The same secret key the license service uses, only to stop an Encore Monthly renewing once Encore is bought outright.
+const stripeKey = env('STRIPE_SECRET_KEY');
+const stripe = stripeKey ? stripeRenewals(stripeKey) : undefined;
 
 // Stripe's events are a few kilobytes; nothing bigger is worth reading.
 const MAX_BODY = 1_000_000;
@@ -39,6 +46,8 @@ Deno.serve(async (req) => {
       secret: env('STRIPE_WEBHOOK_SECRET'),
       store,
       graceDays: Number.isFinite(graceDays) && graceDays > 0 ? graceDays : GRACE_DAYS,
+      monthlyPrice: env('STRIPE_PRICE_MONTHLY'),
+      stripe,
     });
     return Response.json(reply.body, { status: reply.status, headers: { 'Cache-Control': 'no-store' } });
   } catch (err) {

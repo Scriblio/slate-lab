@@ -22,11 +22,13 @@ interface Event {
   from?: string | null;
   to?: string | null;
   grace?: string | null;
+  appFrom?: string | null;
+  appTo?: string | null;
 }
 
 let counter = 0;
 const apply = (e: Event) =>
-  t.value<string>('select license_stripe_apply($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)', [
+  t.value<string>('select license_stripe_apply($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)', [
     e.event ?? `evt_${++counter}`,
     e.type ?? 'test.event',
     e.user ?? null,
@@ -37,6 +39,8 @@ const apply = (e: Event) =>
     e.from ?? null,
     e.to ?? null,
     e.grace ?? null,
+    e.appFrom ?? null,
+    e.appTo ?? null,
   ]);
 
 const row = async (user: string) =>
@@ -50,6 +54,10 @@ const cloudDays = (user: string) =>
 const setCloud = (user: string, days: number) =>
   t.db.query("insert into licenses (user_id, cloud_until) values ($1, now() + make_interval(days => $2)) on conflict (user_id) do update set cloud_until = excluded.cloud_until", [user, days]);
 const inDays = (n: number) => t.value<string>("select (now() + make_interval(days => $1))::text", [n]);
+/** Days from now to the end of someone's paid Encore Monthly (null if none). */
+const appDays = (user: string) => t.value<number | null>('select extract(epoch from (app_until - now())) / 86400 from licenses where user_id = $1', [user]);
+const setApp = (user: string, days: number) =>
+  t.db.query('insert into licenses (user_id, app_until) values ($1, now() + make_interval(days => $2)) on conflict (user_id) do update set app_until = excluded.app_until', [user, days]);
 /** Days from now to `ahead` days from now plus `years` calendar years, worked out by Postgres so leap years don't matter. */
 const span = (ahead: number, years: number) =>
   t.value<number>('select extract(epoch from ((now() + make_interval(days => $1)) + make_interval(years => $2) - now())) / 86400', [ahead, years]);
@@ -159,7 +167,83 @@ describe('Cloud subscriptions', () => {
   });
 });
 
+describe('Encore Monthly', () => {
+  it('adds a paid month to the app’s paid time, and moves nothing else', async () => {
+    const user = await t.addUser('monthly@example.com');
+    expect(await apply({ user, customer: 'cus_m1', subscription: 'sub_m1', appFrom: await inDays(0), appTo: await inDays(30) })).toBe('ok');
+    expect(await appDays(user)).toBeCloseTo(30, 1);
+    expect(await row(user)).toMatchObject({ app_forever: false, stripe_customer_id: 'cus_m1', stripe_subscription_id: 'sub_m1', source: 'stripe' });
+    // Cloud comes with Encore Monthly in the license service, not as a date in this row.
+    expect(await cloudDays(user)).toBeNull();
+  });
+
+  it('renews: the next month starts where the last one ended, and paying early loses nothing', async () => {
+    const user = await t.addUser('monthly-renew@example.com');
+    await setApp(user, 10);
+    await apply({ user, appFrom: await inDays(10), appTo: await inDays(40) });
+    expect(await appDays(user)).toBeCloseTo(40, 1);
+
+    const early = await t.addUser('monthly-early@example.com');
+    await setApp(early, 10);
+    await apply({ user: early, appFrom: await inDays(0), appTo: await inDays(30) });
+    expect(await appDays(early)).toBeCloseTo(40, 1);
+  });
+
+  it('after a lapse, counts from the month’s own start, so the days in between are not given back', async () => {
+    const lapsed = await t.addUser('monthly-lapsed@example.com');
+    await setApp(lapsed, -20);
+    await apply({ user: lapsed, appFrom: await inDays(0), appTo: await inDays(30) });
+    expect(await appDays(lapsed)).toBeCloseTo(30, 1);
+
+    // The same renewal, paid five days late: its month began five days ago.
+    const late = await t.addUser('monthly-late@example.com');
+    await setApp(late, -5);
+    await apply({ user: late, appFrom: await inDays(-5), appTo: await inDays(25) });
+    expect(await appDays(late)).toBeCloseTo(25, 1);
+  });
+
+  it('counts the same invoice once, and finds the account from the customer like a Cloud invoice does', async () => {
+    const user = await t.addUser('monthly-twice@example.com');
+    await apply({ user, customer: 'cus_m2', subscription: 'sub_m2' });
+    const month = { event: 'evt_month_1', customer: 'cus_m2', subscription: 'sub_m2', appFrom: await inDays(0), appTo: await inDays(30) };
+    expect(await apply(month)).toBe('ok');
+    expect(await apply(month)).toBe('duplicate');
+    expect(await appDays(user)).toBeCloseTo(30, 1);
+  });
+
+  it('waits for a customer it has not met yet, like any other invoice', async () => {
+    expect(await apply({ event: 'evt_month_early', customer: 'cus_m_late', appFrom: await inDays(0), appTo: await inDays(30) })).toBe('unknown-account');
+    expect(await t.value<number>("select count(*)::int from stripe_events where id = 'evt_month_early'")).toBe(0);
+  });
+
+  it('leaves Encore bought outright, Cloud and the trial alone', async () => {
+    const user = await t.addUser('monthly-and-owner@example.com');
+    await t.value('select license_start_trial($1, $2, 14)', [user, 'monthly-trial-laptop-12']);
+    await apply({ user, customer: 'cus_m3', app: true, addYear: true });
+    const cloud = await cloudDays(user);
+    await apply({ user, appFrom: await inDays(0), appTo: await inDays(30) });
+    expect(await row(user)).toMatchObject({ app_forever: true, trial: true });
+    expect(await cloudDays(user)).toBeCloseTo(cloud!, 3);
+  });
+
+  it('ignores a month with no length, or that ends before it starts', async () => {
+    const user = await t.addUser('monthly-empty@example.com');
+    const now = await inDays(0);
+    await apply({ user, appFrom: now, appTo: now });
+    await apply({ user, appFrom: await inDays(10), appTo: await inDays(5) });
+    expect(await appDays(user)).toBeNull();
+  });
+});
+
 describe('taking a purchase back', () => {
+  it('takes back a month of Encore Monthly too', async () => {
+    const user = await t.addUser('refund-monthly@example.com');
+    await apply({ user, customer: 'cus_rm', subscription: 'sub_rm', appFrom: await inDays(0), appTo: await inDays(30) });
+    await t.value("select revoke_purchase('refund-monthly@example.com')");
+    expect(await appDays(user)).toBeNull();
+    expect(await row(user)).toMatchObject({ stripe_subscription_id: null });
+  });
+
   it('turns off the app and Cloud, and keeps the trial', async () => {
     const user = await t.addUser('refund@example.com');
     await t.value('select license_start_trial($1, $2, 14)', [user, 'refund-laptop-12345678']);
@@ -177,6 +261,7 @@ describe('taking a purchase back', () => {
 describe('who can touch what', () => {
   const FUNCTIONS = [
     "select license_stripe_apply('x', 'x', null, null, null, false, false, null, null, null)",
+    "select license_stripe_apply('x', 'x', null, null, null, false, false, null, null, null, null, null)",
     "select revoke_purchase('boss@example.com')",
   ];
 

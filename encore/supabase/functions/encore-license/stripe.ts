@@ -18,6 +18,8 @@ export interface StripeConfig {
   /** The one-time price for Encore ($149), and the yearly price for Cloud ($49). */
   priceApp: string;
   priceCloud: string;
+  /** The monthly price for Encore Monthly ($29, Cloud included). Optional: without it Encore Monthly isn't offered. */
+  priceMonthly?: string;
   /** Let Stripe work out sales tax or VAT (needs Stripe Tax set up). */
   automaticTax?: boolean;
   /** Where Checkout sends the KJ after paying, and if they back out. */
@@ -73,19 +75,24 @@ export function stripePayments(cfg: StripeConfig, fetchImpl: typeof fetch = fetc
   }
 
   return {
+    monthly: Boolean(cfg.priceMonthly),
+
     async checkout({ kind, userId, email, customer }) {
-      const cloud = kind === 'cloud';
-      // Stripe hands these back on the events it sends us, which is how a payment finds its account.
+      // Cloud and Encore Monthly are subscriptions; Encore bought outright is a single payment.
+      const subscription = kind !== 'app';
+      const price = kind === 'cloud' ? cfg.priceCloud : kind === 'monthly' ? cfg.priceMonthly : cfg.priceApp;
+      if (!price) throw new Error(`No price is set for ${kind}`);
+      // Stripe hands these back on the events it sends us, which is how a payment finds its account (and which kind it was).
       const who = { user_id: userId, kind };
       const session = await call<{ url?: unknown }>('POST', 'checkout/sessions', {
-        mode: cloud ? 'subscription' : 'payment',
-        line_items: [{ price: cloud ? cfg.priceCloud : cfg.priceApp, quantity: 1 }],
+        mode: subscription ? 'subscription' : 'payment',
+        line_items: [{ price, quantity: 1 }],
         client_reference_id: userId,
         metadata: who,
-        ...(cloud ? { subscription_data: { metadata: who } } : { payment_intent_data: { metadata: who } }),
+        ...(subscription ? { subscription_data: { metadata: who } } : { payment_intent_data: { metadata: who } }),
         // A returning customer keeps their Stripe record (and their saved card); a new one is made, with their sign-in email.
         ...(customer ? { customer } : { customer_email: email }),
-        ...(!cloud && !customer ? { customer_creation: 'always' } : {}),
+        ...(!subscription && !customer ? { customer_creation: 'always' } : {}),
         ...(cfg.automaticTax ? { automatic_tax: { enabled: true }, ...(customer ? { customer_update: { address: 'auto' } } : {}) } : {}),
         success_url: cfg.successUrl,
         cancel_url: cfg.cancelUrl,

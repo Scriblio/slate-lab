@@ -146,7 +146,8 @@ export async function createApp(opts: AppOptions) {
   };
   // Said to the KJ in the console (never to a singer, who is only told the show isn't open yet).
   const closedMessage = (): string => {
-    const unlock = license?.view().payments ? 'Buy Encore or enter an unlock code' : 'Enter an unlock code';
+    const view = license?.view();
+    const unlock = view?.payments ? (view.monthly ? 'Buy Encore, subscribe or enter an unlock code' : 'Buy Encore or enter an unlock code') : 'Enter an unlock code';
     return license?.state() === 'offline-expired'
       ? 'Encore needs to check your license. Connect this laptop to the internet.'
       : license?.state() === 'signed-out'
@@ -743,7 +744,7 @@ export async function createApp(opts: AppOptions) {
         await needLicense().refresh({ report: true });
         return null;
       case 'checkout':
-        if (a.kind !== 'app' && a.kind !== 'cloud') throw new UserError('Unknown thing to buy.');
+        if (a.kind !== 'app' && a.kind !== 'cloud' && a.kind !== 'monthly') throw new UserError('Unknown thing to buy.');
         return { url: await needLicense().checkout(a.kind) };
       case 'billing':
         return { url: await needLicense().billingPortal() };

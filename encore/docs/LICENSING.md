@@ -2,7 +2,7 @@
 
 This is the brief for selling Encore. It was agreed with Matthew. Read `docs/HANDOFF.md` first for how the app works; this file covers only licensing.
 
-The work comes in three steps. **Step 1 is built and live** (accounts, a free trial, unlock codes and the checks in the app, with no payments yet; see "Step 1: as built" below; the set-up steps are in `supabase/README.md` under "Licensing"). **Step 2 (Stripe) is built, tested and deployed to the live project (17 October 2026), and not switched on:** the migration is applied and both functions are deployed, but none of the four Stripe secrets exist yet, so nothing can be bought (see "Step 2: as built" below, and "Payments" in `supabase/README.md` for the steps that switch it on). Matthew gives codes to a few KJ friends as beta testers and watches what the cloud costs per KJ, then switches on payments in Stripe's test mode first.
+The work comes in three steps (with a step 2b, Encore Monthly, built after step 2). **Step 1 is built and live** (accounts, a free trial, unlock codes and the checks in the app, with no payments yet; see "Step 1: as built" below; the set-up steps are in `supabase/README.md` under "Licensing"). **Step 2 (Stripe) is built, tested and deployed to the live project (17 October 2026), and not switched on:** the migration is applied and both functions are deployed, but none of the four Stripe secrets exist yet, so nothing can be bought (see "Step 2: as built" below, and "Payments" in `supabase/README.md` for the steps that switch it on). Matthew gives codes to a few KJ friends as beta testers and watches what the cloud costs per KJ, then switches on payments in Stripe's test mode first.
 
 ## Decisions already made (don't revisit)
 
@@ -10,6 +10,11 @@ The work comes in three steps. **Step 1 is built and live** (accounts, a free tr
 - **Pricing:**
   - **Encore, $149 once.** The app is the KJ's forever. The price includes the first year of Encore Cloud.
   - **Encore Cloud, $49 a year after that.** It's optional: without it Encore still works, with phones joining over the venue Wi-Fi.
+  - **Encore Monthly, $29 a month** (decided 17 October 2026): Encore and Cloud together, for as long as the months are paid for. The cheaper way in for someone who isn't ready for $149. It never competes with the $149 on price: five payments ($145) are still under $149, so buying once is cheaper for anyone who stays longer than five months, and the console says so.
+    - When it's cancelled it runs to the end of the month that was paid for, then goes back to the trial-ended state (the console opens, no new shows).
+    - A subscriber may buy Encore outright at any time. The subscription is then switched off from renewing, there's no credit at launch, and they keep the month they paid for.
+    - Three days of grace after the last paid month, so a renewal that lands while a laptop is offline at a gig doesn't lock anyone out.
+    - Refunds: none for the month in progress; the $149 keeps its 30 days.
   - **A 14-day free trial with everything.** There's no permanent free tier and no singer cap.
   - **Singers never pay.** Only KJs buy.
 - **Unlock codes:**
@@ -208,9 +213,33 @@ Anything else is acknowledged and ignored. There are no `customer.subscription.*
 
 **Seen working in a browser** against a fake backend and a fake Stripe: Buy Encore in Settings and in the trial-ended notice, the "finish paying in your browser" note, the console turning to "Encore is yours" a few seconds after the payment landed, *Keep Cloud going* and *Manage billing*, and the notice reverting to the unlock code box alone when payments are switched off. Not yet seen: a real Stripe Checkout page in test mode, which needs Matthew's Stripe test keys.
 
+## Step 2b: Encore Monthly
+
+Built on the branch `claude/encore-monthly` (stacked on the docs branch). **Not applied or deployed to the live project yet:** it needs Matthew's go-ahead, then a migration, both functions redeployed and the secret `STRIPE_PRICE_MONTHLY`. It changes nothing for anyone until that secret exists (the console then shows *Subscribe · $29 a month* beside *Buy Encore*; without it everything behaves as in step 2).
+
+**The idea.** It is paid for the way a Cloud year is, and reads the same way: the sum of the periods that were paid for. Nothing has to hear that a subscription was cancelled. The database keeps one new date, `licenses.app_until` (the end of the last paid month; `app_forever` outranks it). The license service gives Encore and Cloud while `now < app_until + 3 days` (`SUBSCRIPTION_GRACE_DAYS` in `functions/encore-license/core.ts`), and signs the pass with `source: 'subscription'`, the paid-until date as `appUntil` (so Settings can say so), and an expiry that never runs past the grace, so a lapsed subscription can't be coasted on even offline.
+
+| What | How |
+| --- | --- |
+| Checkout | `checkout { kind: 'monthly' }`: a Stripe subscription page for the price in `STRIPE_PRICE_MONTHLY`, stamped `kind: monthly` (on the session and on the subscription, so its invoices say what they are). Not offered without the secret (`monthly: false` in the status answer). |
+| `invoice.paid` of a monthly subscription | The webhook adds the paid period to `app_until` (`license_stripe_apply`'s new `p_app_from`/`p_app_to`): after the later of the time already there and the period's start, so paying early loses nothing and paying late doesn't give back the days in between. An invoice counts as monthly when the subscription says so, or failing that when a line carries the monthly price; anything else is a Cloud year, as before. |
+| `invoice.payment_failed` | Nothing for a monthly subscription: the three days of grace are the grace. Cloud's week of grace is unchanged. |
+| Buying Encore outright while subscribed | Allowed. After the purchase is recorded, the webhook sets the customer's monthly subscription to cancel at the period's end (`stripe-webhook/stripe.ts`: only ever `cancel_at_period_end`, only for `kind: monthly`), and does it again if Stripe sends the event again, so a failure is retried. |
+| Refused | For the owner or anyone with Encore for good (a purchase or an unlock code); a second subscription while Stripe has one going (paid up, set to end, or being retried: asked of Stripe, so a cancelled one can be taken out again even in its days of grace); Cloud for a subscriber, which they have. |
+| A lapsed subscriber | Is offered *Buy Encore* and *Subscribe* again. A free trial can still be started if they never had one. |
+| Singers | See nothing. The YouTube rule is unchanged: no plan touches a YouTube feature, and `test/license-app.test.ts` now checks that on Encore Monthly too. |
+
+**The console.** *Subscribe · $29 a month* appears beside *Buy Encore* for someone on the trial or whose trial is over, with a plain note: Encore and Cloud while subscribed, cancel any time in Manage billing (it keeps working to the end of the month paid), and buying once costs less if they'll use Encore for more than five months (`MONTHS_TO_BREAK_EVEN`). A subscriber sees "Encore Monthly: paid until 17 November 2026. Cloud is included.", *Buy Encore* (which stops the renewals) and *Manage billing*; in the few days of grace the sentence says the month has ended and where to update the card. The wording for what to do after the trial says "buy Encore, subscribe or use an unlock code" only when Encore Monthly can be subscribed to.
+
+**Money matters, left for Matthew:** the proposed wording for `TERMS.md` gains a paragraph (below), and Microsoft Store policy 10.8.4 means the listing states all three prices (see `STORE.md`). The Store's policy 10.8.6 allows third-party subscriptions in a non-game app, on condition that value isn't taken away from people who have paid, and that if a subscription is ever discontinued, what was paid for is honoured until it runs out. Both hold here.
+
+> **Encore Monthly.** Encore Monthly is $29 a month and includes Encore Cloud while it lasts. It renews every month until you stop it, which you can do any time from *Manage billing* in Encore; it keeps working to the end of the month you paid for. There are no refunds for a month that has begun. You can buy Encore once ($149) at any time, which also stops the monthly renewals. If a renewal doesn't go through, Encore carries on for three days so you can fix your card.
+
+**Tests** (all in `npm test`): the new migration and function against a real Postgres (`stripe-sql.test.ts`: months added, renewals, early and late payments, repeats, an invoice before its checkout, `revoke_purchase`); the webhook reading monthly invoices in both shapes and by price, whole flows, and stopping the renewals (`stripe-webhook.test.ts`, `stripe-renewals.test.ts`); the REST layer against the migration (`stripe-store.test.ts`); the checkout rules, the pass and its grace on both the in-memory store and the real SQL (`billing.test.ts`, `license-service.test.ts`, `license-pass.test.ts`); and the laptop and the console (`license.test.ts`, `license-app.test.ts`, `license-state.test.ts`). **Seen working in a browser** against a fake backend: the Subscribe button beside Buy Encore, the subscriber's Settings, and the days of grace. Not yet seen: a real Stripe Checkout for it, which needs it deployed to the live project first.
+
 ## Step 3: selling
 
-- **A pricing page on `sing.scriblio.co`** (static, like `/encore`): $149 once with a year of Cloud, $49 a year for Cloud, and the 14-day trial.
+- **A pricing page on `sing.scriblio.co`** (static, like `/encore`): $149 once with a year of Cloud, $49 a year for Cloud, $29 a month for both, and the 14-day trial.
 - **Update `docs/YOUTUBE_AUDIT.md`:** monetization answers that match the YouTube rules above.
 - **Fill in the Microsoft Store identity values** (`STORE.md`).
 

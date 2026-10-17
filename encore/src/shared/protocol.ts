@@ -102,8 +102,8 @@ export type DjAction =
   | { type: 'redeemCode'; code: string }
   /** Check the license online now. */
   | { type: 'refreshLicense' }
-  /** Buy Encore (with a year of Cloud) or a year of Cloud: answers with the address of Stripe's payment page, to open in the browser. */
-  | { type: 'checkout'; kind: 'app' | 'cloud' }
+  /** Buy Encore (with a year of Cloud), subscribe to Encore Monthly (Cloud included) or add a year of Cloud: answers with the address of Stripe's payment page, to open in the browser. */
+  | { type: 'checkout'; kind: 'app' | 'cloud' | 'monthly' }
   /** Stripe's page for seeing payments, changing a card or cancelling Cloud: answers with its address. */
   | { type: 'billing' }
   | { type: 'setConfig'; libraryFolders?: string[]; breakFolders?: string[]; audioOutput?: string; setupDone?: boolean; filenameOrder?: FilenameOrder; onlineJoin?: boolean };

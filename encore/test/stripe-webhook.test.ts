@@ -83,6 +83,8 @@ describe('reading an event', () => {
       from: null,
       to: null,
       grace: null,
+      appFrom: null,
+      appTo: null,
     });
   });
 
@@ -120,6 +122,49 @@ describe('reading an event', () => {
       lines: { data: [{ period: { start, end: start + 100_000 } }] },
     });
     expect(read(e)).toMatchObject({ subscription: 'sub_new', user: 'user-9' });
+  });
+
+  describe('Encore Monthly', () => {
+    const start = 1_800_000_000;
+    const MONTH = 30 * 24 * 60 * 60;
+    const lines = { data: [{ period: { start, end: start + MONTH } }] };
+    const paid = { from: new Date(start * 1000).toISOString(), to: new Date((start + MONTH) * 1000).toISOString() };
+    const monthlyCheckout = (user: string, over: Record<string, unknown> = {}) =>
+      event('checkout.session.completed', { id: 'cs_month', mode: 'subscription', payment_status: 'paid', client_reference_id: user, customer: 'cus_A', subscription: 'sub_M', metadata: { user_id: user, kind: 'monthly' }, ...over });
+
+    it('only links the customer and the subscription when one starts; the paid month comes with its invoice', () => {
+      expect(read(monthlyCheckout('user-1'))).toMatchObject({ user: 'user-1', customer: 'cus_A', subscription: 'sub_M', app: false, addYear: false, from: null, to: null, appFrom: null, appTo: null });
+    });
+
+    it('adds a paid month to the app’s time, not to Cloud, when the subscription says it is Encore Monthly', () => {
+      const e = invoice('invoice.paid', { subscription: 'sub_M', subscription_details: { metadata: { user_id: 'user-2', kind: 'monthly' } }, lines });
+      expect(read(e)).toMatchObject({ user: 'user-2', subscription: 'sub_M', appFrom: paid.from, appTo: paid.to, from: null, to: null, app: false, addYear: false });
+    });
+
+    it('reads that in the newer shape of an invoice too', () => {
+      const e = event('invoice.paid', { customer: 'cus_A', parent: { subscription_details: { subscription: 'sub_M', metadata: { user_id: 'user-3', kind: 'monthly' } } }, lines });
+      expect(read(e)).toMatchObject({ user: 'user-3', subscription: 'sub_M', appFrom: paid.from, appTo: paid.to, from: null, to: null });
+    });
+
+    it('can tell by the price when the invoice carries no stamp, in either shape of line', () => {
+      const old = invoice('invoice.paid', { lines: { data: [{ price: { id: 'price_monthly' }, period: { start, end: start + MONTH } }] } });
+      const fresh = invoice('invoice.paid', { lines: { data: [{ pricing: { price_details: { price: 'price_monthly' } }, period: { start, end: start + MONTH } }] } });
+      for (const e of [old, fresh]) expect(plan(e, 0, 7, 'price_monthly')).toMatchObject({ appFrom: paid.from, appTo: paid.to, from: null, to: null });
+      // Without that price on the list, the same invoice is a Cloud year, as before Encore Monthly existed.
+      expect(plan(old, 0, 7)).toMatchObject({ from: paid.from, to: paid.to, appFrom: null, appTo: null });
+    });
+
+    it('keeps treating an unstamped invoice as Cloud, and a stamped Cloud one as Cloud even if the price were wrong', () => {
+      expect(read(invoice('invoice.paid', { lines }))).toMatchObject({ from: paid.from, to: paid.to, appFrom: null });
+      const stamped = invoice('invoice.paid', { subscription_details: { metadata: { kind: 'cloud' } }, lines: { data: [{ price: { id: 'price_monthly' }, period: { start, end: start + MONTH } }] } });
+      expect(plan(stamped, 0, 7, 'price_monthly')).toMatchObject({ from: paid.from, appFrom: null });
+    });
+
+    it('leaves a failed renewal to the license service’s grace: nothing is added, and Cloud’s week of grace is not started', () => {
+      const failed = invoice('invoice.payment_failed', { subscription_details: { metadata: { kind: 'monthly' } } });
+      expect(read(failed)).toBeNull();
+      expect(read(invoice('invoice.payment_failed'))).toMatchObject({ grace: expect.any(String) }); // a Cloud renewal still gets its week
+    });
   });
 
   it('ignores the receipt for the one-time purchase, which has no subscription', () => {
@@ -162,7 +207,7 @@ afterAll(async () => {
 
 const store: WebhookStore = {
   apply: (a) =>
-    t.value<ApplyResult>('select license_stripe_apply($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)', [a.event, a.type, a.user, a.customer, a.subscription, a.app, a.addYear, a.from, a.to, a.grace]),
+    t.value<ApplyResult>('select license_stripe_apply($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)', [a.event, a.type, a.user, a.customer, a.subscription, a.app, a.addYear, a.from, a.to, a.grace, a.appFrom, a.appTo]),
 };
 const deps = { secret: SECRET, store };
 const deliver = (e: unknown, over: { signature?: string | null; secret?: string | undefined } = {}) => {
@@ -236,6 +281,110 @@ describe('a purchase, start to finish', () => {
     const user = await t.addUser('unpaid@example.com');
     expect((await deliver(appCheckout(user, { payment_status: 'unpaid', customer: 'cus_unpaid' }))).body.result).toBe('ignored');
     expect(await t.rows('select 1 from licenses where user_id = $1', [user])).toHaveLength(0);
+  });
+});
+
+describe('Encore Monthly, start to finish', () => {
+  const MONTH = 30 * 24 * 60 * 60;
+  const appDays = (user: string) => t.value<number | null>('select extract(epoch from (app_until - now())) / 86400 from licenses where user_id = $1', [user]);
+  const monthlyCheckout = (user: string, customer: string, subscription: string) =>
+    event('checkout.session.completed', { id: 'cs_month', mode: 'subscription', payment_status: 'paid', client_reference_id: user, customer, subscription, metadata: { user_id: user, kind: 'monthly' } });
+  /** A paid month's invoice, as Stripe sends it: stamped by checkout, covering `seconds` from `startsIn` seconds from now. */
+  const month = (customer: string, subscription: string, startsIn = 0, seconds = MONTH) =>
+    invoice('invoice.paid', {
+      customer,
+      subscription,
+      subscription_details: { metadata: { kind: 'monthly' } },
+      lines: { data: [{ period: { start: nowSeconds() + startsIn, end: nowSeconds() + startsIn + seconds } }] },
+    });
+
+  it('subscribing gives the paid month, and a renewal adds the next from where the last ended; Cloud is not touched', async () => {
+    const user = await t.addUser('monthly-flow@example.com');
+    await deliver(monthlyCheckout(user, 'cus_flow', 'sub_flow'));
+    expect((await license(user)).stripe_subscription_id).toBe('sub_flow');
+    expect((await deliver(month('cus_flow', 'sub_flow'))).body.result).toBe('ok');
+    expect(await appDays(user)).toBeCloseTo(30, 1);
+    expect((await license(user)).days).toBeNull(); // Cloud comes with the subscription in the license service, not as a Cloud date
+
+    // A month on: the renewal's invoice starts where the paid time was running out.
+    await t.db.query("update licenses set app_until = now() + interval '1 hour' where user_id = $1", [user]);
+    expect((await deliver(month('cus_flow', 'sub_flow', 3600))).body.result).toBe('ok');
+    expect(await appDays(user)).toBeCloseTo(30 + 1 / 24, 1);
+  });
+
+  it('copes with the invoice arriving before the checkout, like any other', async () => {
+    const user = await t.addUser('monthly-order@example.com');
+    const early = month('cus_m_order', 'sub_m_order');
+    expect(await deliver(early)).toMatchObject({ status: 409, body: { code: 'unknown-account' } });
+    await deliver(monthlyCheckout(user, 'cus_m_order', 'sub_m_order'));
+    expect(await deliver(early)).toEqual({ status: 200, body: { ok: true, result: 'ok' } });
+    expect(await appDays(user)).toBeCloseTo(30, 1);
+  });
+
+  it('does nothing on a failed renewal: the license service’s grace covers it, and Cloud’s week is not started', async () => {
+    const user = await t.addUser('monthly-fails@example.com');
+    await deliver(monthlyCheckout(user, 'cus_m_fails', 'sub_m_fails'));
+    await deliver(month('cus_m_fails', 'sub_m_fails'));
+    const before = await appDays(user);
+    const failed = invoice('invoice.payment_failed', { customer: 'cus_m_fails', subscription: 'sub_m_fails', subscription_details: { metadata: { kind: 'monthly' } } });
+    expect((await deliver(failed)).body.result).toBe('ignored');
+    expect(await appDays(user)).toBeCloseTo(before!, 3);
+    expect((await license(user)).days).toBeNull();
+  });
+
+  describe('buying Encore outright while subscribed', () => {
+    const stopping = () => {
+      const stopped: string[] = [];
+      return { stopped, withStripe: { ...deps, stripe: { stopRenewing: async (customer: string) => void stopped.push(customer) } } };
+    };
+    const deliverTo = (d: typeof deps & { stripe?: { stopRenewing(customer: string): Promise<void> } }, e: unknown) => {
+      const body = JSON.stringify(e);
+      return handleWebhook(body, sign(body), d);
+    };
+
+    it('stops the renewals, keeps what was paid for, and does it again if Stripe sends the event again', async () => {
+      const { stopped, withStripe } = stopping();
+      const user = await t.addUser('monthly-upgrades@example.com');
+      await deliver(monthlyCheckout(user, 'cus_up', 'sub_up'));
+      await deliver(month('cus_up', 'sub_up'));
+
+      const buy = appCheckout(user, { customer: 'cus_up' });
+      expect(await deliverTo(withStripe, buy)).toEqual({ status: 200, body: { ok: true, result: 'ok' } });
+      expect(stopped).toEqual(['cus_up']);
+      // If stopping them had failed, Stripe's retry (the same event again) is what finishes the job.
+      expect((await deliverTo(withStripe, buy)).body.result).toBe('duplicate');
+      expect(stopped).toEqual(['cus_up', 'cus_up']);
+
+      expect(await license(user)).toMatchObject({ app_forever: true });
+      expect(await appDays(user)).toBeCloseTo(30, 1);
+    });
+
+    it('fails loudly, so Stripe tries again, when the renewals cannot be stopped, though the purchase is already recorded', async () => {
+      const user = await t.addUser('monthly-upgrade-fails@example.com');
+      const broken = { ...deps, stripe: { stopRenewing: async () => Promise.reject(new Error('Stripe 500 api_error/')) } };
+      const buy = appCheckout(user, { customer: 'cus_up_fail' });
+      await expect(deliverTo(broken, buy)).rejects.toThrow('Stripe 500');
+      expect(await license(user)).toMatchObject({ app_forever: true });
+      // The retry then finds the purchase there already and has another go.
+      const { stopped, withStripe } = stopping();
+      expect((await deliverTo(withStripe, buy)).body.result).toBe('duplicate');
+      expect(stopped).toEqual(['cus_up_fail']);
+    });
+
+    it('does not touch Stripe for anything but an outright purchase', async () => {
+      const { stopped, withStripe } = stopping();
+      const user = await t.addUser('monthly-quiet@example.com');
+      await deliverTo(withStripe, monthlyCheckout(user, 'cus_quiet', 'sub_quiet'));
+      await deliverTo(withStripe, month('cus_quiet', 'sub_quiet'));
+      await deliverTo(withStripe, cloudCheckout(user, { customer: 'cus_quiet' }));
+      await deliverTo(withStripe, appCheckout(user, { payment_status: 'unpaid', customer: 'cus_quiet' }));
+      expect(stopped).toEqual([]);
+    });
+
+    it('works the same when Stripe is not connected in this function: the purchase is recorded and nothing else happens', async () => {
+      const user = await t.addUser('monthly-no-stripe@example.com');
+      expect(await deliver(appCheckout(user, { customer: 'cus_no_stripe' }))).toEqual({ status: 200, body: { ok: true, result: 'ok' } });
+    });
   });
 });
 

@@ -24,6 +24,8 @@ export function restStore(supabaseUrl: string, secretKey: string, fetchImpl: typ
           p_cloud_from: a.from,
           p_cloud_to: a.to,
           p_cloud_grace_until: a.grace,
+          p_app_from: a.appFrom,
+          p_app_to: a.appTo,
         }),
         signal: AbortSignal.timeout(8000),
       });

@@ -6,9 +6,9 @@
 import { describe, expect, it } from 'vitest';
 import type { ApplyArgs } from '../supabase/functions/stripe-webhook/core.ts';
 import { restStore } from '../supabase/functions/stripe-webhook/store.ts';
-import { definedFunctions, stripeMigration } from './licensedb.ts';
+import { definedFunctions, monthlyMigration, stripeMigration } from './licensedb.ts';
 
-const args: ApplyArgs = { event: 'evt_1', type: 'invoice.paid', user: 'u', customer: 'cus_1', subscription: 'sub_1', app: false, addYear: false, from: '2026-10-16T00:00:00.000Z', to: '2027-10-16T00:00:00.000Z', grace: null };
+const args: ApplyArgs = { event: 'evt_1', type: 'invoice.paid', user: 'u', customer: 'cus_1', subscription: 'sub_1', app: false, addYear: false, from: '2026-10-16T00:00:00.000Z', to: '2027-10-16T00:00:00.000Z', grace: null, appFrom: null, appTo: null };
 
 describe('the Stripe webhook REST store', () => {
   it('only calls a database function that exists, with parameters it has', async () => {
@@ -19,7 +19,8 @@ describe('the Stripe webhook REST store', () => {
     }) as typeof fetch;
     await restStore('https://project.supabase.co/', 'sb_secret_test', fetchImpl).apply(args);
 
-    const defined = definedFunctions(stripeMigration());
+    // Encore Monthly's migration replaces the function the Stripe one made, as it does in the database.
+    const defined = definedFunctions(`${stripeMigration()}\n${monthlyMigration()}`);
     expect(calls).toHaveLength(1);
     const { url, init } = calls[0]!;
     const name = url.replace('https://project.supabase.co/rest/v1/rpc/', '');
@@ -34,7 +35,7 @@ describe('the Stripe webhook REST store', () => {
       sent = JSON.parse(String(init?.body));
       return Response.json('ok');
     }) as typeof fetch;
-    await restStore('https://project.supabase.co', 'k', fetchImpl).apply({ ...args, app: true, addYear: true, grace: '2026-10-23T00:00:00.000Z' });
+    await restStore('https://project.supabase.co', 'k', fetchImpl).apply({ ...args, app: true, addYear: true, grace: '2026-10-23T00:00:00.000Z', appFrom: '2026-10-17T00:00:00.000Z', appTo: '2026-11-17T00:00:00.000Z' });
     expect(sent).toEqual({
       p_event: 'evt_1',
       p_type: 'invoice.paid',
@@ -46,6 +47,8 @@ describe('the Stripe webhook REST store', () => {
       p_cloud_from: '2026-10-16T00:00:00.000Z',
       p_cloud_to: '2027-10-16T00:00:00.000Z',
       p_cloud_grace_until: '2026-10-23T00:00:00.000Z',
+      p_app_from: '2026-10-17T00:00:00.000Z',
+      p_app_to: '2026-11-17T00:00:00.000Z',
     });
   });
 

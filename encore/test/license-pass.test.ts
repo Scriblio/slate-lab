@@ -42,9 +42,17 @@ describe('the license pass', () => {
     for (const junk of ['', 'a.b', 'a.b.c', '...', 'not a token', '{}', null, undefined, 42]) expect(await readPass(junk as string, k.keys)).toBeNull();
   });
 
+  it('carries Encore Monthly’s paid-until date and source, and a pass without one is just as good', async () => {
+    const k = await makeKeys();
+    const subscription = passPayload({ app: true, source: 'subscription', appUntil: '2026-11-17T12:00:00.000Z', cloudUntil: '2026-11-20T12:00:00.000Z' });
+    expect(await readPass(await signPass(subscription, k.signing), k.keys)).toEqual(subscription);
+    expect(await readPass(await signPass(passPayload({ app: true, source: 'purchase' }), k.signing), k.keys)).not.toBeNull();
+    expect(await readPass(await signPass(passPayload({ appUntil: null }), k.signing), k.keys)).not.toBeNull();
+  });
+
   it('is rejected when signed correctly but shaped wrongly', async () => {
     const k = await makeKeys();
-    for (const bad of [{ app: 'yes' }, { cloudUntil: 'next year' }, { trialUntil: 12 }, { source: 'friend' }, { exp: 1.5 }, { sub: undefined }, { v: 2 }]) {
+    for (const bad of [{ app: 'yes' }, { cloudUntil: 'next year' }, { trialUntil: 12 }, { appUntil: 'soon' }, { appUntil: 7 }, { source: 'friend' }, { exp: 1.5 }, { sub: undefined }, { v: 2 }]) {
       expect(await readPass(await signPass({ ...passPayload(), ...bad } as never, k.signing), k.keys)).toBeNull();
     }
   });

@@ -51,8 +51,9 @@ interface Reply {
   pass?: string;
   trialAvailable?: boolean;
   trial?: 'started' | 'account' | 'install' | 'owned';
-  /** Payments are switched on, and this account has a Stripe billing page. */
+  /** Payments are switched on, Encore Monthly can be offered, and this account has a Stripe billing page. */
   payments?: boolean;
+  monthly?: boolean;
   billing?: boolean;
   /** The address of a payment page (checkout and portal answers). */
   url?: string;
@@ -77,6 +78,7 @@ export class License {
   private trialAvailable = false;
   /** The service says payments are switched on / this account has a billing page. Learned from every answer, not saved. */
   private payments = false;
+  private monthly = false;
   private billing = false;
   /** A payment page was opened, and we're looking for the purchase to go through. */
   private watch: { timer: ReturnType<typeof setInterval>; until: number; before: string; looking: boolean } | undefined;
@@ -154,11 +156,13 @@ export class License {
       app: hasApp,
       cloud: accessOf(p, now).cloud,
       ...(state === 'licensed' && p?.cloudUntil ? { cloudUntil: p.cloudUntil } : {}),
+      ...(state === 'licensed' && p?.appUntil ? { appUntil: p.appUntil } : {}),
       ...(p?.trialUntil ? { trialEndsAt: p.trialUntil } : {}),
       ...(state === 'trial' && trialEnds !== undefined ? { trialDaysLeft: daysLeft(trialEnds, now) } : {}),
       ...(p?.source && state !== 'offline-expired' ? { source: p.source } : {}),
       ...(this.trialAvailable && this.opts.account.signedIn && !hasApp ? { trialAvailable: true } : {}),
       ...(this.payments && this.opts.account.signedIn ? { payments: true } : {}),
+      ...(this.payments && this.monthly && this.opts.account.signedIn ? { monthly: true } : {}),
       ...(this.billing && this.opts.account.signedIn ? { billing: true } : {}),
       ...(this.watch ? { buying: true } : {}),
       ...(this.checkedAt ? { checkedAt: new Date(this.checkedAt).toISOString() } : {}),
@@ -229,10 +233,10 @@ export class License {
   // --- paying ---------------------------------------------------------------------------------
 
   /**
-   * The address of a Stripe page to buy Encore, or a year of Cloud, on. The KJ pays there, in
-   * their own browser; meanwhile this looks every few seconds for the purchase to go through.
+   * The address of a Stripe page to buy Encore, subscribe to Encore Monthly, or add a year of Cloud, on.
+   * The KJ pays there, in their own browser; meanwhile this looks every few seconds for the purchase to go through.
    */
-  async checkout(kind: 'app' | 'cloud'): Promise<string> {
+  async checkout(kind: 'app' | 'cloud' | 'monthly'): Promise<string> {
     const url = this.pageOf(await this.call({ action: 'checkout', kind }));
     this.watchPurchase();
     return url;
@@ -295,9 +299,9 @@ export class License {
     this.watch = undefined;
   }
 
-  /** What a purchase changes: whether Encore is theirs, and until when Cloud lasts. */
+  /** What a purchase changes: whether Encore is theirs, and until when Cloud (or a subscription) lasts. */
   private planKey(): string {
-    return `${this.pass?.app}|${this.pass?.cloudUntil}|${this.pass?.owner}|${this.pass?.source}`;
+    return `${this.pass?.app}|${this.pass?.cloudUntil}|${this.pass?.appUntil}|${this.pass?.owner}|${this.pass?.source}`;
   }
 
   // --- inside --------------------------------------------------------------------------------
@@ -384,6 +388,7 @@ export class License {
     this.checkedAt = this.clock();
     this.trialAvailable = Boolean(reply.trialAvailable);
     this.payments = Boolean(reply.payments);
+    this.monthly = Boolean(reply.monthly);
     this.billing = Boolean(reply.billing);
     await this.save(reply.pass!);
     // A computer clock far ahead of the real time would make every fresh pass look too old.
@@ -407,6 +412,7 @@ export class License {
     this.checkedAt = undefined;
     this.trialAvailable = false;
     this.payments = false;
+    this.monthly = false;
     this.billing = false;
     this.problem = undefined;
     await rm(this.file, { force: true });

@@ -5,7 +5,7 @@
 
 import { useState, type FormEvent, type ReactNode } from 'react';
 import type { DjAction } from '../../shared/protocol.ts';
-import { formatDay, offersOf, planSentence, PRICES } from '../../shared/license.ts';
+import { formatDay, MONTHS_TO_BREAK_EVEN, offersOf, planSentence, PRICES } from '../../shared/license.ts';
 import * as I from '../common/icons.tsx';
 import { request } from '../common/socket.ts';
 import { useDj } from './context.ts';
@@ -191,16 +191,17 @@ function useStripePage() {
 }
 
 /**
- * Buying Encore, or keeping Cloud going, on Stripe's own page, which opens in the browser; Encore
- * notices by itself when the payment goes through. Nothing here unlocks anything: the license
- * service does, once Stripe says it's paid. Only the console shows this; singers never see prices.
+ * Buying Encore, subscribing to Encore Monthly, or keeping Cloud going, on Stripe's own page, which
+ * opens in the browser; Encore notices by itself when the payment goes through. Nothing here
+ * unlocks anything: the license service does, once Stripe says it's paid. Only the console shows
+ * this; singers never see prices.
  */
 export function Offers() {
   const { view } = useDj();
   const l = view.license;
   const offers = offersOf(l, Date.now());
   const page = useStripePage();
-  if (!offers.app && !offers.cloud && !offers.manage && !l.buying) return null;
+  if (!offers.app && !offers.monthly && !offers.cloud && !offers.manage && !l.buying) return null;
   const busy = Boolean(page.busy);
   return (
     <div className="offers">
@@ -209,7 +210,21 @@ export function Offers() {
           <button className="btn primary" disabled={busy} onClick={() => void page.open({ type: 'checkout', kind: 'app' }, 'app')}>
             {page.busy === 'app' ? <I.Loader /> : <I.Card />} Buy Encore · {PRICES.app}
           </button>
-          <span className="muted small">One payment, yours to keep. It includes a year of Encore Cloud: the online join link and lock-screen alerts.</span>
+          <span className="muted small">
+            {l.source === 'subscription'
+              ? 'One payment, yours to keep. Your monthly subscription stops renewing when you buy, and you keep the month you paid for.'
+              : 'One payment, yours to keep. It includes a year of Encore Cloud: the online join link and lock-screen alerts.'}
+          </span>
+        </div>
+      )}
+      {offers.monthly && (
+        <div className="offer">
+          <button className="btn" disabled={busy} onClick={() => void page.open({ type: 'checkout', kind: 'monthly' }, 'monthly')}>
+            {page.busy === 'monthly' ? <I.Loader /> : <I.Card />} Subscribe · {PRICES.monthly} a month
+          </button>
+          <span className="muted small">
+            Encore and Cloud for as long as you’re subscribed. Cancel any time in Manage billing; it keeps working to the end of the month you paid for. Buying Encore once costs less if you’ll use it for more than {MONTHS_TO_BREAK_EVEN} months.
+          </span>
         </div>
       )}
       {offers.cloud && (
@@ -225,11 +240,11 @@ export function Offers() {
           <button className="btn sm" disabled={busy} onClick={() => void page.open({ type: 'billing' }, 'billing')}>
             {page.busy === 'billing' ? <I.Loader /> : <I.Card />} Manage billing
           </button>
-          <span className="muted small">See your payments, update your card, or stop Cloud renewing.</span>
+          <span className="muted small">See your payments, update your card, or stop {l.source === 'subscription' ? 'Encore Monthly' : 'Cloud'} renewing.</span>
         </div>
       )}
       {/* Microsoft Store policy 10.8.2: the app names who takes the payment. */}
-      {(offers.app || offers.cloud || offers.manage) && <p className="muted small">Payments are taken by Stripe, on its own secure page. Encore never sees your card.</p>}
+      {(offers.app || offers.monthly || offers.cloud || offers.manage) && <p className="muted small">Payments are taken by Stripe, on its own secure page. Encore never sees your card.</p>}
       {l.buying && (
         <p className="guide-status" role="status">
           <I.Loader /> Finish paying in your browser. Encore updates by itself when it goes through.
@@ -286,7 +301,8 @@ export function YourEncore() {
         {/* Microsoft Store policy 10.8.4: say in advance what a trial's end changes. */}
         {l.state === 'trial' && (
           <span className="muted small">
-            After the trial, Encore still opens and your library, settings and printing keep working. To start new shows you’ll need {l.payments ? 'to buy Encore or use an unlock code' : 'an unlock code'}.
+            After the trial, Encore still opens and your library, settings and printing keep working. To start new shows you’ll need{' '}
+            {l.payments ? (l.monthly ? 'to buy Encore, subscribe or use an unlock code' : 'to buy Encore or use an unlock code') : 'an unlock code'}.
           </span>
         )}
         {l.validUntil && l.state !== 'offline-expired' && (
@@ -379,7 +395,7 @@ export function LicensePanel() {
     );
   } else {
     title = l.trialEndsAt ? 'Your free trial has ended' : 'This computer has already had its free trial';
-    body = `${l.payments ? 'Buy Encore, or enter an unlock code,' : 'Enter an unlock code'} to keep running shows. Your library, settings and printing still work.`;
+    body = `${l.payments ? (l.monthly ? 'Buy Encore, subscribe, or enter an unlock code,' : 'Buy Encore, or enter an unlock code,') : 'Enter an unlock code'} to keep running shows. Your library, settings and printing still work.`;
     action = (
       <div className="offers">
         <Offers />

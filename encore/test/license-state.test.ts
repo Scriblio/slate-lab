@@ -1,7 +1,7 @@
 // What a pass means: the six states, what each allows, and how the plan reads in words.
 
 import { describe, expect, it } from 'vitest';
-import { accessOf, cloudActive, daysLeft, formatDay, offersOf, planSentence, PRICES, RENEW_WITHIN_DAYS, stateOf, type LicenseView } from '../src/shared/license.ts';
+import { accessOf, cloudActive, daysLeft, formatDay, MONTHS_TO_BREAK_EVEN, offersOf, planSentence, PRICES, RENEW_WITHIN_DAYS, stateOf, type LicenseView } from '../src/shared/license.ts';
 import { DAY, passPayload } from './licensekit.ts';
 
 const NOW = Date.UTC(2026, 10, 5, 12, 0, 0);
@@ -71,18 +71,32 @@ describe('days left', () => {
 
 describe('what the console offers to buy', () => {
   const offers = (over: Partial<LicenseView>) => offersOf(view({ email: 'kj@example.com', payments: true, ...over }), NOW);
-  const none = { app: false, cloud: false, manage: false };
+  const none = { app: false, monthly: false, cloud: false, manage: false };
 
   it('offers nothing until the service says buying is switched on, or before anyone is signed in', () => {
     for (const state of ['trial', 'ended', 'licensed', 'owner', 'signed-out', 'offline-expired'] as const) {
       expect(offersOf(view({ state, email: 'kj@example.com' }), NOW), `${state}, payments off`).toEqual(none);
       expect(offersOf(view({ state, payments: true }), NOW), `${state}, no email`).toEqual(none);
+      expect(offersOf(view({ state, monthly: true, email: 'kj@example.com' }), NOW), `${state}, monthly without payments`).toEqual(none);
     }
   });
 
   it('offers Encore to someone on the trial or whose trial is over, and nothing else', () => {
-    expect(offers({ state: 'trial', trialDaysLeft: 9 })).toEqual({ app: true, cloud: false, manage: false });
-    expect(offers({ state: 'ended', trialEndsAt: iso(NOW - DAY) })).toEqual({ app: true, cloud: false, manage: false });
+    expect(offers({ state: 'trial', trialDaysLeft: 9 })).toEqual({ app: true, monthly: false, cloud: false, manage: false });
+    expect(offers({ state: 'ended', trialEndsAt: iso(NOW - DAY) })).toEqual({ app: true, monthly: false, cloud: false, manage: false });
+  });
+
+  it('offers Encore Monthly beside it, once the service says that can be subscribed to', () => {
+    expect(offers({ state: 'trial', trialDaysLeft: 9, monthly: true })).toEqual({ app: true, monthly: true, cloud: false, manage: false });
+    expect(offers({ state: 'ended', trialEndsAt: iso(NOW - DAY), monthly: true, billing: true })).toEqual({ app: true, monthly: true, cloud: false, manage: true });
+  });
+
+  it('offers a subscriber Encore outright, which ends their subscription, but never Cloud, which they have', () => {
+    const subscribed = { state: 'licensed', source: 'subscription', cloud: true, cloudUntil: iso(NOW + 10 * DAY), appUntil: iso(NOW + 7 * DAY), monthly: true } as const;
+    expect(offers(subscribed)).toEqual({ app: true, monthly: false, cloud: false, manage: false });
+    expect(offers({ ...subscribed, billing: true })).toEqual({ app: true, monthly: false, cloud: false, manage: true });
+    // Even when their Cloud (which ends with the subscription) is about to run out.
+    expect(offers({ ...subscribed, cloudUntil: iso(NOW + DAY) }).cloud).toBe(false);
   });
 
   it('offers nothing to the owner, whatever else is true', () => {
@@ -96,9 +110,9 @@ describe('what the console offers to buy', () => {
   });
 
   it('offers Cloud, never Encore again, to someone who has it: when Cloud is gone, never was, or is nearly over', () => {
-    expect(offers({ state: 'licensed', source: 'purchase', cloud: false })).toEqual({ app: false, cloud: true, manage: false });
-    expect(offers({ state: 'licensed', source: 'code', cloud: false, cloudUntil: iso(NOW - 40 * DAY) })).toEqual({ app: false, cloud: true, manage: false });
-    expect(offers({ state: 'licensed', source: 'purchase', cloud: true, cloudUntil: iso(NOW + (RENEW_WITHIN_DAYS - 1) * DAY) })).toEqual({ app: false, cloud: true, manage: false });
+    expect(offers({ state: 'licensed', source: 'purchase', cloud: false })).toEqual({ app: false, monthly: false, cloud: true, manage: false });
+    expect(offers({ state: 'licensed', source: 'code', cloud: false, cloudUntil: iso(NOW - 40 * DAY) })).toEqual({ app: false, monthly: false, cloud: true, manage: false });
+    expect(offers({ state: 'licensed', source: 'purchase', cloud: true, cloudUntil: iso(NOW + (RENEW_WITHIN_DAYS - 1) * DAY) })).toEqual({ app: false, monthly: false, cloud: true, manage: false });
   });
 
   it('leaves Cloud alone while it has a long way to run, or never ends', () => {
@@ -107,13 +121,48 @@ describe('what the console offers to buy', () => {
   });
 
   it('offers the billing page to anyone who has paid by card, and not otherwise', () => {
-    expect(offers({ state: 'licensed', source: 'purchase', cloud: true, cloudUntil: iso(NOW + 300 * DAY), billing: true })).toEqual({ app: false, cloud: false, manage: true });
-    expect(offers({ state: 'ended', billing: true })).toEqual({ app: true, cloud: false, manage: true });
+    expect(offers({ state: 'licensed', source: 'purchase', cloud: true, cloudUntil: iso(NOW + 300 * DAY), billing: true })).toEqual({ app: false, monthly: false, cloud: false, manage: true });
+    expect(offers({ state: 'ended', billing: true })).toEqual({ app: true, monthly: false, cloud: false, manage: true });
     expect(offers({ state: 'licensed', source: 'code', cloud: true, cloudUntil: 'forever', billing: true }).manage).toBe(true);
   });
 
   it('names the prices in one place, as dollars', () => {
-    expect(PRICES).toEqual({ app: '$149', cloud: '$49' });
+    expect(PRICES).toEqual({ app: '$149', cloud: '$49', monthly: '$29' });
+  });
+
+  it('says how long Encore Monthly takes to cost more than Encore, so the console can be straight about it', () => {
+    // $29 a month: five payments are $145, still under $149; the sixth makes buying once the cheaper way.
+    expect(MONTHS_TO_BREAK_EVEN).toBe(5);
+    expect(MONTHS_TO_BREAK_EVEN * 29).toBeLessThan(149);
+    expect((MONTHS_TO_BREAK_EVEN + 1) * 29).toBeGreaterThan(149);
+  });
+});
+
+describe('Encore Monthly', () => {
+  const paidTo = NOW + 12 * DAY;
+  const subscription = (over: Parameters<typeof passPayload>[0] = {}) => pass({ app: true, source: 'subscription', appUntil: iso(paidTo), cloudUntil: iso(paidTo + 3 * DAY), exp: Math.floor((paidTo + 3 * DAY) / 1000), ...over });
+
+  it('is a licensed plan, with Cloud while it lasts, and the pass goes stale when its grace is over', () => {
+    const p = subscription();
+    expect(stateOf(p, NOW)).toBe('licensed');
+    expect(accessOf(p, NOW)).toEqual({ shows: true, cloud: true });
+    // Past the paid month, inside the grace: still working.
+    expect(stateOf(p, paidTo + DAY)).toBe('licensed');
+    // Past the grace, the pass has run out, and nothing is allowed until it is checked.
+    expect(stateOf(p, paidTo + 3 * DAY)).toBe('offline-expired');
+    expect(accessOf(p, paidTo + 3 * DAY)).toEqual({ shows: false, cloud: false });
+  });
+
+  it('has the owner and a purchase ahead of it, as they are for the pass itself', () => {
+    expect(stateOf(subscription({ owner: true, source: 'owner' }), NOW)).toBe('owner');
+  });
+
+  it('says in plain words what has been paid for, and what to do when it has not come through', () => {
+    const v = (appUntil: string) => view({ state: 'licensed', source: 'subscription', cloud: true, cloudUntil: iso(paidTo + 3 * DAY), appUntil });
+    expect(planSentence(v(iso(paidTo)), 'UTC', NOW)).toBe('Encore Monthly: paid until 17 November 2026. Cloud is included.');
+    // The paid month is over but the pass still works (the grace): say so, and where to put it right.
+    expect(planSentence(v(iso(paidTo)), 'UTC', paidTo + DAY)).toBe('Encore Monthly: the month paid for ended on 17 November 2026. Update your card in Manage billing to keep going.');
+    expect(planSentence(view({ state: 'licensed', source: 'subscription' }), 'UTC', NOW)).toBe('Encore Monthly. Cloud is included.');
   });
 });
 

@@ -4,7 +4,8 @@
 //
 // The states, in plain words:
 //   owner            the owner's own account: everything
-//   licensed         Encore is theirs (an unlock code or a purchase); Cloud while it lasts
+//   licensed         Encore is theirs (an unlock code or a purchase), or is paid for month by month
+//                    (Encore Monthly, Cloud included); Cloud while it lasts
 //   trial            inside the free 14 days: everything
 //   ended            the trial is over and nothing was bought
 //   signed-out       no account yet
@@ -47,6 +48,10 @@ export interface LicenseView {
   trialAvailable?: boolean;
   /** Buying is switched on (see offersOf for what may be offered). Only the console is ever told: singers never see plans or prices. */
   payments?: boolean;
+  /** Encore Monthly can be subscribed to, too. */
+  monthly?: boolean;
+  /** Encore Monthly: the end of the month that was paid for (ISO). The pass carries on a few days past it. */
+  appUntil?: string;
   /** This account has paid by card, so Stripe has a billing page for it. */
   billing?: boolean;
   /** A payment page was opened, and Encore is waiting for the purchase to go through. */
@@ -93,11 +98,14 @@ export function daysLeft(untilMs: number, now: number): number {
 }
 
 /**
- * What the console says things cost. The prices themselves are Stripe's (the two price ids in the
+ * What the console says things cost. The prices themselves are Stripe's (the price ids in the
  * license service's secrets, and the Checkout page shows the real amount before anyone pays), so
  * change these together with them. Only the console shows any of it.
  */
-export const PRICES = { app: '$149', cloud: '$49' } as const;
+export const PRICES = { app: '$149', cloud: '$49', monthly: '$29' } as const;
+
+/** Buying Encore outright costs less than subscribing once Encore Monthly has been paid for this many months (the console says so, so nobody pays more than they need to). */
+export const MONTHS_TO_BREAK_EVEN = 5;
 
 /** Cloud is "ending soon" this long before it runs out, which is when Renew is offered. */
 export const RENEW_WITHIN_DAYS = 60;
@@ -105,6 +113,8 @@ export const RENEW_WITHIN_DAYS = 60;
 export interface Offers {
   /** Buy Encore (it includes a year of Cloud). */
   app: boolean;
+  /** Subscribe to Encore Monthly (Cloud is included). */
+  monthly: boolean;
   /** Add a year of Cloud, or keep it going. */
   cloud: boolean;
   /** Open Stripe's billing page. */
@@ -114,17 +124,20 @@ export interface Offers {
 /**
  * What the console may offer to buy right now. Nothing unless payments are switched on and the
  * license has been checked; never to the owner, to someone who has Encore already, or to a
- * Cloud that never ends. This only decides which buttons show: what is for sale is checked again
- * by the license service, and nothing is unlocked by a button.
+ * Cloud that never ends. A subscriber may buy Encore outright (that ends their subscription) but
+ * is never offered Cloud, which they have. This only decides which buttons show: what is for
+ * sale is checked again by the license service, and nothing is unlocked by a button.
  */
 export function offersOf(v: LicenseView, now: number): Offers {
-  const none: Offers = { app: false, cloud: false, manage: false };
+  const none: Offers = { app: false, monthly: false, cloud: false, manage: false };
   if (!v.payments || !v.email) return none;
   const manage = Boolean(v.billing) && v.state !== 'owner';
-  if (v.state === 'trial' || v.state === 'ended') return { app: true, cloud: false, manage };
-  if (v.state !== 'licensed' || v.cloudUntil === 'forever') return { ...none, manage };
+  if (v.state === 'trial' || v.state === 'ended') return { app: true, monthly: Boolean(v.monthly), cloud: false, manage };
+  if (v.state !== 'licensed') return { ...none, manage };
+  if (v.source === 'subscription') return { ...none, app: true, manage };
+  if (v.cloudUntil === 'forever') return { ...none, manage };
   const endsSoon = v.cloudUntil !== undefined && Date.parse(v.cloudUntil) - now < RENEW_WITHIN_DAYS * DAY;
-  return { app: false, cloud: !v.cloud || endsSoon, manage };
+  return { ...none, cloud: !v.cloud || endsSoon, manage };
 }
 
 /** "3 May 2027", in the computer's own time zone (or the one given: the tests pin UTC). */
@@ -135,7 +148,7 @@ export function formatDay(iso: string, timeZone?: string): string {
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
 /** The plan in one plain sentence, for Settings. */
-export function planSentence(v: LicenseView, timeZone?: string): string {
+export function planSentence(v: LicenseView, timeZone?: string, now = Date.now()): string {
   const day = (iso: string) => formatDay(iso, timeZone);
   switch (v.state) {
     case 'off':
@@ -145,6 +158,13 @@ export function planSentence(v: LicenseView, timeZone?: string): string {
     case 'trial':
       return `Free trial: ${plural(v.trialDaysLeft ?? 0, 'day')} left.`;
     case 'licensed': {
+      if (v.source === 'subscription') {
+        if (!v.appUntil) return 'Encore Monthly. Cloud is included.';
+        // Past the paid month but still working: the few days of grace, in which to fix the card.
+        return Date.parse(v.appUntil) > now
+          ? `Encore Monthly: paid until ${day(v.appUntil)}. Cloud is included.`
+          : `Encore Monthly: the month paid for ended on ${day(v.appUntil)}. Update your card in Manage billing to keep going.`;
+      }
       const how = v.source === 'code' ? ' (unlock code)' : '';
       if (v.cloudUntil === 'forever') return `Encore is yours forever${how}.`;
       if (v.cloud && v.cloudUntil) return `Encore is yours${how}. Cloud until ${day(v.cloudUntil)}.`;

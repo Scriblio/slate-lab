@@ -6,10 +6,11 @@ import { b64url, importPassKeys, importSigningKey, type PassPayload } from '../s
 
 export const DAY = 24 * 60 * 60 * 1000;
 
-/** A Stripe that records what it was asked and answers with plausible pages (billing.test.ts covers what the real one is asked). */
-export function fakePayments(subscribed: string[] = []) {
+/** A Stripe that records what it was asked and answers with plausible pages (billing.test.ts covers what the real one is asked). `monthly: false` is Stripe set up without Encore Monthly's price. */
+export function fakePayments(subscribed: string[] = [], monthly = true) {
   const asked = { checkout: [] as Parameters<Payments['checkout']>[0][], portal: [] as string[], looked: [] as string[] };
   const payments: Payments = {
+    monthly,
     async checkout(args) {
       asked.checkout.push(args);
       return `https://checkout.stripe.com/c/pay/cs_test_${asked.checkout.length}`;

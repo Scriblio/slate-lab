@@ -1,7 +1,7 @@
-// POST { action: 'status', installId } -> { ok: true, pass, trialAvailable, payments, billing }
-// POST { action: 'startTrial', installId } -> { ok: true, pass, trialAvailable, payments, billing, trial }
+// POST { action: 'status', installId } -> { ok: true, pass, trialAvailable, payments, monthly, billing }
+// POST { action: 'startTrial', installId } -> { ok: true, pass, trialAvailable, payments, monthly, billing, trial }
 // POST { action: 'redeem', installId, code } -> { ok: true, pass, ... } | { ok: false, error, code }
-// POST { action: 'checkout', installId, kind: 'app' | 'cloud' } -> { ok: true, url } | { ok: false, error, code }
+// POST { action: 'checkout', installId, kind: 'app' | 'monthly' | 'cloud' } -> { ok: true, url } | { ok: false, error, code }
 // POST { action: 'portal', installId } -> { ok: true, url } | { ok: false, error, code }
 //
 // Called by a signed-in KJ's laptop, with the KJ's session token in Authorization,
@@ -17,7 +17,8 @@
 //
 // Paying (docs/LICENSING.md, "Step 2"): STRIPE_SECRET_KEY, STRIPE_PRICE_APP and
 // STRIPE_PRICE_CLOUD together switch it on; until all three exist, no page is offered and the
-// console shows no prices. Optionally STRIPE_AUTOMATIC_TAX=true, and PAYMENT_SUCCESS_URL,
+// console shows no prices. Adding STRIPE_PRICE_MONTHLY switches on Encore Monthly too (without it
+// Encore and Cloud are sold as before). Optionally STRIPE_AUTOMATIC_TAX=true, and PAYMENT_SUCCESS_URL,
 // PAYMENT_CANCEL_URL and PAYMENT_RETURN_URL. Nothing here may ever be logged or sent anywhere.
 
 import { DEFAULT_LIMITS, handleRedeem, handleStartTrial, handleStatus, PASS_DAYS, TRIAL_DAYS, type Caller, type Deps, type Reply } from './core.ts';
@@ -67,6 +68,7 @@ const payments = (() => {
     secretKey: key,
     priceApp,
     priceCloud,
+    priceMonthly: env('STRIPE_PRICE_MONTHLY'),
     automaticTax: env('STRIPE_AUTOMATIC_TAX') === 'true',
     successUrl: env('PAYMENT_SUCCESS_URL') ?? 'https://sing.scriblio.co/thanks',
     cancelUrl: env('PAYMENT_CANCEL_URL') ?? 'https://sing.scriblio.co/encore',
