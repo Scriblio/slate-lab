@@ -383,11 +383,13 @@ describe('the Stripe calls', () => {
       mode: 'payment',
       'line_items[0][price]': 'price_app',
       'line_items[0][quantity]': '1',
+      'payment_method_types[0]': 'card',
       client_reference_id: who.userId,
       'metadata[user_id]': who.userId,
       'metadata[kind]': 'app',
       'payment_intent_data[metadata][user_id]': who.userId,
       'payment_intent_data[metadata][kind]': 'app',
+      'payment_intent_data[statement_descriptor_suffix]': 'ENCORE',
       customer_email: 'a+b@example.com',
       customer_creation: 'always',
       success_url: 'https://sing.example/thanks',
@@ -402,6 +404,7 @@ describe('the Stripe calls', () => {
       mode: 'subscription',
       'line_items[0][price]': 'price_cloud',
       'line_items[0][quantity]': '1',
+      'payment_method_types[0]': 'card',
       client_reference_id: who.userId,
       'metadata[user_id]': who.userId,
       'metadata[kind]': 'cloud',
@@ -420,6 +423,7 @@ describe('the Stripe calls', () => {
       mode: 'subscription',
       'line_items[0][price]': 'price_monthly',
       'line_items[0][quantity]': '1',
+      'payment_method_types[0]': 'card',
       client_reference_id: who.userId,
       'metadata[user_id]': who.userId,
       'metadata[kind]': 'monthly',
@@ -429,6 +433,29 @@ describe('the Stripe calls', () => {
       success_url: 'https://sing.example/thanks',
       cancel_url: 'https://sing.example/encore',
     });
+  });
+
+  it('offers cards and nothing else, whatever is bought and whoever is buying, so the account’s other payment methods are not shown for Encore', async () => {
+    for (const kind of ['app', 'cloud', 'monthly'] as const) {
+      for (const customer of [null, 'cus_known']) {
+        const s = stripe();
+        await stripePayments(cfg, s.fetchImpl).checkout({ kind, ...who, customer });
+        const sent = Object.fromEntries(s.calls[0]!.body);
+        expect(sent['payment_method_types[0]'], `${kind} ${customer}`).toBe('card');
+        expect(Object.keys(sent).filter((k) => k.startsWith('payment_method_types')), `${kind} ${customer}`).toEqual(['payment_method_types[0]']);
+      }
+    }
+  });
+
+  it('puts ENCORE on the card statement of the one-time purchase, and on no subscription (those carry their statement text on their products)', async () => {
+    const once = stripe();
+    await stripePayments(cfg, once.fetchImpl).checkout({ kind: 'app', ...who, customer: null });
+    expect(Object.fromEntries(once.calls[0]!.body)['payment_intent_data[statement_descriptor_suffix]']).toBe('ENCORE');
+    for (const kind of ['cloud', 'monthly'] as const) {
+      const s = stripe();
+      await stripePayments(cfg, s.fetchImpl).checkout({ kind, ...who, customer: null });
+      expect(Object.keys(Object.fromEntries(s.calls[0]!.body)).filter((k) => k.includes('statement_descriptor')), kind).toEqual([]);
+    }
   });
 
   it('says Encore Monthly is on only when it has a price, and will not ask for one that is not there', async () => {

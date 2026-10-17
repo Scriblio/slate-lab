@@ -57,6 +57,9 @@ export function encodeForm(params: { [key: string]: Param }): string {
 /** Subscriptions that are still going, or being retried: another one would charge twice. */
 const RUNNING = new Set(['active', 'trialing', 'past_due', 'unpaid']);
 
+/** What follows the account's own name ("SCRIBLIO.CO") on the card statement of the one-time purchase, so a buyer knows the charge. */
+export const STATEMENT_SUFFIX = 'ENCORE';
+
 const API = 'https://api.stripe.com/v1';
 
 export function stripePayments(cfg: StripeConfig, fetchImpl: typeof fetch = fetch): Payments {
@@ -87,9 +90,15 @@ export function stripePayments(cfg: StripeConfig, fetchImpl: typeof fetch = fetc
       const session = await call<{ url?: unknown }>('POST', 'checkout/sessions', {
         mode: subscription ? 'subscription' : 'payment',
         line_items: [{ price, quantity: 1 }],
+        // Cards only (Checkout adds Apple Pay and Google Pay to cards): a refund then works the same for every buyer, and
+        // the account's other payment methods, which Scriblio sells with, aren't offered for Encore. Set per page, so
+        // the account's own list is left alone.
+        payment_method_types: ['card'],
         client_reference_id: userId,
         metadata: who,
-        ...(subscription ? { subscription_data: { metadata: who } } : { payment_intent_data: { metadata: who } }),
+        // The one-time payment's statement reads "SCRIBLIO.CO* ENCORE": the account's name with this on the end. A
+        // subscription can't carry a suffix, so Cloud's and Monthly's products hold their own statement text (supabase/README.md).
+        ...(subscription ? { subscription_data: { metadata: who } } : { payment_intent_data: { metadata: who, statement_descriptor_suffix: STATEMENT_SUFFIX } }),
         // A returning customer keeps their Stripe record (and their saved card); a new one is made, with their sign-in email.
         ...(customer ? { customer } : { customer_email: email }),
         ...(!subscription && !customer ? { customer_creation: 'always' } : {}),
