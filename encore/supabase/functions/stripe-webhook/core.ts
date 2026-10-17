@@ -13,6 +13,13 @@
 // database (migrations/..._stripe.sql and ..._monthly.sql), so Stripe retrying or sending it
 // twice changes nothing.
 //
+// The Stripe account is shared with Scriblio's own payments, and every endpoint on an account
+// hears about everything that happens on it. So this acts only on what is Encore's own: a
+// checkout it started (stamped with a `kind`), or a subscription invoice whose subscription
+// carries that stamp or whose price is one of Encore's. Anything else, such as a Scriblio
+// renewal, is answered "ignored", not refused: a refusal makes Stripe send it again for days
+// and, if that goes on, switch the endpoint off.
+//
 // Someone who subscribed to Encore Monthly and then buys Encore outright shouldn't pay for both,
 // so that purchase also stops the subscription renewing (they keep the month they paid for).
 //
@@ -55,6 +62,8 @@ export interface WebhookDeps {
   graceDays?: number;
   /** The price of Encore Monthly (STRIPE_PRICE_MONTHLY): a second way, beside the subscription's own metadata, to tell its invoices from Cloud's. */
   monthlyPrice?: string;
+  /** The price of Cloud (STRIPE_PRICE_CLOUD): the same, for a Cloud subscription that carries no stamp, and how Scriblio's invoices are told apart from Encore's. */
+  cloudPrice?: string;
   /** Stops Encore Monthly renewing for a customer who has bought Encore outright. Unset when Stripe isn't connected here. */
   stripe?: { stopRenewing(customer: string): Promise<void> };
 }
@@ -80,7 +89,7 @@ export async function handleWebhook(rawBody: string, signature: string | null, d
   } catch {
     return { status: 400, body: { ok: false, code: 'bad-event', error: 'Not an event.' } };
   }
-  const args = plan(event, now, deps.graceDays ?? GRACE_DAYS, deps.monthlyPrice);
+  const args = plan(event, now, deps.graceDays ?? GRACE_DAYS, deps.monthlyPrice, deps.cloudPrice);
   if (args === 'bad') return { status: 400, body: { ok: false, code: 'bad-event', error: 'Not an event.' } };
   if (args === null) return { status: 200, body: { ok: true, result: 'ignored' } };
 
@@ -102,7 +111,8 @@ const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFi
 const iso = (seconds: number) => new Date(seconds * 1000).toISOString();
 
 /** The arguments for the database, null for an event we ignore, or 'bad' for something that isn't an event. */
-export function plan(event: unknown, now: number, graceDays: number, monthlyPrice?: string): ApplyArgs | null | 'bad' {
+export function plan(event: unknown, now: number, graceDays: number, monthlyPrice?: string, cloudPrice?: string): ApplyArgs | null | 'bad' {
+  const prices = { monthly: monthlyPrice, cloud: cloudPrice };
   const e = obj(event);
   const id = str(e.id);
   const type = str(e.type);
@@ -132,11 +142,13 @@ export function plan(event: unknown, now: number, graceDays: number, monthlyPric
     case 'invoice.paid': {
       const subscription = subscriptionOf(object);
       if (!subscription) return null; // the receipt for the one-time purchase, not a subscription
+      const kind = invoiceKind(object, prices);
+      if (!kind) return null; // somebody else's subscription on this Stripe account
       const period = periodOf(object);
       if (!period) return null;
       const span = { from: iso(period.from), to: iso(period.to) };
-      // A month of Encore Monthly extends the app's paid time (Cloud comes with it); anything else is a Cloud year.
-      return invoiceKind(object, monthlyPrice) === 'monthly'
+      // A month of Encore Monthly extends the app's paid time (Cloud comes with it); the other kind is a Cloud year.
+      return kind === 'monthly'
         ? { ...base, user: userOf(object), subscription, appFrom: span.from, appTo: span.to }
         : { ...base, user: userOf(object), subscription, ...span };
     }
@@ -144,8 +156,10 @@ export function plan(event: unknown, now: number, graceDays: number, monthlyPric
     case 'invoice.payment_failed': {
       const subscription = subscriptionOf(object);
       if (!subscription) return null;
+      const kind = invoiceKind(object, prices);
+      if (!kind) return null; // somebody else's subscription on this Stripe account
       // Encore Monthly has the license service's few days of grace after the last paid month; nothing to add here.
-      if (invoiceKind(object, monthlyPrice) === 'monthly') return null;
+      if (kind === 'monthly') return null;
       // Stripe retries a failed payment a few times; only the first failure starts the week of grace.
       if ((num(object.attempt_count) ?? 1) > 1) return null;
       return { ...base, user: userOf(object), subscription, grace: new Date(now + graceDays * DAY).toISOString() };
@@ -162,16 +176,20 @@ function subscriptionOf(invoice: Obj): string | null {
 }
 
 /**
- * What a subscription invoice is for. The subscription carries what checkout stamped on it
- * (`kind`), in the old shape of an invoice or the new one; failing that, the price on its lines is
- * compared with Encore Monthly's. Anything else is Cloud, as it was before there was a Monthly.
+ * What a subscription invoice is for, or null when it isn't Encore's. The subscription carries
+ * what checkout stamped on it (`kind`), in the old shape of an invoice or the new one; failing
+ * that, the price on its lines is compared with Encore Monthly's and with Cloud's (a Cloud
+ * subscription from before the stamp existed). Anything else belongs to another product sold from
+ * the same Stripe account, and is none of this function's business.
  */
-function invoiceKind(invoice: Obj, monthlyPrice?: string): 'monthly' | 'cloud' {
+function invoiceKind(invoice: Obj, prices: { monthly?: string; cloud?: string }): 'monthly' | 'cloud' | null {
   const kind = str(obj(obj(invoice.subscription_details).metadata).kind) ?? str(obj(obj(obj(invoice.parent).subscription_details).metadata).kind);
   if (kind === 'monthly' || kind === 'cloud') return kind;
   const lines = obj(invoice.lines).data;
-  const prices = Array.isArray(lines) ? lines.flatMap((line) => [str(obj(obj(line).price).id), str(obj(obj(obj(line).pricing).price_details).price)]) : [];
-  return monthlyPrice && prices.includes(monthlyPrice) ? 'monthly' : 'cloud';
+  const onLines = Array.isArray(lines) ? lines.flatMap((line) => [str(obj(obj(line).price).id), str(obj(obj(obj(line).pricing).price_details).price)]) : [];
+  if (prices.monthly && onLines.includes(prices.monthly)) return 'monthly';
+  if (prices.cloud && onLines.includes(prices.cloud)) return 'cloud';
+  return null;
 }
 
 /** The account named on the subscription when it was started, if Stripe passes it along. */

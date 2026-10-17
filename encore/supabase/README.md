@@ -136,6 +136,13 @@ Secrets: `LICENSE_SIGNING_KEY` (required). Optional: `LICENSE_KEY_ID` (default `
 
 Nothing here touches YouTube, and no purchase changes a YouTube feature (YouTube's policies forbid charging for them).
 
+### One Stripe account, shared with Scriblio
+
+Encore is sold from the same Stripe account as Scriblio's own payments. Two things follow:
+
+- **Every endpoint hears every event.** `stripe-webhook` acts only on what is Encore's own: a checkout stamped with a `kind` (`app`, `cloud` or `monthly`), or a subscription invoice whose subscription carries that stamp or whose price is `STRIPE_PRICE_MONTHLY` or `STRIPE_PRICE_CLOUD`. Everything else, Scriblio's renewals included, is answered "ignored", not refused: a refusal makes Stripe resend the event for days and, if that goes on, switch the endpoint off. Scriblio's own webhook needs no change. It would read Encore's `user_id` metadata as one of its own users, but every `user_id` in its billing tables references `auth.users`, so those writes are refused and nothing happens.
+- **Live mode gets its own Encore webhook, products and key, next to Scriblio's.** Add the live webhook as a second destination and leave Scriblio's alone. The customer portal's default configuration is shared by both: keep it cancelling at the end of the period, with switching plans off.
+
 ### Switching it on, in this order
 
 Do the whole thing in **Stripe's test mode** first (the "Test mode" switch at the top of the Stripe Dashboard). Test and live mode have separate keys, products, webhooks and customers, so you do it all again, with the live ones, when you're ready. Steps 4 and 5 change the live Supabase project, so check with Matthew first. **Done so far (2026-10-17):** the sandbox side of steps 2 and 3, with the ids in `docs/HANDOFF.md`, and steps 4 and 5 on the live Supabase project (with Matthew's go-ahead). Left: step 6, the four secrets, and trying a purchase. Nothing is in live mode.
