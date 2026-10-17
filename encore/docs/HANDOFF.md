@@ -184,7 +184,7 @@ The YouTube API Services policies apply because Encore uses the search API. Brea
    - The evidence PDFs are in `docs/youtube-audit/` and aren't committed. The privacy policy and terms PDFs there predate the 2026-10-05 update, so regenerate them from the live pages before sending them again.
    - After approval, raise the caps with the Supabase secrets `YT_DAILY_SEARCHES`, `YT_DAILY_PER_INSTALL` and `YT_DAILY_PER_IP` (see `supabase/README.md`). The free quota is about 99 uncached searches a day across all customers.
 3. **Terms of Use:** say that users of YouTube features agree to the YouTube Terms of Service. Finish `PRIVACY.md` (placeholders in brackets) and host it.
-4. **Microsoft Store:** fill in the Partner Center identity values in `electron-builder.yml` (see `STORE.md`).
+4. **Microsoft Store:** not ready to submit. `STORE.md` has the full list ("Where things stand"). The main gaps: a Partner Center **company** account (policy 10.14) and its identity values in `electron-builder.yml`; the `.appx` has never been built or tested (run the Action with "Store package" ticked and try it on a clean PC); a demo account for the certifiers, because Encore needs an emailed-code sign-in (policy 10.3.1); the Store listing set to **Free**, with the third-party purchase noted and the prices and trial terms stated (10.8.2, 10.8.4); and everything under items 0 and 2 (Stripe switched on and tried, Google's review and quota extension).
 5. **Ideas Matthew liked but didn't build yet:**
    - a tighter YouTube query using YouTube's own NOT operators (e.g. `-reaction -tutorial`);
    - an "Approve YouTube requests only" setting.

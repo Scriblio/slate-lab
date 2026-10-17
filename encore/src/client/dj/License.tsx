@@ -228,6 +228,8 @@ export function Offers() {
           <span className="muted small">See your payments, update your card, or stop Cloud renewing.</span>
         </div>
       )}
+      {/* Microsoft Store policy 10.8.2: the app names who takes the payment. */}
+      {(offers.app || offers.cloud || offers.manage) && <p className="muted small">Payments are taken by Stripe, on its own secure page. Encore never sees your card.</p>}
       {l.buying && (
         <p className="guide-status" role="status">
           <I.Loader /> Finish paying in your browser. Encore updates by itself when it goes through.
@@ -279,6 +281,12 @@ export function YourEncore() {
             {l.cloud
               ? 'Encore Cloud is on: the online join link and lock-screen alerts.'
               : 'Encore Cloud isn’t part of your plan, so phones join with the Wi-Fi link and there are no lock-screen alerts.'}
+          </span>
+        )}
+        {/* Microsoft Store policy 10.8.4: say in advance what a trial's end changes. */}
+        {l.state === 'trial' && (
+          <span className="muted small">
+            After the trial, Encore still opens and your library, settings and printing keep working. To start new shows you’ll need {l.payments ? 'to buy Encore or use an unlock code' : 'an unlock code'}.
           </span>
         )}
         {l.validUntil && l.state !== 'offline-expired' && (
