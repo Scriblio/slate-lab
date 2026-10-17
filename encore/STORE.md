@@ -17,9 +17,9 @@ The policies quoted here are Microsoft Store Policies 7.20 (14 September 2026): 
 |---|---|
 | The app, sign-in, 14-day trial, unlock codes | Built, and working in the installed 0.2.0 build. |
 | Stripe payments | Built and tested, **not switched on** (PR #5; steps in `supabase/README.md`, "Payments (Stripe)"). The console names Stripe at the point of purchase, and says in advance what the end of the trial changes, because the Store requires both (10.8.2 and 10.8.4). |
-| The Store package (`.appx`) | **Builds, but has never been installed.** The Action built it on 17 October (run 38998787282): `Encore-Karaoke-0.2.0.appx`, 157 MB, version `0.2.0.0`, a full-trust desktop app with the three network capabilities, all the tile and logo assets, unsigned as expected (the Store signs it). Its identity is still the placeholder. See "Testing the package". |
-| Partner Center account | Not known to exist. It has to be a **company** account (see below), and business verification can take days to weeks, so start it first. |
-| Product identity in `electron-builder.yml` | Still the placeholder `CN=00000000-…`. Comes from Partner Center once the name is reserved. |
+| The Store package (`.appx`) | **Builds and runs, with one defect and one risk about where it keeps data.** The Action built it on 17 October (run 38998787282): `Encore-Karaoke-0.2.0.appx`, 157 MB, version `0.2.0.0`, a full-trust desktop app with the three network capabilities, unsigned as expected (the Store signs it). It was sideloaded and run on the development PC the same night: it starts, serves, and reaches the internet, but on a new PC *Open Data Folder* fails and uninstalling deletes the KJ's data. See "Testing the package", which also says how to fix it. |
+| Partner Center account | **Exists**: the one Squatchy is published from, with publisher display name Scriblio. Per my notes from setting up Squatchy it is an *individual* account (check in Partner Center → Account settings). Policy 10.14 says businesses must use a *company* account; Squatchy was accepted from this one, but decide before submitting (see section 2). |
+| Product identity in `electron-builder.yml` | Still the placeholder `CN=00000000-…`. The publisher is the same for every app on the account: Squatchy's installed manifest says `CN=BFB91569-38F5-414F-860A-C7113DA89E49`. Only the product name has to be reserved in Partner Center, and its Package/Identity/Name copied in. |
 | A demo account for the certifiers | Not made. Encore needs a sign-in, so policy 10.3.1 requires one (see below). |
 | Google's YouTube review and quota extension | Waiting (the review's deadline is 21 October). Don't send customers before the extension is granted: the free quota is about 99 uncached searches a day across everyone. |
 | Wording for `TERMS.md` and `PRIVACY.md` | Proposed in `docs/LICENSING.md`, waiting for Matthew's approval. Both must be updated before real money. |
@@ -37,7 +37,7 @@ The first time Encore starts, Windows Firewall asks whether it may use the netwo
 
 ## 2. Set up the Store listing
 
-1. **Create a developer account** in [Partner Center](https://partner.microsoft.com/dashboard) (Apps and games). It has to be a **company account** (policy 10.14: businesses, and anyone acting in relation to their trade or profession, must use one, and a customer could read "Scriblio" as a business). Use the business that sells Encore (Scriblio, a brand of ALM Partners LLC). Company accounts go through identification or business verification, and need customer support contact details that are shown on the listing in some regions. Check the sign-up page for the current fee.
+1. **Choose the Partner Center account** ([Partner Center](https://partner.microsoft.com/dashboard), Apps and games). You already have one, which Squatchy is sold from. Policy 10.14 says businesses, and anyone acting in relation to their trade or profession, must use a **company** account, and a customer could read "Scriblio" as a business. Squatchy, a paid app, was accepted from the individual account, so Encore may be too, but the policy's wording fits Encore, so pick one on purpose: carry on with the individual account (a small chance that certification asks for a company one), or open a company account for the business that sells Encore (Scriblio, a brand of ALM Partners LLC). As far as I know an account's type can't be converted, so that would be a new account, with identification or business verification (days to weeks) and customer support contact details shown on the listing in some regions; Squatchy would stay where it is.
 2. **Reserve the app name.** "Encore Karaoke" may already be taken, so have a few alternatives ready. Search the Store and do a basic trademark check before you commit to a name.
 3. **Copy your product identity into the build.** In Partner Center open your app → *Product management* → *Product identity*. Copy three values into `electron-builder.yml` under `appx:`:
 
@@ -52,14 +52,30 @@ The first time Encore starts, Windows Firewall asks whether it may use the netwo
 
 ### Testing the package
 
-The `.appx` builds cleanly, but nobody has installed or run it yet, so treat the first install as a test, on a real Windows PC that isn't the one Encore was developed on:
+**How to try the package on a PC without a certificate.** An unsigned `.appx` can't be installed directly: Windows refuses with "an unsigned package cannot include Executable activations", which is true of any desktop app. What works:
 
-- It installs, opens, and signs in (the email code arrives and works).
-- Phones on the same Wi-Fi can join over the local link (the port is 4747), after the firewall prompt.
-- **Where the data goes.** A packaged app's data folder is virtualised, so check that *Show → Open Data Folder* opens a folder that really holds the show history, settings and song keys, and that an update keeps them. Uninstalling a Store app removes its data, so decide whether that's acceptable for a KJ's history and say so in the listing if it is.
-- Sound goes to the chosen speakers, the venue screen opens on a second monitor, and printing and *Save PDF* work.
-- It uninstalls cleanly (policy 10.2.7).
-- Run the **Windows App Certification Kit** (part of the Windows SDK) over it. It runs most of the checks certification does. To install an unsigned package on your own PC first, follow Microsoft's MSIX docs on signing with a test certificate.
+1. Turn on Developer Mode (Settings → System → For developers).
+2. Put the `.appx` at a **short path** such as `C:\encore-test\`. A path of about 260 characters or more gives a misleading "source uri is blocked by MsixAllowedZones policy" error.
+3. Unpack it with the Windows SDK's `makeappx` and register the folder: `makeappx unpack /p Encore-Karaoke-0.2.0.appx /d C:\encore-test\layout`, then `Add-AppxPackage -Register C:\encore-test\layout\AppxManifest.xml`. Start it from the Start menu. Remove it with `Get-AppxPackage Scriblio.EncoreKaraoke | Remove-AppxPackage`.
+4. To see what a **new customer** gets, first rename `%APPDATA%\Encore Karaoke` (and put it back afterwards). Without that, the package uses the folder an installed copy already has. Also don't run it with an installed copy's `data\account.json` in place: the package refreshes that sign-in, which uses up the installed copy's.
+
+**What the test found (16–17 October, development PC).**
+
+- **It works:** it starts with the package's identity; the console renders; a new user gets the first-run guide, signed out; the local server answers on port 4747 (`/dj`, `/join`, `/display`); a YouTube search from inside the package returns results, so the internet works from the container; Windows made an allow rule for private networks, so phones on the venue Wi-Fi can reach it.
+- **Defect: *Show → Open Data Folder* fails on a new PC.** Windows redirects the new `AppData` folders a Store app creates to a private place, `%LOCALAPPDATA%\Packages\<package family>\LocalCache\Roaming\Encore Karaoke`, which only the app sees. Explorer can't find the folder the app asks for, and says "Location is not available" for `…\AppData\Roaming\Encore Karaoke\data`.
+- **Risk: uninstalling deletes the data.** The redirected folder is removed with the package: the settings, song keys, show history, the online join link's room and key (so **printed QR codes stop working**), the lock-screen alert keys and the sign-in. The installer version keeps its data when it is uninstalled.
+- **Only new installs are affected.** If the PC already has `%APPDATA%\Encore Karaoke` (someone upgrading from the beta installer), the package uses that folder in place and nothing is redirected. That is how Microsoft says it should carry on from an unpackaged copy.
+
+**What to do about the data.** The recommended fix is to switch the redirection off for the Store build, so it behaves like the installer: the data lives in the real `%APPDATA%\Encore Karaoke`, survives an uninstall, is shared with a beta install, and *Open Data Folder* works. In the manifest that is `<desktop6:FileSystemWriteVirtualization>disabled</desktop6:FileSystemWriteVirtualization>` under `<Properties>`, together with the restricted capability `unvirtualizedResources`. Partner Center asks for a reason for a restricted capability; a true one is "the app keeps its settings, show history and printed-QR identity in AppData, which must survive an uninstall and be reachable by the user". electron-builder can't write that property, so a step after the build has to patch the manifest (unpack with `makeappx`, edit, repack), as was done for this test. The alternative is to keep the redirection, point *Open Data Folder* at the private folder, add a backup/export, and say in the listing that uninstalling removes your data; that is a worse deal for a KJ's printed QR codes.
+
+**Not tested yet.**
+
+- Signing in with a real email address from the package.
+- Phones joining over Wi-Fi.
+- An update over an older version.
+- A real Store-signed install. Partner Center can limit a listing to a private audience or hide it, which is the way to try it on other PCs before it goes public.
+- The **Windows App Certification Kit** (part of the Windows SDK), which runs most of what certification does. It needs an administrator.
+- Sound on the chosen speakers, a second monitor, printing and *Save PDF*, and a clean uninstall (policy 10.2.7) on a real venue setup.
 
 ## 3. Submit
 
