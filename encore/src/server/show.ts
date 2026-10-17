@@ -3,7 +3,7 @@
 // broadcast the same way whether they came from the KJ or a phone.
 
 import { randomBytes, randomInt, randomUUID } from 'node:crypto';
-import { mkdir, readdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, unlink } from 'node:fs/promises';
 import { basename, dirname, join } from 'node:path';
 import { isBlockedName, parseWords } from '../shared/namefilter.ts';
 import { parseTipAmounts, tipLinkWithAmount } from '../shared/tips.ts';
@@ -33,6 +33,7 @@ import {
   type UpcomingItem,
   type YouTubeEmbed,
 } from '../shared/types.ts';
+import { writeFileAtomic } from './atomicfile.ts';
 
 /** A problem to show the user as-is. `code` lets the client react (e.g. 'name-taken'). */
 export class UserError extends Error {
@@ -186,9 +187,7 @@ export class Show {
     const run = async () => {
       const data: Persisted = { version: 1, state: this.state, tokens: Object.fromEntries(this.tokens), snapshot: this.snapshot };
       await mkdir(dirname(file), { recursive: true });
-      const tmp = `${file}.${process.pid}.tmp`;
-      await writeFile(tmp, JSON.stringify(data));
-      await rename(tmp, file);
+      await writeFileAtomic(file, JSON.stringify(data));
     };
     this.saving = this.saving.then(run, run);
     return this.saving;

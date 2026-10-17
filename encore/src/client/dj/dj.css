@@ -1926,6 +1926,37 @@ kbd {
 .print-notes b {
   color: var(--text);
 }
+/* Settings → Your Encore: what Cloud does and doesn't */
+.cloud-explainer {
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  font-size: 12.5px;
+}
+.cloud-explainer summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+}
+.cloud-notes {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+}
+.cloud-notes ul {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 6px;
+  padding-left: 18px;
+  color: var(--text-2);
+}
+.cloud-notes b {
+  color: var(--text);
+}
+.cloud-notes p {
+  margin: 4px 0 0;
+}
 .link-btn {
   padding: 0;
   border: 0;

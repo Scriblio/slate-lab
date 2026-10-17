@@ -36,6 +36,12 @@ describe.each([
     await w.purchase(kj.userId, { appForever: true, cloudUntil: over.cloudUntil === undefined ? Date.now() + 300 * DAY : over.cloudUntil, cloudForever: over.cloudForever, customer: over.customer ?? `cus_${counter++}` });
     return kj;
   };
+  /** Someone on Encore Monthly, paid up to a moment (default: three weeks from now). */
+  const subscribed = async (email: string, over: { paidUntil?: number; customer?: string } = {}) => {
+    const kj = await w.kj(email);
+    await w.subscribe(kj.userId, over.paidUntil ?? Date.now() + 20 * DAY, over.customer ?? `cus_${counter++}`);
+    return kj;
+  };
 
   describe('a page to buy Encore on', () => {
     it('is made for an account with no plan yet, with what Stripe needs to know who is paying', async () => {
@@ -132,6 +138,102 @@ describe.each([
     });
   });
 
+  describe('a page to subscribe to Encore Monthly on', () => {
+    it('is made for an account with no plan yet, and for someone whose free trial is over', async () => {
+      const fresh = await w.kj('monthly-new@example.com');
+      const over = await w.kj('monthly-trial-over@example.com');
+      await w.store.startTrial(over.userId, laptop(), 14);
+      await w.endTrialAt(over.userId, Date.now() - DAY);
+      const { payments, asked } = fakePayments();
+      expect((await checkout(fresh, 'monthly', deps({ payments }))).status).toBe(200);
+      expect((await checkout(over, 'monthly', deps({ payments }))).status).toBe(200);
+      expect(asked.checkout).toEqual([
+        { kind: 'monthly', userId: fresh.userId, email: fresh.email, customer: null },
+        { kind: 'monthly', userId: over.userId, email: over.email, customer: null },
+      ]);
+    });
+
+    it('reuses the Stripe customer the account has, after making sure no subscription is still running there', async () => {
+      const kj = await w.kj('monthly-returning@example.com');
+      await w.purchase(kj.userId, { appForever: false, customer: 'cus_monthly_back' });
+      const { payments, asked } = fakePayments();
+      expect((await checkout(kj, 'monthly', deps({ payments }))).status).toBe(200);
+      expect(asked.checkout[0]).toMatchObject({ kind: 'monthly', customer: 'cus_monthly_back' });
+      expect(asked.looked).toEqual(['cus_monthly_back']);
+    });
+
+    it('is made again for someone whose subscription ended, even in the few days of grace after the last paid month, since a cancelled subscription has stopped', async () => {
+      const { payments, asked } = fakePayments(); // Stripe has nothing running for any of them
+      for (const [email, paidUntil] of [
+        ['monthly-lapsed@example.com', Date.now() - 4 * DAY],
+        ['monthly-cancelled-in-grace@example.com', Date.now() - 2 * DAY],
+      ] as const) {
+        expect((await checkout(await subscribed(email, { paidUntil }), 'monthly', deps({ payments }))).status, email).toBe(200);
+      }
+      expect(asked.checkout).toHaveLength(2);
+    });
+
+    it('is refused while Stripe still has the subscription going (paid up, set to end, or a card being retried), so nobody pays twice', async () => {
+      const { payments, asked } = fakePayments(['cus_current', 'cus_retry']);
+      for (const [email, customer, paidUntil] of [
+        ['monthly-current@example.com', 'cus_current', Date.now() + 20 * DAY],
+        ['monthly-retry@example.com', 'cus_retry', Date.now() - 2 * DAY],
+      ] as const) {
+        expect(refusal(await checkout(await subscribed(email, { paidUntil, customer }), 'monthly', deps({ payments }))), email).toEqual({ status: 400, code: 'already-subscribed' });
+      }
+      expect(asked.checkout).toHaveLength(0);
+    });
+
+    it('is refused when Encore is theirs for good, however they got it, and for the owner', async () => {
+      const { payments, asked } = fakePayments();
+      const owner = await w.kj('monthly-owner@example.com');
+      await w.setOwner(owner.email);
+      expect(refusal(await checkout(owner, 'monthly', deps({ payments })))).toEqual({ status: 400, code: 'owner' });
+      expect(refusal(await checkout(await bought('monthly-bought@example.com'), 'monthly', deps({ payments })))).toEqual({ status: 400, code: 'already-owned' });
+      const kj = await w.kj('monthly-code@example.com');
+      const install = laptop();
+      await handleRedeem({ installId: install, code: await w.makeCode('monthly code', 'app') }, kj, '198.51.100.20', deps());
+      expect(refusal(await checkout(kj, 'monthly', deps({ payments }), install))).toEqual({ status: 400, code: 'already-owned' });
+      expect(asked.checkout).toHaveLength(0);
+    });
+
+    it('is not offered when Encore Monthly has no price in Stripe, though Encore and Cloud still are', async () => {
+      const kj = await w.kj('monthly-off@example.com');
+      const { payments, asked } = fakePayments([], false);
+      expect(refusal(await checkout(kj, 'monthly', deps({ payments })))).toEqual({ status: 503, code: 'payments-off' });
+      expect(asked.checkout).toHaveLength(0);
+      expect((await checkout(kj, 'app', deps({ payments }))).status).toBe(200);
+    });
+  });
+
+  describe('a subscriber', () => {
+    it('may buy Encore outright (the webhook then stops the renewals), without being asked whether a subscription is running', async () => {
+      const kj = await subscribed('sub-buys@example.com', { customer: 'cus_sub_buys' });
+      const { payments, asked } = fakePayments(['cus_sub_buys']);
+      expect((await checkout(kj, 'app', deps({ payments }))).status).toBe(200);
+      expect(asked.checkout[0]).toMatchObject({ kind: 'app', customer: 'cus_sub_buys' });
+      expect(asked.looked).toEqual([]);
+    });
+
+    it('is not sold Cloud, which comes with their subscription', async () => {
+      const kj = await subscribed('sub-cloud@example.com');
+      const { payments, asked } = fakePayments();
+      expect(refusal(await checkout(kj, 'cloud', deps({ payments })))).toEqual({ status: 400, code: 'cloud-included' });
+      expect(asked.checkout).toHaveLength(0);
+    });
+
+    it('has a pass that says so: Encore and Cloud until a few days after the paid month, with the month’s end named', async () => {
+      const paidUntil = Date.now() + 20 * DAY;
+      const kj = await subscribed('sub-pass@example.com', { paidUntil });
+      const reply = await handleStatus({ installId: laptop() }, kj, deps({ payments: fakePayments().payments }));
+      if (!reply.body.ok) throw new Error('not ok');
+      const pass = await readPass(reply.body.pass, keys.keys);
+      expect(pass).toMatchObject({ app: true, source: 'subscription', owner: false, appUntil: new Date(paidUntil).toISOString(), cloudUntil: new Date(paidUntil + 3 * DAY).toISOString() });
+      expect(pass!.exp * 1000).toBeLessThanOrEqual(paidUntil + 3 * DAY);
+      expect(reply.body).toMatchObject({ payments: true, monthly: true, billing: true });
+    });
+  });
+
   describe('Stripe’s billing page', () => {
     it('is made for someone who has paid by card', async () => {
       const kj = await bought('portal@example.com', { customer: 'cus_portal' });
@@ -161,6 +263,15 @@ describe.each([
       const { payments, asked } = fakePayments();
       expect(refusal(await checkout(kj, 'app', deps({ payments, signing: undefined })))).toEqual({ status: 503, code: 'not-configured' });
       expect(asked.checkout).toHaveLength(0);
+    });
+
+    it('tells the console whether Encore Monthly can be offered, which needs both payments and its own price', async () => {
+      const kj = await w.kj('monthly-flags@example.com');
+      const install = laptop();
+      const body = async (d: Deps) => (await handleStatus({ installId: install }, kj, d)).body;
+      expect(await body(deps())).toMatchObject({ payments: false, monthly: false });
+      expect(await body(deps({ payments: fakePayments([], false).payments }))).toMatchObject({ payments: true, monthly: false });
+      expect(await body(deps({ payments: fakePayments().payments }))).toMatchObject({ payments: true, monthly: true });
     });
 
     it('tells the console whether there is anything to show, and whether there is a billing page', async () => {
@@ -217,6 +328,7 @@ describe.each([
   it('lets a failure from Stripe through, to be logged and answered as a hiccup, not as a refusal', async () => {
     const kj = await w.kj('stripe-down@example.com');
     const payments: Payments = {
+      monthly: true,
       checkout: async () => {
         throw new StripeError(500, 'api_error', '');
       },
@@ -236,6 +348,7 @@ describe('the Stripe calls', () => {
     secretKey: 'sk_test_never_logged_or_sent_anywhere_else',
     priceApp: 'price_app',
     priceCloud: 'price_cloud',
+    priceMonthly: 'price_monthly',
     successUrl: 'https://sing.example/thanks',
     cancelUrl: 'https://sing.example/encore',
     returnUrl: 'https://sing.example/thanks',
@@ -298,6 +411,33 @@ describe('the Stripe calls', () => {
       success_url: 'https://sing.example/thanks',
       cancel_url: 'https://sing.example/encore',
     });
+  });
+
+  it('asks for a monthly subscription for Encore Monthly, stamped so that its invoices say what they are for', async () => {
+    const s = stripe();
+    await stripePayments(cfg, s.fetchImpl).checkout({ kind: 'monthly', ...who, customer: null });
+    expect(Object.fromEntries(s.calls[0]!.body)).toEqual({
+      mode: 'subscription',
+      'line_items[0][price]': 'price_monthly',
+      'line_items[0][quantity]': '1',
+      client_reference_id: who.userId,
+      'metadata[user_id]': who.userId,
+      'metadata[kind]': 'monthly',
+      'subscription_data[metadata][user_id]': who.userId,
+      'subscription_data[metadata][kind]': 'monthly',
+      customer_email: 'a+b@example.com',
+      success_url: 'https://sing.example/thanks',
+      cancel_url: 'https://sing.example/encore',
+    });
+  });
+
+  it('says Encore Monthly is on only when it has a price, and will not ask for one that is not there', async () => {
+    const { priceMonthly: _, ...without } = cfg;
+    expect(stripePayments(cfg).monthly).toBe(true);
+    expect(stripePayments(without).monthly).toBe(false);
+    const s = stripe();
+    await expect(stripePayments(without, s.fetchImpl).checkout({ kind: 'monthly', ...who, customer: null })).rejects.toThrow(/No price/);
+    expect(s.calls).toHaveLength(0);
   });
 
   it('uses the customer it already knows instead of an email', async () => {

@@ -146,16 +146,19 @@ export async function createApp(opts: AppOptions) {
   };
   // Said to the KJ in the console (never to a singer, who is only told the show isn't open yet).
   const closedMessage = (): string => {
-    const unlock = license?.view().payments ? 'Buy Encore or enter an unlock code' : 'Enter an unlock code';
+    const view = license?.view();
+    const unlock = view?.payments ? (view.monthly ? 'Buy Encore, subscribe or enter an unlock code' : 'Buy Encore or enter an unlock code') : 'Enter an unlock code';
     return license?.state() === 'offline-expired'
       ? 'Encore needs to check your license. Connect this laptop to the internet.'
       : license?.state() === 'signed-out'
         ? 'Sign in to start your free trial, or enter an unlock code, in Settings → Your Encore.'
-        : license?.view().trialEndsAt
-          ? `Your free trial has ended. ${unlock} in Settings → Your Encore to run shows.`
-          : license?.view().trialAvailable
-            ? 'Start your free trial, or enter an unlock code, in Settings → Your Encore.'
-            : `This computer has already had its free trial. ${unlock} in Settings → Your Encore to run shows.`;
+        : license?.view().appUntil
+          ? `Your Encore Monthly has ended. ${unlock} in Settings → Your Encore to run shows.`
+          : license?.view().trialEndsAt
+            ? `Your free trial has ended. ${unlock} in Settings → Your Encore to run shows.`
+            : license?.view().trialAvailable
+              ? 'Start your free trial, or enter an unlock code, in Settings → Your Encore.'
+              : `This computer has already had its free trial. ${unlock} in Settings → Your Encore to run shows.`;
   };
   const needLicense = () => {
     if (!license) throw new UserError('Licensing is switched off in this copy of Encore.');
@@ -743,7 +746,7 @@ export async function createApp(opts: AppOptions) {
         await needLicense().refresh({ report: true });
         return null;
       case 'checkout':
-        if (a.kind !== 'app' && a.kind !== 'cloud') throw new UserError('Unknown thing to buy.');
+        if (a.kind !== 'app' && a.kind !== 'cloud' && a.kind !== 'monthly') throw new UserError('Unknown thing to buy.');
         return { url: await needLicense().checkout(a.kind) };
       case 'billing':
         return { url: await needLicense().billingPortal() };

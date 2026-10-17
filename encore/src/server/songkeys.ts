@@ -3,9 +3,10 @@
 // audio (src/shared/keydetect.ts) or set by the KJ, whose word always wins
 // over a detection. Kept on this laptop in data/song-keys.json.
 
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { mkdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { parseSongKey, type SongKey } from '../shared/songkey.ts';
+import { writeFileAtomic } from './atomicfile.ts';
 
 const MAX_TRACKS = 50_000;
 
@@ -85,9 +86,7 @@ export class SongKeys {
     if (!file) return;
     const run = async () => {
       await mkdir(this.opts.dataDir!, { recursive: true });
-      const tmp = `${file}.${process.pid}.tmp`;
-      await writeFile(tmp, JSON.stringify({ version: 1, keys: Object.fromEntries(this.keys) }));
-      await rename(tmp, file);
+      await writeFileAtomic(file, JSON.stringify({ version: 1, keys: Object.fromEntries(this.keys) }));
     };
     this.saving = this.saving.then(run, run).catch((err: Error) => this.opts.log?.(`  Could not save song keys: ${err.message}`));
   }

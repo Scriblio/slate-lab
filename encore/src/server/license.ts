@@ -15,13 +15,14 @@
 // pass the service signed. A show that is already running is never cut off; that
 // promise lives in access.ts, which asks this for the plan.
 
-import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { importPassKeys, readPass, type PassKey, type PassPayload } from '../../supabase/functions/encore-license/pass.ts';
 import { stripePage } from '../../supabase/functions/encore-license/stripe.ts';
 import { LICENSE_PUBLIC_KEYS } from '../shared/license-key.ts';
 import { accessOf, daysLeft, stateOf, type Access, type LicenseState, type LicenseView } from '../shared/license.ts';
 import { Account, OfflineError } from './account.ts';
+import { writeFileAtomic } from './atomicfile.ts';
 import { UserError } from './show.ts';
 
 export interface LicenseOptions {
@@ -51,8 +52,9 @@ interface Reply {
   pass?: string;
   trialAvailable?: boolean;
   trial?: 'started' | 'account' | 'install' | 'owned';
-  /** Payments are switched on, and this account has a Stripe billing page. */
+  /** Payments are switched on, Encore Monthly can be offered, and this account has a Stripe billing page. */
   payments?: boolean;
+  monthly?: boolean;
   billing?: boolean;
   /** The address of a payment page (checkout and portal answers). */
   url?: string;
@@ -77,6 +79,7 @@ export class License {
   private trialAvailable = false;
   /** The service says payments are switched on / this account has a billing page. Learned from every answer, not saved. */
   private payments = false;
+  private monthly = false;
   private billing = false;
   /** A payment page was opened, and we're looking for the purchase to go through. */
   private watch: { timer: ReturnType<typeof setInterval>; until: number; before: string; looking: boolean } | undefined;
@@ -113,12 +116,12 @@ export class License {
     }
   }
 
-  /** Check in now (if signed in) and every 12 hours. */
-  start(): void {
-    if (this.timer) return;
+  /** Check in now (if signed in) and every 12 hours. Resolves when that first check is done and its pass is kept. */
+  start(): Promise<void> {
+    if (this.timer) return Promise.resolve();
     this.timer = setInterval(() => void this.refresh(), CHECK_EVERY);
     this.timer.unref?.();
-    void this.refresh();
+    return this.refresh();
   }
 
   stop(): void {
@@ -154,11 +157,14 @@ export class License {
       app: hasApp,
       cloud: accessOf(p, now).cloud,
       ...(state === 'licensed' && p?.cloudUntil ? { cloudUntil: p.cloudUntil } : {}),
+      // While Encore Monthly is paid for, and after it has run out (so the console can say it ended).
+      ...((state === 'licensed' || state === 'ended') && p?.appUntil ? { appUntil: p.appUntil } : {}),
       ...(p?.trialUntil ? { trialEndsAt: p.trialUntil } : {}),
       ...(state === 'trial' && trialEnds !== undefined ? { trialDaysLeft: daysLeft(trialEnds, now) } : {}),
       ...(p?.source && state !== 'offline-expired' ? { source: p.source } : {}),
       ...(this.trialAvailable && this.opts.account.signedIn && !hasApp ? { trialAvailable: true } : {}),
       ...(this.payments && this.opts.account.signedIn ? { payments: true } : {}),
+      ...(this.payments && this.monthly && this.opts.account.signedIn ? { monthly: true } : {}),
       ...(this.billing && this.opts.account.signedIn ? { billing: true } : {}),
       ...(this.watch ? { buying: true } : {}),
       ...(this.checkedAt ? { checkedAt: new Date(this.checkedAt).toISOString() } : {}),
@@ -229,10 +235,10 @@ export class License {
   // --- paying ---------------------------------------------------------------------------------
 
   /**
-   * The address of a Stripe page to buy Encore, or a year of Cloud, on. The KJ pays there, in
-   * their own browser; meanwhile this looks every few seconds for the purchase to go through.
+   * The address of a Stripe page to buy Encore, subscribe to Encore Monthly, or add a year of Cloud, on.
+   * The KJ pays there, in their own browser; meanwhile this looks every few seconds for the purchase to go through.
    */
-  async checkout(kind: 'app' | 'cloud'): Promise<string> {
+  async checkout(kind: 'app' | 'cloud' | 'monthly'): Promise<string> {
     const url = this.pageOf(await this.call({ action: 'checkout', kind }));
     this.watchPurchase();
     return url;
@@ -295,9 +301,9 @@ export class License {
     this.watch = undefined;
   }
 
-  /** What a purchase changes: whether Encore is theirs, and until when Cloud lasts. */
+  /** What a purchase changes: whether Encore is theirs, and until when Cloud (or a subscription) lasts. */
   private planKey(): string {
-    return `${this.pass?.app}|${this.pass?.cloudUntil}|${this.pass?.owner}|${this.pass?.source}`;
+    return `${this.pass?.app}|${this.pass?.cloudUntil}|${this.pass?.appUntil}|${this.pass?.owner}|${this.pass?.source}`;
   }
 
   // --- inside --------------------------------------------------------------------------------
@@ -384,6 +390,7 @@ export class License {
     this.checkedAt = this.clock();
     this.trialAvailable = Boolean(reply.trialAvailable);
     this.payments = Boolean(reply.payments);
+    this.monthly = Boolean(reply.monthly);
     this.billing = Boolean(reply.billing);
     await this.save(reply.pass!);
     // A computer clock far ahead of the real time would make every fresh pass look too old.
@@ -395,9 +402,7 @@ export class License {
   private async save(token: string): Promise<void> {
     const saved: Saved = { pass: token, checkedAt: this.checkedAt ?? this.clock(), trialAvailable: this.trialAvailable };
     await mkdir(this.opts.dataDir, { recursive: true });
-    const tmp = `${this.file}.${process.pid}.tmp`;
-    await writeFile(tmp, JSON.stringify(saved), { mode: 0o600 });
-    await rename(tmp, this.file);
+    await writeFileAtomic(this.file, JSON.stringify(saved), { mode: 0o600 });
   }
 
   /** Forget the pass (signed out, or it was another account's). */
@@ -407,6 +412,7 @@ export class License {
     this.checkedAt = undefined;
     this.trialAvailable = false;
     this.payments = false;
+    this.monthly = false;
     this.billing = false;
     this.problem = undefined;
     await rm(this.file, { force: true });

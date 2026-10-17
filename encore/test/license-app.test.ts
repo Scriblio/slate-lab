@@ -473,7 +473,7 @@ describe('buying, from the console', () => {
     await endTheTrial(a);
     expect(a.view().license).toMatchObject({ state: 'ended', payments: true, showOpen: false });
     // The console's own message, to the KJ, says what to do.
-    await expect(a.act({ type: 'addSinger', name: 'Pat' })).rejects.toMatchObject({ message: expect.stringMatching(/free trial has ended\. Buy Encore or enter an unlock code in Settings → Your Encore/) });
+    await expect(a.act({ type: 'addSinger', name: 'Pat' })).rejects.toMatchObject({ message: expect.stringMatching(/free trial has ended\. Buy Encore, subscribe or enter an unlock code in Settings → Your Encore/) });
 
     expect(await a.act<{ url: string }>({ type: 'checkout', kind: 'app' })).toEqual({ url: 'https://checkout.stripe.com/c/pay/cs_test_1' });
     await until(() => a.view().license.buying === true);
@@ -488,6 +488,60 @@ describe('buying, from the console', () => {
     const p = a.phone();
     await p.ready();
     await expect(ack(p.socket, 'singer:join', 'Robin')).resolves.toBeTruthy();
+  });
+
+  it('subscribes to Encore Monthly from the console: the page opens, and the subscription is noticed by itself', async () => {
+    const stripe = withStripe();
+    const a = await start({ watchEveryMs: 20 });
+    await a.signIn();
+    await endTheTrial(a);
+    expect(a.view().license).toMatchObject({ state: 'ended', payments: true, monthly: true });
+
+    expect(await a.act<{ url: string }>({ type: 'checkout', kind: 'monthly' })).toEqual({ url: 'https://checkout.stripe.com/c/pay/cs_test_1' });
+    await until(() => a.view().license.buying === true);
+    expect(stripe.asked.checkout[0]).toMatchObject({ kind: 'monthly', email: 'kj@example.com' });
+
+    const paidUntil = clock.t + 30 * DAY;
+    await world.subscribe(account().userId, paidUntil, 'cus_console_monthly');
+    await until(() => a.view().license.state === 'licensed');
+    expect(a.view().license).toMatchObject({ app: true, cloud: true, source: 'subscription', billing: true, showOpen: true, appUntil: new Date(paidUntil).toISOString() });
+    // A subscriber is not sold Monthly again (Stripe has it running), and the show opens.
+    stripe.payments.hasSubscription = async () => true;
+    await expect(a.act({ type: 'checkout', kind: 'monthly' })).rejects.toMatchObject({ code: 'already-subscribed' });
+    await a.act({ type: 'addSinger', name: 'Pat' });
+  });
+
+  it('says that Encore Monthly ended, not that a free trial did, once the paid month and its grace are over', async () => {
+    withStripe();
+    const a = await start();
+    await a.signIn();
+    await endTheTrial(a);
+    const paidUntil = clock.t + 30 * DAY;
+    await world.subscribe(account().userId, paidUntil, 'cus_lapse');
+    await ack(a.dj, 'dj:action', { type: 'refreshLicense' });
+    await until(() => a.view().license.state === 'licensed' && a.view().license.source === 'subscription');
+
+    // The month goes by, and the days of grace after it, and the laptop checks in.
+    clock.t = paidUntil + 4 * DAY;
+    await ack(a.dj, 'dj:action', { type: 'refreshLicense' });
+    await until(() => a.view().license.state === 'ended');
+    expect(a.view().license).toMatchObject({ state: 'ended', showOpen: false, billing: true, appUntil: new Date(paidUntil).toISOString() });
+    expect(a.view().license.trialAvailable).toBeUndefined();
+    await expect(a.act({ type: 'addSinger', name: 'Pat' })).rejects.toMatchObject({
+      message: expect.stringMatching(/^Your Encore Monthly has ended\. Buy Encore, subscribe or enter an unlock code in Settings → Your Encore/),
+      code: 'show-closed',
+    });
+  });
+
+  it('only talks about subscribing when it can be done', async () => {
+    fake = fakeSupabase({ world, signing: keys.signing, now, deps: { payments: fakePayments([], false).payments } });
+    const a = await start();
+    await a.signIn();
+    await endTheTrial(a);
+    expect(a.view().license).toMatchObject({ state: 'ended', payments: true });
+    expect(a.view().license.monthly).toBeUndefined();
+    await expect(a.act({ type: 'addSinger', name: 'Pat' })).rejects.toMatchObject({ message: expect.stringMatching(/free trial has ended\. Buy Encore or enter an unlock code in Settings → Your Encore/) });
+    await expect(a.act({ type: 'checkout', kind: 'monthly' })).rejects.toMatchObject({ code: 'payments-off' });
   });
 
   it('opens the billing page for someone who has paid, and says why in plain words when it can’t be opened', async () => {
@@ -559,6 +613,29 @@ describe('YouTube, in every state', () => {
         await world.purchase(kj.userId, { appForever: true, cloudUntil: clock.t + 365 * DAY, customer: 'cus_youtube' });
         await ack(a.dj, 'dj:action', { type: 'refreshLicense' });
         await until(() => a.view().license.state === 'licensed' && a.view().license.source === 'purchase');
+      },
+    },
+    {
+      name: 'on Encore Monthly',
+      expected: 'licensed',
+      ready: async (a) => {
+        await a.signIn();
+        const kj = fake.accounts().find((c) => c.email === 'kj@example.com')!;
+        await world.subscribe(kj.userId, clock.t + 20 * DAY, 'cus_youtube_monthly');
+        await ack(a.dj, 'dj:action', { type: 'refreshLicense' });
+        await until(() => a.view().license.state === 'licensed' && a.view().license.source === 'subscription');
+      },
+    },
+    {
+      name: 'after Encore Monthly ran out',
+      expected: 'ended',
+      ready: async (a) => {
+        await a.signIn();
+        const kj = fake.accounts().find((c) => c.email === 'kj@example.com')!;
+        await world.subscribe(kj.userId, clock.t - 10 * DAY, 'cus_youtube_lapsed');
+        clock.t += 15 * DAY;
+        await ack(a.dj, 'dj:action', { type: 'refreshLicense' });
+        await until(() => a.view().license.state === 'ended' && Boolean(a.view().license.appUntil));
       },
     },
     {

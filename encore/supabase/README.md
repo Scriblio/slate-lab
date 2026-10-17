@@ -132,7 +132,7 @@ Secrets: `LICENSE_SIGNING_KEY` (required). Optional: `LICENSE_KEY_ID` (default `
 
 ## Payments (Stripe)
 
-`functions/stripe-webhook`, two more actions of `functions/encore-license` (`checkout` and `portal`), and the migration `migrations/20261016000000_stripe.sql` let a KJ buy Encore ($149 once, with a year of Cloud) and keep Cloud going ($49 a year) on Stripe's own pages. The plan and how it works are in [`docs/LICENSING.md`](../docs/LICENSING.md) ("Step 2: as built"). **Applied and deployed to the live project on 2026-10-17, and dark.** Until the Stripe secrets exist, everything here is off: the console shows no prices and no buttons, and the webhook answers "not switched on".
+`functions/stripe-webhook`, two more actions of `functions/encore-license` (`checkout` and `portal`), and the migration `migrations/20261016000000_stripe.sql` let a KJ buy Encore ($149 once, with a year of Cloud), keep Cloud going ($49 a year) or, once Encore Monthly is added (below), subscribe for $29 a month with Cloud included, all on Stripe's own pages. The plan and how it works are in [`docs/LICENSING.md`](../docs/LICENSING.md) ("Step 2: as built"). **Applied and deployed to the live project on 2026-10-17, and dark.** Until the Stripe secrets exist, everything here is off: the console shows no prices and no buttons, and the webhook answers "not switched on".
 
 Nothing here touches YouTube, and no purchase changes a YouTube feature (YouTube's policies forbid charging for them).
 
@@ -146,6 +146,11 @@ Do the whole thing in **Stripe's test mode** first (the "Test mode" switch at th
    - **Encore Cloud:** a recurring price, $49 USD every year.
 
    Copy each price's id (it starts `price_`).
+
+   Give each product a **description**: Stripe shows it on its payment page, in the customer portal and on receipts, so it is where a customer reads what they are buying. It should say what the console says (Settings → Your Encore → *What does Cloud do?*). The sandbox products carry exactly this wording; use it again in live mode:
+   - **Encore Karaoke:** Karaoke hosting software for Windows. One payment, yours to keep. Includes a year of Encore Cloud: singers can join from any network, with a QR code that never changes, and get lock-screen alerts. After that year, Cloud is optional at $49 a year.
+   - **Encore Cloud:** Singers can join your show from any network, with a QR code that never changes, and get lock-screen alerts. Renews every year; cancel any time in Manage billing and it keeps working to the end of the year you paid for.
+   - **Encore Monthly:** Encore Karaoke and Encore Cloud for as long as you're subscribed: singers can join from any network, with a QR code that never changes, and get lock-screen alerts. Renews every month; cancel any time in Manage billing and it keeps working to the end of the month you paid for.
 3. **In Stripe, set up the rest:**
    - **Settings → Billing → Customer portal:** turn it on. Let customers update their payment method and cancel subscriptions (at the end of the period is the kinder choice). Save. Without this, *Manage billing* fails.
    - **Settings → Customer emails:** turn on emails for successful payments, so customers get a receipt.
@@ -180,10 +185,27 @@ To rehearse a failed renewal or a year passing, use Stripe's **test clocks** (se
 
 **Before going live,** clear the test purchases out of the database, because a test customer id means nothing to live mode and would break *Manage billing* for that account: for each test account `select revoke_purchase('…');` and then `update licenses set stripe_customer_id = null, stripe_subscription_id = null where stripe_customer_id is not null;` (only safe while every customer in there is a test one), and `delete from stripe_events;`. Then repeat steps 2, 3 and 6 with live mode's prices, webhook and keys.
 
+### Encore Monthly ($29 a month, Encore and Cloud while subscribed)
+
+Built on top of the payments above. **Applied and deployed on the live project on 2026-10-17 against Stripe's sandbox** (the migration, `stripe-webhook` and `encore-license`, then `STRIPE_PRICE_MONTHLY` = the sandbox price); the steps below are what was done, and what to do again for live mode. It does nothing until its price secret exists, and the plan is in [`docs/LICENSING.md`](../docs/LICENSING.md) ("Step 2b"). Steps 3 to 5 change the live project, so check with Matthew first.
+
+1. **In Stripe, make the price:** Product catalog → Add product → *Encore Monthly*, with the description given in step 2 of the Stripe steps above and a recurring price of $29 USD every month, in the same category as the other two (Electronically Supplied Services). In the sandbox this is `price_1URYLZFGM3Hi9qsLnCz3eW5T`. The customer portal needs nothing new (cancelling at the end of the period is already on).
+2. **Apply the migration** `migrations/20261018000000_monthly.sql`. It adds `licenses.app_until`, replaces `license_stripe_apply` with a version that also takes a paid month (the old ten-argument one is dropped, so there is one function for the webhook to find), and makes `revoke_purchase` end paid months too.
+3. **Redeploy both functions** (`stripe-webhook` with JWT verification still **off**, `encore-license` still **on**). The webhook now also reads `STRIPE_PRICE_MONTHLY` and `STRIPE_SECRET_KEY` (both already set for the license service): the first to tell a monthly invoice from a Cloud one, the second only to stop a subscription renewing when its owner buys Encore outright.
+4. **Add the secret** `STRIPE_PRICE_MONTHLY` (the price id from step 1; it isn't sensitive). Until it exists the console shows no *Subscribe* button, and Encore and Cloud are sold exactly as before. Do the migration and the deploy first, so that nothing can be bought before the webhook understands it.
+
+**Trying it,** with a second email as above: *Subscribe · $29 a month*, pay with the test card, and within ten seconds Encore says **Encore Monthly: paid until** a month from today, with Cloud included. Then:
+- To see the days of grace: `update licenses set app_until = now() - interval '1 day' where user_id = (select id from auth.users where email = 'you+test@gmail.com');`, then *Check again*. Encore still works, and Settings says the month has ended and to update the card in *Manage billing*. Make it `interval '4 days'` ago instead, past the three days of grace, and *Check again* turns it off.
+- To renew, use a Stripe **test clock** (as for Cloud), or send the next invoice from Stripe's dashboard. The month is added after the paid time that was left.
+- To cancel, *Manage billing* → cancel: it runs to the end of the month paid, then Encore goes back to the trial-ended state. Subscribing again, even inside the grace days, works once Stripe says the old one has stopped.
+- To check the switch: with a subscription running, *Buy Encore · $149* and pay; the webhook then sets the subscription to end at its period's end (Stripe → Subscriptions shows "cancels"), and Encore is theirs for good.
+
+**Refunds:** refund the invoice in Stripe, then `select revoke_purchase('them@example.com');` as before, which now ends paid months as well. To take back only the last month: `update licenses set app_until = app_until - interval '1 month' where user_id = (select id from auth.users where lower(email) = 'them@example.com');`.
+
 ### Who has paid, refunds, and when something's off
 
 ```sql
-select u.email, l.app_forever, l.cloud_until, l.stripe_customer_id, l.stripe_subscription_id
+select u.email, l.app_forever, l.app_until, l.cloud_until, l.stripe_customer_id, l.stripe_subscription_id
 from licenses l join auth.users u on u.id = l.user_id
 where l.stripe_customer_id is not null
 order by l.updated_at desc;
@@ -196,4 +218,6 @@ select * from stripe_events order by received_at desc limit 20;   -- what the we
 - **Paid, but Encore didn't unlock:** look at the destination's Event deliveries in Stripe. **503** means `STRIPE_WEBHOOK_SECRET` isn't set. **400** means the secret is wrong (a test secret for a live endpoint, say) or the call wasn't Stripe's. **409** means the customer wasn't linked to an account yet; Stripe retries by itself. **500** means a database error: is the migration applied? The function's logs say which. Once fixed, resend the event from Stripe. Then press *Check again* in Encore.
 - **A renewal was paid but the date didn't move:** check that `invoice.paid` is one of the endpoint's events.
 - **"Stripe 400 … resource_missing" in the function's logs:** a price id doesn't exist in the mode the secret key belongs to (a live price with a test key, or the other way round).
-- **"Cloud is already set to renew":** the account has a running subscription in Stripe. *Manage billing* is the place to change or cancel it.
+- **"Cloud is already set to renew" or "Encore Monthly is already set up":** the account has a running subscription in Stripe (paid up, set to end, or being retried). *Manage billing* is the place to change, renew or cancel it.
+- **No *Subscribe* button, though Buy Encore shows:** `STRIPE_PRICE_MONTHLY` isn't set (or the license service hasn't started afresh since it was).
+- **Subscribed and paid, but Encore Monthly didn't start:** look at the delivery of `invoice.paid` first. If it says 200 with the account still on the trial, the invoice may have been read as a Cloud year: check that `STRIPE_PRICE_MONTHLY` is the id of the price that was paid, and that the subscription carries `kind: monthly` in its metadata (Stripe → Subscriptions → the subscription).

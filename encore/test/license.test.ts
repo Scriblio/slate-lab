@@ -28,7 +28,8 @@ beforeEach(async () => {
   keys = await makeKeys();
   fake = fakeSupabase({ world, signing: keys.signing, now });
 });
-afterEach(() => rm(dir, { recursive: true, force: true }));
+// A few tests end with a check still being saved, so try the clean-up again if the folder is busy for a moment.
+afterEach(() => rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 }));
 
 /** A laptop: its license and account over one data folder. Call open() to read what was saved, as a start does. */
 async function laptop(over: { installId?: string; publicKeys?: { kid: string; key: string }[]; serverClock?: () => number; dataDir?: string; watchEveryMs?: number; watchForMs?: number } = {}) {
@@ -234,10 +235,9 @@ describe('when the trial is over', () => {
     const l = await laptop();
     await l.signIn();
     const before = fake.to('/functions/v1/encore-license').length;
-    l.license.start();
-    await new Promise((r) => setTimeout(r, 20));
+    await l.license.start(); // the check on start, finished and kept, so nothing is still being saved when the test ends
     l.license.stop();
-    expect(fake.to('/functions/v1/encore-license').length).toBe(before + 1); // the check on start
+    expect(fake.to('/functions/v1/encore-license').length).toBe(before + 1);
   });
 });
 
@@ -495,8 +495,14 @@ describe('buying', () => {
     const l = await shop({ watchEveryMs: 15 });
     await l.license.checkout('app');
     await paid(l.account.userId!);
-    await vi.waitFor(() => expect(l.license.state()).toBe('licensed'), { timeout: 3000 });
-    expect(l.license.view().buying).toBeUndefined();
+    // The new pass is kept an instant before the looking is ended, so wait for both.
+    await vi.waitFor(
+      () => {
+        expect(l.license.state()).toBe('licensed');
+        expect(l.license.view().buying).toBeUndefined();
+      },
+      { timeout: 3000 },
+    );
     l.license.stop();
   });
 
@@ -577,6 +583,89 @@ describe('buying', () => {
     await expect(l.license.checkout('app')).rejects.toMatchObject({ code: 'signed-out' });
     await expect(l.license.billingPortal()).rejects.toMatchObject({ code: 'signed-out' });
     expect(fake.calls).toHaveLength(0);
+  });
+
+  describe('Encore Monthly', () => {
+    const month = 30 * DAY;
+    /** What the webhook does when a month is paid. */
+    const subscribed = (userId: string, until: number, customer = 'cus_monthly') => world.subscribe(userId, until, customer);
+    const said = (l: License) => planSentence({ ...l.view(), showOpen: true }, 'UTC', clock.t);
+
+    it('learns from the service that it can be subscribed to, which needs its own price as well as payments being on', async () => {
+      const service: Partial<Deps> = { payments: fakePayments([], false).payments };
+      fake = fakeSupabase({ world, signing: keys.signing, now, deps: service });
+      const l = await laptop();
+      await l.signIn();
+      expect(l.license.view()).toMatchObject({ payments: true });
+      expect(l.license.view().monthly).toBeUndefined();
+      service.payments = fakePayments().payments;
+      await l.license.refresh();
+      expect(l.license.view()).toMatchObject({ payments: true, monthly: true });
+    });
+
+    it('asks for a subscription page, and picks the subscription up when its first month is paid', async () => {
+      const l = await shop();
+      expect(await l.license.checkout('monthly')).toBe('https://checkout.stripe.com/c/pay/cs_test_1');
+      expect(fake.to('/functions/v1/encore-license').at(-1)!.body).toMatchObject({ action: 'checkout', kind: 'monthly', installId: INSTALL });
+      expect(l.stripe.asked.checkout).toEqual([{ kind: 'monthly', userId: l.account.userId, email: 'kj@example.com', customer: null }]);
+
+      expect(await l.license.checkPurchase()).toBe(false);
+      await subscribed(l.account.userId!, clock.t + month);
+      expect(await l.license.checkPurchase()).toBe(true);
+      expect(l.license.view()).toMatchObject({ state: 'licensed', app: true, cloud: true, source: 'subscription', billing: true, appUntil: new Date(clock.t + month).toISOString() });
+      expect(l.license.view().buying).toBeUndefined();
+      expect(l.license.access()).toEqual({ shows: true, cloud: true });
+      expect(said(l.license)).toBe('Encore Monthly: paid until 5 December 2026. Cloud is included.');
+    });
+
+    it('keeps working a few days past the paid month and then stops: the pass runs out with the grace, even offline', async () => {
+      const l = await shop();
+      await world.endTrialAt(l.account.userId!, clock.t - DAY);
+      const paidUntil = clock.t + 10 * DAY;
+      await subscribed(l.account.userId!, paidUntil);
+      await l.license.refresh();
+      expect(l.license.state()).toBe('licensed');
+
+      // Past the paid month but inside the grace: the same pass still works, and the sentence says the month has ended.
+      clock.t += 12 * DAY;
+      expect(l.license.state()).toBe('licensed');
+      expect(said(l.license)).toMatch(/^Encore Monthly: the month paid for ended on 15 November 2026\. Update your card in Manage billing/);
+
+      // The grace ends, and so does the pass: there is nothing to coast on without a check-in.
+      clock.t += DAY + 60_000;
+      expect(l.license.state()).toBe('offline-expired');
+      expect(l.license.access()).toEqual({ shows: false, cloud: false });
+
+      // Online, the service says the subscription isn't paid for any more, and the console is told that it ended
+      // (not that a free trial did, even though this account had one), with a free trial not on offer to someone who paid.
+      await l.license.refresh();
+      expect(l.license.state()).toBe('ended');
+      expect(l.license.view()).toMatchObject({ state: 'ended', app: false, cloud: false, appUntil: new Date(paidUntil).toISOString() });
+      expect(l.license.view().trialAvailable).toBeUndefined();
+      expect(said(l.license)).toBe('Encore Monthly ended on 15 November 2026.');
+    });
+
+    it('lets a subscriber buy Encore outright, and notices when that goes through', async () => {
+      const l = await shop();
+      await subscribed(l.account.userId!, clock.t + month);
+      await l.license.refresh();
+      await l.license.checkout('app');
+      expect(l.stripe.asked.checkout.at(-1)).toMatchObject({ kind: 'app', customer: 'cus_monthly' });
+
+      await paid(l.account.userId!, { customer: 'cus_monthly' });
+      expect(await l.license.checkPurchase()).toBe(true);
+      expect(l.license.view()).toMatchObject({ state: 'licensed', source: 'purchase' });
+      expect(l.license.view().appUntil).toBeUndefined();
+    });
+
+    it('is refused for someone who is already subscribed, in the service’s own words', async () => {
+      const l = await shop();
+      await subscribed(l.account.userId!, clock.t + month);
+      await l.license.refresh();
+      l.stripe.payments.hasSubscription = async (customer) => customer === 'cus_monthly'; // Stripe has it running
+      await expect(l.license.checkout('monthly')).rejects.toMatchObject({ code: 'already-subscribed', message: expect.stringMatching(/^Encore Monthly is already set up/) });
+      await expect(l.license.checkout('cloud')).rejects.toMatchObject({ code: 'cloud-included', message: 'Cloud is included with Encore Monthly.' });
+    });
   });
 
   it('forgets what it knew about buying when it forgets the pass', async () => {

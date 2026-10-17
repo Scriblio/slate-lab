@@ -5,7 +5,7 @@
 
 import { useState, type FormEvent, type ReactNode } from 'react';
 import type { DjAction } from '../../shared/protocol.ts';
-import { formatDay, offersOf, planSentence, PRICES } from '../../shared/license.ts';
+import { formatDay, MONTHS_TO_BREAK_EVEN, offersOf, planSentence, PRICES, renewalFrom } from '../../shared/license.ts';
 import * as I from '../common/icons.tsx';
 import { request } from '../common/socket.ts';
 import { useDj } from './context.ts';
@@ -191,16 +191,17 @@ function useStripePage() {
 }
 
 /**
- * Buying Encore, or keeping Cloud going, on Stripe's own page, which opens in the browser; Encore
- * notices by itself when the payment goes through. Nothing here unlocks anything: the license
- * service does, once Stripe says it's paid. Only the console shows this; singers never see prices.
+ * Buying Encore, subscribing to Encore Monthly, or keeping Cloud going, on Stripe's own page, which
+ * opens in the browser; Encore notices by itself when the payment goes through. Nothing here
+ * unlocks anything: the license service does, once Stripe says it's paid. Only the console shows
+ * this; singers never see prices.
  */
 export function Offers() {
   const { view } = useDj();
   const l = view.license;
   const offers = offersOf(l, Date.now());
   const page = useStripePage();
-  if (!offers.app && !offers.cloud && !offers.manage && !l.buying) return null;
+  if (!offers.app && !offers.monthly && !offers.cloud && !offers.manage && !l.buying) return null;
   const busy = Boolean(page.busy);
   return (
     <div className="offers">
@@ -209,7 +210,21 @@ export function Offers() {
           <button className="btn primary" disabled={busy} onClick={() => void page.open({ type: 'checkout', kind: 'app' }, 'app')}>
             {page.busy === 'app' ? <I.Loader /> : <I.Card />} Buy Encore · {PRICES.app}
           </button>
-          <span className="muted small">One payment, yours to keep. It includes a year of Encore Cloud: the online join link and lock-screen alerts.</span>
+          <span className="muted small">
+            {l.source === 'subscription'
+              ? `One payment, yours to keep. Your monthly subscription stops renewing when you buy${l.appUntil && Date.parse(l.appUntil) > Date.now() ? ', and you keep the month you paid for' : ''}.`
+              : 'One payment, yours to keep. It includes a year of Encore Cloud: singers can join from any network, with a QR code that never changes, and get lock-screen alerts.'}
+          </span>
+        </div>
+      )}
+      {offers.monthly && (
+        <div className="offer">
+          <button className="btn" disabled={busy} onClick={() => void page.open({ type: 'checkout', kind: 'monthly' }, 'monthly')}>
+            {page.busy === 'monthly' ? <I.Loader /> : <I.Card />} Subscribe · {PRICES.monthly} a month
+          </button>
+          <span className="muted small">
+            Encore and Cloud for as long as you’re subscribed. Cancel any time in Manage billing; it keeps working to the end of the month you paid for. Buying Encore once costs less if you’ll use it for more than {MONTHS_TO_BREAK_EVEN} months.
+          </span>
         </div>
       )}
       {offers.cloud && (
@@ -217,7 +232,9 @@ export function Offers() {
           <button className={`btn ${l.cloud ? '' : 'primary'}`} disabled={busy} onClick={() => void page.open({ type: 'checkout', kind: 'cloud' }, 'cloud')}>
             {page.busy === 'cloud' ? <I.Loader /> : <I.Card />} {l.cloud ? 'Keep Cloud going' : 'Add Cloud'} · {PRICES.cloud} a year
           </button>
-          <span className="muted small">Cloud is the online join link and lock-screen alerts. It renews every year, and you can stop it any time in Manage billing.</span>
+          <span className="muted small">
+            Cloud lets singers join from any network, with a QR code that never changes, and get lock-screen alerts. Without it they join over this laptop’s Wi-Fi. It renews every year, and you can stop it any time in Manage billing; it keeps working to the end of the year you paid for.
+          </span>
         </div>
       )}
       {offers.manage && (
@@ -225,11 +242,15 @@ export function Offers() {
           <button className="btn sm" disabled={busy} onClick={() => void page.open({ type: 'billing' }, 'billing')}>
             {page.busy === 'billing' ? <I.Loader /> : <I.Card />} Manage billing
           </button>
-          <span className="muted small">See your payments, update your card, or stop Cloud renewing.</span>
+          <span className="muted small">
+            {l.appUntil && l.state === 'ended'
+              ? 'See your payments or update your card.'
+              : `See your payments, update your card, or stop ${l.source === 'subscription' ? 'Encore Monthly' : 'Cloud'} renewing.`}
+          </span>
         </div>
       )}
       {/* Microsoft Store policy 10.8.2: the app names who takes the payment. */}
-      {(offers.app || offers.cloud || offers.manage) && <p className="muted small">Payments are taken by Stripe, on its own secure page. Encore never sees your card.</p>}
+      {(offers.app || offers.monthly || offers.cloud || offers.manage) && <p className="muted small">Payments are taken by Stripe, on its own secure page. Encore never sees your card.</p>}
       {l.buying && (
         <p className="guide-status" role="status">
           <I.Loader /> Finish paying in your browser. Encore updates by itself when it goes through.
@@ -250,6 +271,51 @@ export function Offers() {
   );
 }
 
+/**
+ * What Encore Cloud does and doesn't do, in the words a KJ would use. It is the online join link (the
+ * secure page, with the same QR code every show) and the lock-screen alerts that need it; nothing
+ * else is Cloud. In particular YouTube is in every plan, so nothing here is something that is paid for.
+ */
+export function CloudExplainer({ open }: { open?: boolean }) {
+  const { view } = useDj();
+  const l = view.license;
+  return (
+    <details className="cloud-explainer" open={open}>
+      <summary>What does Cloud do?</summary>
+      <div className="cloud-notes">
+        <strong>With Cloud</strong>
+        <ul>
+          <li>
+            <b>Singers can join from any network,</b> even mobile data. The QR code opens a secure page, so phones don’t warn “not secure”.
+          </li>
+          <li>
+            <b>The QR code is the same at every show.</b> Print it once, put it on the tables, and it keeps working.
+          </li>
+          <li>
+            <b>Lock-screen alerts.</b> Singers can turn on a nudge on their phone for when they’re up next, and when they’re called.
+          </li>
+        </ul>
+        <strong>Without Cloud</strong>
+        <ul>
+          <li>
+            <b>Singers join over your venue’s Wi-Fi,</b> so their phones must be on the same network as this laptop.
+          </li>
+          <li>
+            <b>The QR code holds this laptop’s Wi-Fi address,</b> which can change on another night or at another venue, so printed codes can stop working.
+          </li>
+          <li>
+            <b>No lock-screen alerts.</b>
+          </li>
+        </ul>
+        <p className="muted small">
+          Either way, the show, the queue, the big screen, your song library, printing, and YouTube search and playback all work the same. Cloud needs this laptop to be online: if the internet drops, the code on the big screen switches to the Wi-Fi link by itself. If Cloud runs out in the middle of a show, tonight’s show keeps it until you start a new list or close Encore.
+          {l.payments && ` Cloud comes with the first year of Encore${l.monthly ? ' and with Encore Monthly' : ''}; after that it’s ${PRICES.cloud} a year.`}
+        </p>
+      </div>
+    </details>
+  );
+}
+
 /** "4 October 2026, 11:44 PM", in the KJ's own time zone. */
 const when = (iso: string) => `${formatDay(iso)}, ${new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
 
@@ -258,6 +324,8 @@ export function YourEncore() {
   const { view, act } = useDj();
   const l = view.license;
   const [confirmOut, setConfirmOut] = useState(false);
+  // Where and when to renew Cloud, while that isn't on offer yet (it is, two months before it ends).
+  const renewal = renewalFrom(l, Date.now());
 
   if (l.state === 'off') return <p className="muted small">{planSentence(l)}</p>;
 
@@ -279,14 +347,20 @@ export function YourEncore() {
         {(l.state === 'trial' || l.state === 'licensed' || l.state === 'owner') && (
           <span className="muted small">
             {l.cloud
-              ? 'Encore Cloud is on: the online join link and lock-screen alerts.'
-              : 'Encore Cloud isn’t part of your plan, so phones join with the Wi-Fi link and there are no lock-screen alerts.'}
+              ? 'Encore Cloud is on: singers can join from any network, the QR code never changes, and they can get lock-screen alerts.'
+              : 'Encore Cloud isn’t part of your plan. Singers join over this laptop’s Wi-Fi, a printed QR code can go stale at another venue, and there are no lock-screen alerts.'}
+          </span>
+        )}
+        {renewal && (
+          <span className="muted small">
+            You can renew Cloud here from {formatDay(renewal)}, for {PRICES.cloud} a year.
           </span>
         )}
         {/* Microsoft Store policy 10.8.4: say in advance what a trial's end changes. */}
         {l.state === 'trial' && (
           <span className="muted small">
-            After the trial, Encore still opens and your library, settings and printing keep working. To start new shows you’ll need {l.payments ? 'to buy Encore or use an unlock code' : 'an unlock code'}.
+            After the trial, Encore still opens and your library, settings and printing keep working. To start new shows you’ll need{' '}
+            {l.payments ? (l.monthly ? 'to buy Encore, subscribe or use an unlock code' : 'to buy Encore or use an unlock code') : 'an unlock code'}.
           </span>
         )}
         {l.validUntil && l.state !== 'offline-expired' && (
@@ -296,6 +370,8 @@ export function YourEncore() {
         )}
       </div>
       <Problem text={l.problem} />
+      {/* Open while Cloud is being offered, so the KJ sees what it is before deciding. */}
+      {(l.state === 'trial' || l.state === 'licensed' || l.state === 'ended') && <CloudExplainer open={offersOf(l, Date.now()).cloud} />}
       {l.trialAvailable && (
         <div className="settings-row">
           <button className="btn primary" onClick={() => act({ type: 'startTrial' }, 'Your free trial has started')}>
@@ -378,8 +454,9 @@ export function LicensePanel() {
       </button>
     );
   } else {
-    title = l.trialEndsAt ? 'Your free trial has ended' : 'This computer has already had its free trial';
-    body = `${l.payments ? 'Buy Encore, or enter an unlock code,' : 'Enter an unlock code'} to keep running shows. Your library, settings and printing still work.`;
+    // Someone who paid for Encore Monthly is told it ended, not that a free trial did.
+    title = l.appUntil ? 'Your Encore Monthly has ended' : l.trialEndsAt ? 'Your free trial has ended' : 'This computer has already had its free trial';
+    body = `${l.payments ? (l.monthly ? 'Buy Encore, subscribe, or enter an unlock code,' : 'Buy Encore, or enter an unlock code,') : 'Enter an unlock code'} to keep running shows. Your library, settings and printing still work.`;
     action = (
       <div className="offers">
         <Offers />

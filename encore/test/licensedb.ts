@@ -34,7 +34,14 @@ export function stripeMigration(): string {
   return readFileSync(join(MIGRATIONS, file), 'utf8');
 }
 
-/** Every function a migration creates, with its parameter names, to check the REST stores call what exists. */
+/** Encore Monthly (step 2b): a subscription to the whole app, built on the payments tables. */
+export function monthlyMigration(): string {
+  const file = readdirSync(MIGRATIONS).find((f) => f.endsWith('_monthly.sql'));
+  if (!file) throw new Error('the monthly migration is missing');
+  return readFileSync(join(MIGRATIONS, file), 'utf8');
+}
+
+/** Every function a migration creates, with its parameter names, to check the REST stores call what exists. (Where migrations are joined, a later definition replaces an earlier one, as in the database.) */
 export function definedFunctions(sql: string): Map<string, string[]> {
   const out = new Map<string, string[]>();
   for (const m of sql.matchAll(/create function public\.(\w+)\(([^)]*)\)/g)) {
@@ -62,6 +69,7 @@ export async function openLicenseDb(): Promise<TestDb> {
   await db.exec(SUPABASE);
   await db.exec(licensingMigration());
   await db.exec(stripeMigration());
+  await db.exec(monthlyMigration());
   const rows = async <T>(sql: string, params?: unknown[]) => (await db.query<T>(sql, params)).rows;
   return {
     db,

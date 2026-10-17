@@ -11,8 +11,9 @@
 //   POST /auth/v1/token?grant_type=refresh_token  a new session from the refresh token
 //   POST /auth/v1/logout?scope=local            end this session
 
-import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
+import { writeFileAtomic } from './atomicfile.ts';
 import { UserError } from './show.ts';
 
 export interface Session {
@@ -171,12 +172,10 @@ export class Account {
     return session;
   }
 
-  /** Written whole to a temp file and renamed, so a crash can't leave half a session (a refresh token works once). */
+  /** Written whole, so a crash can't leave half a session (a refresh token works once). */
   private async save(session: Session): Promise<void> {
     await mkdir(this.opts.dataDir, { recursive: true });
-    const tmp = `${this.file}.${process.pid}.tmp`;
-    await writeFile(tmp, JSON.stringify(session), { mode: 0o600 });
-    await rename(tmp, this.file);
+    await writeFileAtomic(this.file, JSON.stringify(session), { mode: 0o600 });
   }
 
   private async call(path: string, body: unknown, bearer?: string): Promise<AuthReply> {

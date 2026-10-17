@@ -171,6 +171,95 @@ describe.each([
     });
   });
 
+  describe('Encore Monthly', () => {
+    const subscribe = async (email: string, paidUntil: number) => {
+      const kj = await w.kj(email);
+      await w.subscribe(kj.userId, paidUntil, `cus_${++counter}`);
+      return kj;
+    };
+    /** The service as it answers at one moment. */
+    const at = (ms: number) => deps({ now: () => ms });
+
+    it('gives Encore and Cloud until a few days past the paid month, and names the paid month', async () => {
+      const paidUntil = Date.now() + 10 * DAY;
+      const pass = await passOf(await status(await subscribe('monthly-pass@example.com', paidUntil), laptop()));
+      expect(pass).toMatchObject({ app: true, owner: false, source: 'subscription', appUntil: new Date(paidUntil).toISOString(), cloudUntil: new Date(paidUntil + 3 * DAY).toISOString() });
+    });
+
+    it('makes the pass run out with the grace, but never lets it run longer than the usual two weeks', async () => {
+      const soon = Date.now() + 10 * DAY; // 10 days and 3 of grace: shorter than a pass
+      const later = Date.now() + 40 * DAY;
+      const a = await passOf(await status(await subscribe('monthly-exp-a@example.com', soon), laptop()));
+      const b = await passOf(await status(await subscribe('monthly-exp-b@example.com', later), laptop()));
+      expect(a.exp).toBe(Math.floor((soon + 3 * DAY) / 1000));
+      expect(b.exp - b.iat).toBe(14 * 24 * 60 * 60);
+    });
+
+    it('keeps working through its grace days, and then stops, still naming the month that was paid for so the console can say it ended', async () => {
+      const paidUntil = Date.now() + 5 * DAY;
+      const kj = await subscribe('monthly-grace@example.com', paidUntil);
+      const install = laptop();
+      expect(await passOf(await status(kj, install, at(paidUntil + 2 * DAY)))).toMatchObject({ app: true, source: 'subscription' });
+      const over = await passOf(await status(kj, install, at(paidUntil + 3 * DAY + 1000)));
+      expect(over).toMatchObject({ app: false, cloudUntil: null, source: null, appUntil: new Date(paidUntil).toISOString() });
+      // It no longer runs out with the grace: it is an ordinary pass, good for the usual two weeks without a check-in.
+      expect(over.exp - over.iat).toBe(14 * 24 * 60 * 60);
+    });
+
+    it('is outranked by the owner, an unlock code and a purchase, which say nothing of the month', async () => {
+      const paidUntil = Date.now() + 5 * DAY;
+      const bought = await subscribe('monthly-then-bought@example.com', paidUntil);
+      await w.purchase(bought.userId, { appForever: true, cloudUntil: Date.now() + 100 * DAY, customer: 'cus_both' });
+      const purchase = await passOf(await status(bought, laptop()));
+      expect(purchase).toMatchObject({ app: true, source: 'purchase' });
+      expect(purchase.appUntil).toBeUndefined();
+      expect(purchase.exp - purchase.iat).toBe(14 * 24 * 60 * 60);
+
+      const owner = await subscribe('monthly-owner@example.com', paidUntil);
+      await w.setOwner(owner.email);
+      expect(await passOf(await status(owner, laptop()))).toMatchObject({ owner: true, source: 'owner', cloudUntil: 'forever' });
+
+      const coded = await subscribe('monthly-code@example.com', paidUntil);
+      const install = laptop();
+      const reply = await redeem(coded, install, await w.makeCode('monthly and code', 'app'));
+      expect(await passOf(reply)).toMatchObject({ app: true, source: 'code' });
+      expect((await passOf(reply)).appUntil).toBeUndefined();
+    });
+
+    it('does not cut short a longer Cloud they already have', async () => {
+      const kj = await w.kj('monthly-cloud-year@example.com');
+      const install = laptop();
+      await redeem(kj, install, await w.makeCode('a year of Cloud', 'cloud_year'));
+      await w.subscribe(kj.userId, Date.now() + 10 * DAY, 'cus_cy');
+      const pass = await passOf(await status(kj, install));
+      expect(pass.source).toBe('subscription');
+      expect(Date.parse(pass.cloudUntil!)).toBeGreaterThan(Date.now() + 300 * DAY);
+    });
+
+    it('has no trial to start while it lasts, and does not use up the laptop’s trial', async () => {
+      const kj = await subscribe('monthly-trial@example.com', Date.now() + 10 * DAY);
+      const install = laptop();
+      const reply = await startTrial(kj, install);
+      expect(reply.body).toMatchObject({ trial: 'owned', trialAvailable: false });
+      expect(await w.trialsOn(install)).toBe(0);
+    });
+
+    it('does not offer a free trial to someone who has paid for a month, even after it ran out: they are not a newcomer', async () => {
+      const lapsed = await subscribe('monthly-lapsed-trial@example.com', Date.now() - 10 * DAY);
+      expect((await status(lapsed, laptop())).body).toMatchObject({ trialAvailable: false });
+      // Someone who never subscribed is unchanged.
+      expect((await status(await w.kj('monthly-newcomer@example.com'), laptop())).body).toMatchObject({ trialAvailable: true });
+    });
+
+    it('says nothing of the month to someone who never subscribed, or who has Encore for good', async () => {
+      const never = await passOf(await status(await w.kj('monthly-never@example.com'), laptop()));
+      expect(never.appUntil).toBeUndefined();
+      const owner = await subscribe('monthly-never-owner@example.com', Date.now() - 10 * DAY);
+      await w.setOwner(owner.email);
+      expect((await passOf(await status(owner, laptop()))).appUntil).toBeUndefined();
+    });
+  });
+
   describe('unlock codes', () => {
     it('with "forever" give the app and Cloud for good', async () => {
       const kj = await w.kj('forever@example.com');
@@ -354,7 +443,7 @@ describe('reading the database’s answer', () => {
         installHadTrial: true,
       }),
     ).toEqual({
-      license: { appForever: true, cloudUntil: Date.UTC(2027, 4, 3, 12, 0, 0, 250), cloudForever: false, trialEndsAt: null, owner: false, stripeCustomerId: null },
+      license: { appForever: true, cloudUntil: Date.UTC(2027, 4, 3, 12, 0, 0, 250), cloudForever: false, trialEndsAt: null, owner: false, stripeCustomerId: null, appUntil: null },
       grants: [{ grants: 'cloud_year', redeemedAt: Date.UTC(2026, 9, 5, 9, 30) }],
       installHadTrial: true,
     });
@@ -364,5 +453,12 @@ describe('reading the database’s answer', () => {
   it('carries the Stripe customer, when the account has paid by card', () => {
     const raw = { license: { app_forever: true, cloud_until: null, cloud_forever: false, trial_ends_at: null, owner: false, stripe_customer_id: 'cus_123' }, grants: [], installHadTrial: false };
     expect(toSnapshot(raw).license).toMatchObject({ stripeCustomerId: 'cus_123' });
+  });
+
+  it('carries the end of the paid time of Encore Monthly, and an answer from before there was one still reads', () => {
+    const raw = { license: { app_forever: false, cloud_until: null, cloud_forever: false, trial_ends_at: null, owner: false, app_until: '2026-11-17T12:00:00+00:00' }, grants: [], installHadTrial: false };
+    expect(toSnapshot(raw).license).toMatchObject({ appUntil: Date.UTC(2026, 10, 17, 12) });
+    const old = { ...raw, license: { ...raw.license, app_until: undefined } };
+    expect(toSnapshot(old).license).toMatchObject({ appUntil: null });
   });
 });

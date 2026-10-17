@@ -12,9 +12,14 @@
 // in. The pass is good for two weeks without a check-in.
 //
 // Paying is two more questions (billing.ts): checkout, which makes a Stripe-hosted page to
-// buy Encore or a year of Cloud on, and portal, Stripe's page for managing a card or a
-// subscription. Neither gives anything: only Stripe's webhook (../stripe-webhook) does,
-// by writing the same columns an unlock code's grants sit beside.
+// buy Encore, subscribe to Encore Monthly or add a year of Cloud on, and portal, Stripe's page
+// for managing a card or a subscription. Neither gives anything: only Stripe's webhook
+// (../stripe-webhook) does, by writing the same columns an unlock code's grants sit beside.
+//
+// Encore Monthly is Encore and Cloud for as long as the months are paid for, plus a few days of
+// grace (SUBSCRIPTION_GRACE_DAYS), so a renewal that lands while a laptop is offline at a gig
+// doesn't lock anyone out. The pass runs out when the grace does, so a lapsed subscription
+// can't be coasted on, even offline.
 //
 // No YouTube feature is ever part of a pass: YouTube search and playback don't ask
 // this service anything, and a plan can't switch them on or off (YouTube's policies
@@ -37,6 +42,8 @@ export interface LicenseRow {
   owner: boolean;
   /** Set once they have paid by card: Stripe's id for them, which the billing portal needs. */
   stripeCustomerId: string | null;
+  /** Encore Monthly: the end of the last month that was paid for. */
+  appUntil: number | null;
 }
 
 /** Everything needed to work out one account's pass, from one database trip. */
@@ -72,10 +79,14 @@ export interface Limits {
   billingPerAccount?: number;
 }
 
+export type Kind = 'app' | 'cloud' | 'monthly';
+
 /** Taking payment through Stripe (stripe.ts). */
 export interface Payments {
-  /** The address of a Stripe-hosted page to buy Encore, or a year of Cloud, on. */
-  checkout(args: { kind: 'app' | 'cloud'; userId: string; email: string; customer: string | null }): Promise<string>;
+  /** Encore Monthly can be offered: its price is set. (Without it, buying and Cloud still work.) */
+  readonly monthly: boolean;
+  /** The address of a Stripe-hosted page to buy Encore, subscribe to Encore Monthly, or add a year of Cloud, on. */
+  checkout(args: { kind: Kind; userId: string; email: string; customer: string | null }): Promise<string>;
   /** The address of Stripe's page for seeing payments and changing a card or a subscription. */
   portal(customer: string): Promise<string>;
   /** This customer already has a Cloud subscription that is running (or being retried). */
@@ -119,6 +130,8 @@ export type Reply = {
         trialAvailable: boolean;
         /** Payments are switched on: the console may show Buy buttons. Not part of the pass: nothing here grants anything. */
         payments: boolean;
+        /** Encore Monthly can be offered too. */
+        monthly: boolean;
         /** This account has paid by card, so Stripe's billing portal has something to show. */
         billing: boolean;
         trial?: TrialResult;
@@ -133,15 +146,25 @@ export const DEFAULT_LIMITS: Limits = { redeemPerAccount: 10, redeemPerIp: 30 };
 export const DEFAULT_BILLING_PER_HOUR = 20;
 export const PASS_DAYS = 14;
 export const TRIAL_DAYS = 14;
+/** Encore Monthly keeps working this long after the last paid month ends. */
+export const SUBSCRIPTION_GRACE_DAYS = 3;
 
-const DAY = 24 * 60 * 60 * 1000;
+export const DAY = 24 * 60 * 60 * 1000;
 export const HOUR = 60 * 60 * 1000;
 const INSTALL_ID = /^[A-Za-z0-9_-]{16,64}$/;
 
 // --- what an account has --------------------------------------------------------------
 
 export interface Plan {
+  /** Encore is theirs right now: for good (owner, unlock code, purchase) or while Encore Monthly is paid for. */
   app: boolean;
+  /** Encore is theirs for good, so a subscription (or a second purchase) would be a mistake. */
+  appForever: boolean;
+  /**
+   * Encore Monthly: the end of the last month that was paid for, while it is theirs that way and after it has run out (so
+   * the console can say that it ended, rather than talk of a free trial). Null if they never subscribed, or have Encore for good.
+   */
+  appUntil: string | null;
   cloudUntil: string | null;
   trialUntil: string | null;
   owner: boolean;
@@ -150,25 +173,40 @@ export interface Plan {
   trialAvailable: boolean;
 }
 
-export function evaluate(snap: Snapshot): Plan {
+/** When Encore Monthly stops working: the end of the last paid month, and a few days on. */
+export function subscriptionEnds(snap: Snapshot): number | null {
+  const paidTo = snap.license?.appUntil ?? null;
+  return paidTo === null ? null : paidTo + SUBSCRIPTION_GRACE_DAYS * DAY;
+}
+
+export function evaluate(snap: Snapshot, now = Date.now()): Plan {
   const lic = snap.license;
   const owner = Boolean(lic?.owner);
   const codeApp = snap.grants.some((g) => g.grants === 'forever' || g.grants === 'app');
-  const app = owner || Boolean(lic?.appForever) || codeApp;
+  const appForever = owner || Boolean(lic?.appForever) || codeApp;
+  // Encore Monthly counts only while it's paid for (and never matters to someone who has Encore for good).
+  const endsAt = subscriptionEnds(snap);
+  const subscribed = !appForever && endsAt !== null && now < endsAt;
+  const app = appForever || subscribed;
   const cloudForever = owner || Boolean(lic?.cloudForever) || snap.grants.some((g) => g.grants === 'forever');
   // Each year-of-Cloud code adds a year to the end of whatever Cloud they already have.
   let cloudEnd = lic?.cloudUntil ?? null;
   for (const g of snap.grants.filter((x) => x.grants === 'cloud_year').sort((a, b) => a.redeemedAt - b.redeemedAt)) {
     cloudEnd = addYear(Math.max(cloudEnd ?? 0, g.redeemedAt));
   }
+  // Cloud comes with Encore Monthly, for as long as it does.
+  if (subscribed) cloudEnd = Math.max(cloudEnd ?? 0, endsAt!);
   const trialEndsAt = lic?.trialEndsAt ?? null;
   return {
     app,
+    appForever,
+    appUntil: !appForever && lic?.appUntil != null ? new Date(lic.appUntil).toISOString() : null,
     cloudUntil: cloudForever ? 'forever' : cloudEnd === null ? null : new Date(cloudEnd).toISOString(),
     trialUntil: trialEndsAt === null ? null : new Date(trialEndsAt).toISOString(),
     owner,
-    source: owner ? 'owner' : codeApp ? 'code' : lic?.appForever ? 'purchase' : trialEndsAt !== null ? 'trial' : null,
-    trialAvailable: !app && trialEndsAt === null && !snap.installHadTrial,
+    source: owner ? 'owner' : codeApp ? 'code' : lic?.appForever ? 'purchase' : subscribed ? 'subscription' : trialEndsAt !== null ? 'trial' : null,
+    // Not offered to someone who has paid for a month of Encore Monthly, even if it has run out: they aren't a newcomer.
+    trialAvailable: !app && trialEndsAt === null && !snap.installHadTrial && lic?.appUntil == null,
   };
 }
 
@@ -192,7 +230,7 @@ export async function handleStartTrial(input: unknown, caller: Caller, deps: Dep
   if (!installId) return badInstall();
   if (!deps.signing) return notConfigured();
   // Someone who already owns Encore has nothing to start (and shouldn't use up this laptop's trial).
-  const trial: TrialResult = evaluate(await deps.store.snapshot(caller.userId, installId)).app
+  const trial: TrialResult = evaluate(await deps.store.snapshot(caller.userId, installId), (deps.now ?? Date.now)()).app
     ? 'owned'
     : await deps.store.startTrial(caller.userId, installId, deps.trialDays ?? TRIAL_DAYS);
   return answer(caller, installId, deps, trial);
@@ -237,8 +275,11 @@ export async function handleRedeem(input: unknown, caller: Caller, ip: string, d
 async function answer(caller: Caller, installId: string, deps: Deps, trial?: TrialResult): Promise<Reply> {
   const now = (deps.now ?? Date.now)();
   const snapshot = await deps.store.snapshot(caller.userId, installId);
-  const plan = evaluate(snapshot);
+  const plan = evaluate(snapshot, now);
   const iat = Math.floor(now / 1000);
+  let exp = iat + Math.round(((deps.passDays ?? PASS_DAYS) * DAY) / 1000);
+  // A pass that is good only because a subscription is paid for runs out when the paid time (and its grace) does.
+  if (plan.source === 'subscription') exp = Math.min(exp, Math.floor(subscriptionEnds(snapshot)! / 1000));
   const payload: PassPayload = {
     v: 1,
     sub: caller.userId,
@@ -247,10 +288,11 @@ async function answer(caller: Caller, installId: string, deps: Deps, trial?: Tri
     app: plan.app,
     cloudUntil: plan.cloudUntil,
     trialUntil: plan.trialUntil,
+    ...(plan.appUntil ? { appUntil: plan.appUntil } : {}),
     owner: plan.owner,
     source: plan.source,
     iat,
-    exp: iat + Math.round(((deps.passDays ?? PASS_DAYS) * DAY) / 1000),
+    exp,
   };
   const pass = await signPass(payload, deps.signing!.key, deps.signing!.kid);
   return {
@@ -260,6 +302,7 @@ async function answer(caller: Caller, installId: string, deps: Deps, trial?: Tri
       pass,
       trialAvailable: plan.trialAvailable,
       payments: Boolean(deps.payments),
+      monthly: Boolean(deps.payments?.monthly),
       billing: Boolean(snapshot.license?.stripeCustomerId),
       ...(trial ? { trial } : {}),
     },
