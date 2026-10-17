@@ -24,7 +24,7 @@ The policies quoted here are Microsoft Store Policies 7.20 (14 September 2026): 
 | Product identity in `electron-builder.yml` | Still the placeholder `CN=00000000-…`. The publisher is the same for every app on the account: Squatchy's installed manifest says `CN=BFB91569-38F5-414F-860A-C7113DA89E49`. Only the product name has to be reserved in Partner Center, and its Package/Identity/Name copied in. |
 | A demo account for the certifiers | Not made. Encore needs a sign-in, so policy 10.3.1 requires one (see below). |
 | Google's YouTube review and quota extension | Waiting for Google's answer (Matthew's reply of 16 October, with the screencast, met their 21 October deadline). Don't send customers before the extension is granted: the free quota is about 99 uncached searches a day across everyone. |
-| Wording for `TERMS.md` and `PRIVACY.md` | Proposed in `docs/LICENSING.md`, waiting for Matthew's approval. Both must be updated before real money. |
+| Wording for `TERMS.md` and `PRIVACY.md` | Drafted on the branch `claude/encore-legal` (draft PR #8) with a support address `support@scriblio.co` (which has to exist first: `scriblio.co` already has Microsoft 365 mail). Waiting for Matthew's approval; both must be published before real money. |
 | Real-world checks | Open (`docs/HANDOFF.md`, item 1): real phones, a real YouTube playback at a venue, key change by ear. The beta KJs are the way to cover them. |
 
 ## 1. Get the installer (desktop icon)
