@@ -276,6 +276,12 @@ export const Lock = (p: P) => (
     <path d="M8 11V7a4 4 0 0 1 8 0v4" />
   </Svg>
 );
+export const Card = (p: P) => (
+  <Svg {...p}>
+    <rect x="2" y="5" width="20" height="14" rx="2" />
+    <path d="M2 10h20M6 15h4" />
+  </Svg>
+);
 export const Sparkle = (p: P) => (
   <Svg {...p}>
     <path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M5.6 18.4l2.8-2.8M15.6 8.4l2.8-2.8" />

@@ -1684,6 +1684,22 @@ kbd {
 .plan-card strong {
   font-size: 15px;
 }
+/* buying: Stripe's page opens in the browser (the console only; singers never see prices) */
+.offers {
+  display: grid;
+  gap: 12px;
+}
+.offer {
+  display: grid;
+  gap: 4px;
+  justify-items: start;
+}
+.offer .small {
+  max-width: 52ch;
+}
+.offers p {
+  margin: 0;
+}
 .badge-btn {
   border: 0;
   font-family: inherit;

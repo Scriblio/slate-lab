@@ -4,12 +4,13 @@
 import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Deps } from '../supabase/functions/encore-license/core.ts';
 import { Account } from '../src/server/account.ts';
 import { License } from '../src/server/license.ts';
 import { planSentence } from '../src/shared/license.ts';
 import { fakeSupabase, LICENSE_URL, SUPABASE_KEY, SUPABASE_URL, type FakeSupabase } from './fakesupabase.ts';
-import { DAY, makeKeys } from './licensekit.ts';
+import { DAY, fakePayments, makeKeys } from './licensekit.ts';
 import { memoryWorld, type World } from './licenseworld.ts';
 
 const INSTALL = 'abcdefghijklmnopqrstuv';
@@ -30,7 +31,7 @@ beforeEach(async () => {
 afterEach(() => rm(dir, { recursive: true, force: true }));
 
 /** A laptop: its license and account over one data folder. Call open() to read what was saved, as a start does. */
-async function laptop(over: { installId?: string; publicKeys?: { kid: string; key: string }[]; serverClock?: () => number; dataDir?: string } = {}) {
+async function laptop(over: { installId?: string; publicKeys?: { kid: string; key: string }[]; serverClock?: () => number; dataDir?: string; watchEveryMs?: number; watchForMs?: number } = {}) {
   const dataDir = over.dataDir ?? dir;
   const account = new Account({ dataDir, url: SUPABASE_URL, key: SUPABASE_KEY, fetchImpl: fake.fetch, now });
   let changes = 0;
@@ -43,6 +44,8 @@ async function laptop(over: { installId?: string; publicKeys?: { kid: string; ke
     publicKeys: over.publicKeys ?? [{ kid: keys.kid, key: keys.publicKey }],
     fetchImpl: fake.fetch,
     now,
+    watchEveryMs: over.watchEveryMs,
+    watchForMs: over.watchForMs,
     onChange: () => void changes++,
   });
   await license.load();
@@ -416,5 +419,172 @@ describe('signing out', () => {
     await expect(stat(join(dir, 'account.json'))).rejects.toThrow();
     expect(fake.to('/auth/v1/logout')).toHaveLength(1);
     expect((await laptop()).license.state()).toBe('signed-out');
+  });
+});
+
+describe('buying', () => {
+  /** The service with Stripe switched on (a fake one), and a laptop signed in to it. */
+  async function shop(opts: { watchEveryMs?: number; watchForMs?: number } = {}) {
+    const stripe = fakePayments();
+    fake = fakeSupabase({ world, signing: keys.signing, now, deps: { payments: stripe.payments } });
+    const l = await laptop(opts);
+    await l.signIn();
+    return { ...l, stripe };
+  }
+  /** What Stripe's webhook does once the money has moved. */
+  const paid = (userId: string, over: { cloudUntil?: number; customer?: string } = {}) =>
+    world.purchase(userId, { appForever: true, cloudUntil: over.cloudUntil ?? clock.t + 365 * DAY, customer: over.customer ?? 'cus_test' });
+
+  it('learns from the service whether buying is switched on, and offers nothing before then', async () => {
+    const service: Partial<Deps> = {};
+    fake = fakeSupabase({ world, signing: keys.signing, now, deps: service });
+    const l = await laptop();
+    await l.signIn();
+    expect(l.license.view().payments).toBeUndefined();
+    service.payments = fakePayments().payments; // Stripe is switched on at the service...
+    await l.license.refresh();
+    expect(l.license.view()).toMatchObject({ state: 'trial', payments: true });
+    expect(l.license.view().billing).toBeUndefined();
+    delete service.payments; // ...and off again
+    await l.license.refresh();
+    expect(l.license.view().payments).toBeUndefined();
+  });
+
+  it('asks for a payment page for Encore, and hands back Stripe’s address', async () => {
+    const l = await shop();
+    expect(await l.license.checkout('app')).toBe('https://checkout.stripe.com/c/pay/cs_test_1');
+    const call = fake.to('/functions/v1/encore-license').at(-1)!;
+    expect(call.body).toMatchObject({ action: 'checkout', kind: 'app', installId: INSTALL });
+    expect(l.stripe.asked.checkout).toEqual([{ kind: 'app', userId: l.account.userId, email: 'kj@example.com', customer: null }]);
+  });
+
+  it('picks up the purchase when it goes through, with nobody asking: Encore is theirs, with a year of Cloud', async () => {
+    const l = await shop();
+    await l.license.checkout('app');
+    expect(l.license.view().buying).toBe(true);
+    const changes = l.changes();
+
+    // Nothing has been paid yet: it keeps waiting.
+    expect(await l.license.checkPurchase()).toBe(false);
+    expect(l.license.view()).toMatchObject({ state: 'trial', buying: true });
+
+    await paid(l.account.userId!, { customer: 'cus_paid' });
+    expect(await l.license.checkPurchase()).toBe(true);
+    expect(l.license.view()).toMatchObject({ state: 'licensed', app: true, cloud: true, source: 'purchase', billing: true });
+    expect(l.license.view().buying).toBeUndefined();
+    expect(sentence(l.license)).toMatch(/^Encore is yours\. Cloud until /);
+    expect(l.changes()).toBeGreaterThan(changes);
+    // And it has stopped looking.
+    const asks = asked().length;
+    expect(await l.license.checkPurchase()).toBe(false);
+    expect(asked()).toHaveLength(asks);
+  });
+
+  it('notices a year of Cloud being added just as well', async () => {
+    const l = await shop();
+    await paid(l.account.userId!);
+    await l.license.refresh();
+    const first = l.license.view().cloudUntil!;
+    await l.license.checkout('cloud');
+    await paid(l.account.userId!, { cloudUntil: Date.parse(first) + 365 * DAY });
+    expect(await l.license.checkPurchase()).toBe(true);
+    expect(Date.parse(l.license.view().cloudUntil!)).toBe(Date.parse(first) + 365 * DAY);
+  });
+
+  it('looks by itself, every few seconds, and a screen is told when it finds it', async () => {
+    const l = await shop({ watchEveryMs: 15 });
+    await l.license.checkout('app');
+    await paid(l.account.userId!);
+    await vi.waitFor(() => expect(l.license.state()).toBe('licensed'), { timeout: 3000 });
+    expect(l.license.view().buying).toBeUndefined();
+    l.license.stop();
+  });
+
+  it('gives up after a quarter of an hour, and the 12-hourly check still finds a late payment', async () => {
+    const l = await shop();
+    await l.license.checkout('app');
+    clock.t += 16 * 60_000;
+    expect(await l.license.checkPurchase()).toBe(false);
+    expect(l.license.view().buying).toBeUndefined();
+    await paid(l.account.userId!);
+    expect(l.license.state()).toBe('trial');
+    await l.license.refresh();
+    expect(l.license.state()).toBe('licensed');
+  });
+
+  it('stops looking when the KJ signs out, and does not look twice at once', async () => {
+    const l = await shop();
+    await l.license.checkout('app');
+    await l.license.signOut();
+    expect(l.license.view().buying).toBeUndefined();
+    expect(await l.license.checkPurchase()).toBe(false);
+
+    const again = await shop();
+    await again.license.checkout('app');
+    const asks = asked().length;
+    await Promise.all([again.license.checkPurchase(), again.license.checkPurchase(), again.license.checkPurchase()]);
+    expect(asked().length).toBe(asks + 1);
+  });
+
+  it('survives a moment with no internet while it is looking', async () => {
+    const l = await shop();
+    await l.license.checkout('app');
+    await paid(l.account.userId!);
+    fake.online = false;
+    expect(await l.license.checkPurchase()).toBe(false);
+    expect(l.license.view().buying).toBe(true);
+    fake.online = true;
+    expect(await l.license.checkPurchase()).toBe(true);
+  });
+
+  it('opens only a page that is really Stripe’s, and does not start waiting for one that is not', async () => {
+    for (const url of ['https://evil.example/pay', 'http://checkout.stripe.com/x', 'javascript:alert(1)', '']) {
+      const stripe = fakePayments();
+      stripe.payments.checkout = async () => url;
+      fake = fakeSupabase({ world, signing: keys.signing, now, deps: { payments: stripe.payments } });
+      const l = await laptop({ dataDir: await mkdtemp(join(tmpdir(), 'encore-license-')) });
+      await l.signIn(`page${Math.random().toString(36).slice(2, 8)}@example.com`);
+      await expect(l.license.checkout('app'), url).rejects.toMatchObject({ code: 'bad-page' });
+      expect(l.license.view().buying).toBeUndefined();
+    }
+  });
+
+  it('says why in the service’s own words when a page is refused', async () => {
+    const owner = await shop();
+    await world.setOwner('kj@example.com');
+    await owner.license.refresh();
+    await expect(owner.license.checkout('app')).rejects.toMatchObject({ code: 'owner', message: 'This is the owner’s account. It already has everything.' });
+
+    // With Stripe not switched on, the service says so in its own words, not as "licensing isn't switched on".
+    fake = fakeSupabase({ world, signing: keys.signing, now });
+    const plain = await laptop({ dataDir: await mkdtemp(join(tmpdir(), 'encore-license-')) });
+    await plain.signIn('plain@example.com');
+    await expect(plain.license.checkout('app')).rejects.toMatchObject({ code: 'payments-off', message: 'Buying isn’t switched on yet.' });
+  });
+
+  it('opens Stripe’s billing page for someone who has paid by card, and waits for nothing', async () => {
+    const l = await shop();
+    await expect(l.license.billingPortal()).rejects.toMatchObject({ code: 'no-billing' });
+    await paid(l.account.userId!, { customer: 'cus_manage' });
+    await l.license.refresh();
+    expect(await l.license.billingPortal()).toBe('https://billing.stripe.com/p/session/test_cus_manage');
+    expect(l.license.view().buying).toBeUndefined();
+  });
+
+  it('cannot ask for a page without being signed in', async () => {
+    fake = fakeSupabase({ world, signing: keys.signing, now, deps: { payments: fakePayments().payments } });
+    const l = await laptop();
+    await expect(l.license.checkout('app')).rejects.toMatchObject({ code: 'signed-out' });
+    await expect(l.license.billingPortal()).rejects.toMatchObject({ code: 'signed-out' });
+    expect(fake.calls).toHaveLength(0);
+  });
+
+  it('forgets what it knew about buying when it forgets the pass', async () => {
+    const l = await shop();
+    await paid(l.account.userId!);
+    await l.license.refresh();
+    expect(l.license.view()).toMatchObject({ payments: true, billing: true });
+    await l.license.signOut();
+    expect(l.license.view()).toEqual({ state: 'signed-out', app: false, cloud: false });
   });
 });

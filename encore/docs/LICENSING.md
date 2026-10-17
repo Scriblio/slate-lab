@@ -2,7 +2,7 @@
 
 This is the brief for selling Encore. It was agreed with Matthew. Read `docs/HANDOFF.md` first for how the app works; this file covers only licensing.
 
-The work comes in three steps. **Step 1 is built and live** (accounts, a free trial, unlock codes and the checks in the app, with no payments yet; see "Step 1: as built" below; the set-up steps are in `supabase/README.md` under "Licensing"). Matthew will give codes to a few KJ friends as beta testers and watch what the cloud costs per KJ, then step 2 adds Stripe.
+The work comes in three steps. **Step 1 is built and live** (accounts, a free trial, unlock codes and the checks in the app, with no payments yet; see "Step 1: as built" below; the set-up steps are in `supabase/README.md` under "Licensing"). **Step 2 (Stripe) is built and tested, and not switched on:** nothing has been applied or deployed to the live project (see "Step 2: as built" below, and "Payments" in `supabase/README.md` for the steps that switch it on). Matthew gives codes to a few KJ friends as beta testers and watches what the cloud costs per KJ, then switches on payments in Stripe's test mode first.
 
 ## Decisions already made (don't revisit)
 
@@ -162,19 +162,51 @@ Built on PR #4. The service is `supabase/functions/encore-license/`, the tables 
 - **The backend is live and switched on.** On 5 October 2026, with Matthew's go-ahead, the migration was applied to the live `encore` project and `encore-license` was deployed (JWT verification on). Checked live: RLS on everywhere, the public keys can't run any of the functions, and the SQL's output matches the app's. The SQL is also tested in an in-process Postgres (PGlite) as part of `npm test`. Matthew then added the secret `LICENSE_SIGNING_KEY` and set up the sign-in email (Resend; both templates show the code), and on 16 October made his own account the owner. A real sign-in, a pass signed on Deno, the trial and the owner state have all been seen working in the installed app. While the secret is missing the service answers "not switched on yet" and the trial doesn't start. `ENCORE_LICENSE=off` skips the check when running from source.
 - **First build with sign-in: 0.2.0.** The public preview `encore-v0.1.0-preview` (0.1.0, no sign-in) stays as it is while Google's YouTube API Services review is open: Matthew told them on 16 October that the installer in the original submission needs no account. Beta builds go out as a separate pre-release, `encore-v0.2.0-beta`.
 
-## Step 2: Stripe (later, after the beta)
+## Step 2: Stripe
 
-- **Products:** "Encore" ($149 once, which also sets Cloud for one year) and "Encore Cloud" ($49 a year, recurring). Test mode first, with keys only as Edge Function secrets.
-- **Edge Functions:**
-  - `stripe-checkout` creates a Checkout session for a signed-in KJ.
-  - `stripe-portal` opens Stripe's customer portal (cards, invoices, cancelling Cloud).
-  - `stripe-webhook` checks Stripe's signature and handles duplicate deliveries, since Stripe retries.
-    - `checkout.session.completed` sets `app_forever` and `cloud_until = now + 1 year`.
-    - `customer.subscription.updated` and `.deleted` keep `cloud_until` in step.
-    - `invoice.payment_failed`: keep Cloud for 7 days of grace while Stripe retries.
-  - Turn on Stripe Tax.
-- **Console:** *Buy Encore* and *Renew Cloud* buttons open Checkout in the browser. When the KJ comes back, `refreshLicense`.
-- **Docs:** a refund policy in `TERMS.md`.
+The plan was: two Stripe products ("Encore", $149 once, which also gives Cloud for a year; "Encore Cloud", $49 a year), test mode first, keys only as Edge Function secrets; a function to start Checkout, one for Stripe's customer portal, and a webhook; *Buy Encore* and *Renew Cloud* buttons in the console; a refund policy in `TERMS.md`.
+
+### Step 2: as built
+
+Built on the branch `claude/encore-stripe`. **Nothing is applied or deployed to the live project yet.** Matthew's go-ahead is needed first, and the steps are in `supabase/README.md` under "Payments (Stripe)". Until the Stripe secrets exist, everything here is dark: the webhook answers "not switched on", the license service offers no page to pay on, and the console shows no prices and no buttons.
+
+**What a purchase is.** Stripe only ever sets the same two columns an unlock code's grants sit beside, `licenses.app_forever` and `licenses.cloud_until`, plus `stripe_customer_id`, `stripe_subscription_id` and `source = 'stripe'`. So the pass, the laptop and every state in the app needed no new idea of what a customer has: a purchase is `app_forever`, and the pass says `source: 'purchase'`. Unlock-code grants are still worked out at each check-in, and stack with a purchase.
+
+**The webhook** (`supabase/functions/stripe-webhook/`, deployed with JWT verification **off**, because Stripe sends no Supabase token; what keeps strangers out is Stripe's signature). `core.ts` and `signature.ts` have no Deno imports, like the other services, so the tests run them in Node.
+
+| Stripe event | What it does |
+| --- | --- |
+| `checkout.session.completed`, `checkout.session.async_payment_succeeded` | Encore bought and paid: `app_forever` on, and a year of Cloud added after any Cloud the account already has. A Cloud subscription's checkout only links the customer and the subscription; the paid year comes with its invoice. A payment that hasn't settled (bank debits) waits for `async_payment_succeeded`. |
+| `invoice.paid` (of a subscription) | Adds the paid period's length to Cloud, after the later of the Cloud already there and the period's start, so paying early loses nothing. The receipt for the one-time purchase has no subscription and is ignored. Both the old and the new shape of Stripe's invoice are read. |
+| `invoice.payment_failed` | The first failed attempt only: Cloud stays on until a week from then (`STRIPE_GRACE_DAYS`). It never shortens Cloud, and Stripe's retries don't extend it. |
+
+Anything else is acknowledged and ignored. There are no `customer.subscription.*` handlers on purpose: Cloud's end is the sum of what was paid for, so cancelling just stops it renewing and Cloud runs to the end of the year paid, with no event needed.
+
+- **Checked by hand against Stripe's rules:** the signature is HMAC-SHA256 over `timestamp.body` with the endpoint's secret, compared in constant time, with a five-minute tolerance and more than one signature allowed (a secret being rotated).
+- **Each event is applied once,** by its id (table `stripe_events`), inside the database function `license_stripe_apply`, so Stripe retrying, or sending one twice at once, changes nothing.
+- **An event for a customer no account is linked to yet is refused** (409) and not recorded, so Stripe tries again later; that's what happens when a renewal's invoice arrives before the checkout that links the customer. How a payment finds its account: checkout starts with the account's id (`client_reference_id` and metadata, also put on the subscription so its invoices carry it), and the Stripe customer id is saved on the license row.
+
+**Starting a payment** is two more actions of `encore-license` (not separate functions: same sign-in check, same rate limits): `checkout { kind: 'app' | 'cloud' }` and `portal`. The answer is only the address of a Stripe-hosted page, which the service checks really is on `checkout.stripe.com` or `billing.stripe.com`, and the laptop checks again before opening it. Asking gives nothing; only the webhook does. A page is refused where it would be a mistake rather than a sale: the owner's account, Encore bought twice, Cloud without Encore, Cloud that never ends, and a second Cloud subscription (looked up in Stripe). No page to pay on is offered while the service couldn't sign a pass for what's bought. An account may ask for 20 pages an hour. The status answer says `payments` (Stripe is switched on) and `billing` (this account has paid by card); neither is part of the signed pass.
+
+**The laptop and console.** `License.checkout(kind)` and `License.billingPortal()` (DJ actions `checkout` and `billing`) return the page's address, and the console opens it in the browser (the desktop app hands it to the default browser). After a checkout the laptop looks for the purchase every 10 seconds for 15 minutes (`checkPurchase`), picks up the new pass and the console updates by itself; later, the usual 12-hourly check or *Check again* finds a payment that came late. The buttons are in Settings → Your Encore and in the notice when the trial has ended: *Buy Encore · $149* (trial or ended), *Keep Cloud going · $49 a year* (Cloud over, never included, or ending within 60 days), and *Manage billing* (anyone who has paid by card). `offersOf` in `src/shared/license.ts` decides which show, and `PRICES` there is the one place the console names a price: it must match the two prices in Stripe, and Checkout shows the real amount before anyone pays. Only the console shows any of this; the singer's phone gets nothing, and `test/license-app.test.ts` checks it in every state.
+
+**Still no YouTube in any plan.** Nothing in the webhook, the checkout or the buttons touches YouTube, and `test/license-app.test.ts` checks YouTube search, pasted links and the player page after a purchase as well as in every other state.
+
+**Money matters, left for Matthew:**
+- **Tax:** off. `STRIPE_AUTOMATIC_TAX=true` asks Stripe Tax to work out sales tax or VAT at checkout, but Stripe Tax has to be set up in Stripe first (and registrations are needed where tax is due). Ask an accountant; not tax advice from here.
+- **Refunds are by hand.** Refund in Stripe, then in the SQL editor `select revoke_purchase('them@example.com');` takes back Encore and Cloud (their trial and unlock codes are left alone). To take back only the last year of Cloud: `update licenses set cloud_until = cloud_until - interval '1 year' where user_id = (select id from auth.users where lower(email) = 'them@example.com');`.
+- **The terms.** `TERMS.md` still says Encore isn't on sale yet, and must be updated before payments are switched on. Proposed wording, for Matthew to approve or change (30 days is a common default, and a refunded sale costs less than a dispute):
+
+  > **Buying.** Encore costs $149, once, and includes one year of Encore Cloud. After that, Encore Cloud is optional at $49 a year; it renews every year, and you can stop it any time from *Manage billing* in Encore (it stays on until the year you paid for ends). Payments are handled by Stripe, so we never see your card number. The price is shown before you pay[, with sales tax or VAT added where it applies]. If you got Encore from the Microsoft Store, the Store's terms apply to the download.
+  >
+  > **Refunds.** If Encore isn't right for you, email us within 30 days of buying and we'll refund your purchase in full. A Cloud renewal can be refunded within 14 days. Once we've refunded you, that purchase and the Cloud time that came with it are turned off.
+- **The privacy policy** needs a line about Stripe before real money too. Proposed, for "KJ accounts and licenses" in `PRIVACY.md` (and "payments" added to what Scriblio keeps there):
+
+  > **Payments.** If a KJ buys Encore or Encore Cloud, the payment is taken by Stripe, which receives their card and billing details under [its own privacy policy](https://stripe.com/privacy). Scriblio never sees the card number. It keeps Stripe's customer and subscription ids, so it can tell what the account has bought and open its billing page, and it can see each payment's amount, date and email address in its Stripe account. These are kept while the account exists, and for as long as the law requires us to keep records of payments.
+
+**Tests** (all in `npm test`): the migration and `license_stripe_apply` run for real in PGlite (`stripe-sql.test.ts`, 18 tests: a purchase, repeats, stacking years, early and late Cloud, subscription periods, renewals, an invoice before its checkout, grace, `revoke_purchase`, and that the public keys can run none of it); the webhook with signed payloads and the signature check (`stripe-webhook.test.ts`); that the REST layer calls the functions the migration really defines (`stripe-store.test.ts`); the checkout and portal rules against both the in-memory store and the real SQL, and exactly what is asked of Stripe (`billing.test.ts`); and the laptop and the app (`license.test.ts`, `license-app.test.ts`, `license-state.test.ts`).
+
+**Seen working in a browser** against a fake backend and a fake Stripe: Buy Encore in Settings and in the trial-ended notice, the "finish paying in your browser" note, the console turning to "Encore is yours" a few seconds after the payment landed, *Keep Cloud going* and *Manage billing*, and the notice reverting to the unlock code box alone when payments are switched off. Not yet seen: a real Stripe Checkout page in test mode, which needs Matthew's Stripe test keys.
 
 ## Step 3: selling
 

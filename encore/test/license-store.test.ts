@@ -5,20 +5,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { restStore } from '../supabase/functions/encore-license/store.ts';
-import { licensingMigration } from './licensedb.ts';
-
-/** Every function the migration creates, with its parameter names. */
-function definedFunctions(sql: string): Map<string, string[]> {
-  const out = new Map<string, string[]>();
-  for (const m of sql.matchAll(/create function public\.(\w+)\(([^)]*)\)/g)) {
-    const params = m[2]!
-      .split(',')
-      .map((p) => p.trim().split(/\s+/)[0]!)
-      .filter(Boolean);
-    out.set(m[1]!, params);
-  }
-  return out;
-}
+import { definedFunctions, licensingMigration } from './licensedb.ts';
 
 describe('the license REST store', () => {
   it('only calls database functions that exist, with parameters they have', async () => {

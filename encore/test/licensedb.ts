@@ -27,6 +27,26 @@ export function licensingMigration(): string {
   return readFileSync(join(MIGRATIONS, file), 'utf8');
 }
 
+/** Payments (step 2), which builds on the licensing tables. */
+export function stripeMigration(): string {
+  const file = readdirSync(MIGRATIONS).find((f) => f.endsWith('_stripe.sql'));
+  if (!file) throw new Error('the Stripe migration is missing');
+  return readFileSync(join(MIGRATIONS, file), 'utf8');
+}
+
+/** Every function a migration creates, with its parameter names, to check the REST stores call what exists. */
+export function definedFunctions(sql: string): Map<string, string[]> {
+  const out = new Map<string, string[]>();
+  for (const m of sql.matchAll(/create function public\.(\w+)\(([^)]*)\)/g)) {
+    const params = m[2]!
+      .split(',')
+      .map((p) => p.trim().split(/\s+/)[0]!)
+      .filter(Boolean);
+    out.set(m[1]!, params);
+  }
+  return out;
+}
+
 export interface TestDb {
   db: PGlite;
   rows<T = Record<string, unknown>>(sql: string, params?: unknown[]): Promise<T[]>;
@@ -41,6 +61,7 @@ export async function openLicenseDb(): Promise<TestDb> {
   const db = new PGlite();
   await db.exec(SUPABASE);
   await db.exec(licensingMigration());
+  await db.exec(stripeMigration());
   const rows = async <T>(sql: string, params?: unknown[]) => (await db.query<T>(sql, params)).rows;
   return {
     db,
