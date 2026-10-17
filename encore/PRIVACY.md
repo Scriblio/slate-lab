@@ -86,4 +86,4 @@ If this policy changes, the new version will be posted at this address with a ne
 
 ## Contact
 
-Scriblio (ALM Partners LLC) · [support@scriblio.co](mailto:support@scriblio.co)
+Scriblio (ALM Partners LLC) · [encore-support@scriblio.co](mailto:encore-support@scriblio.co)
