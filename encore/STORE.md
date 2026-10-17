@@ -17,7 +17,7 @@ The policies quoted here are Microsoft Store Policies 7.20 (14 September 2026): 
 |---|---|
 | The app, sign-in, 14-day trial, unlock codes | Built, and working in the installed 0.2.0 build. |
 | Stripe payments | Built and tested, **not switched on** (PR #5; steps in `supabase/README.md`, "Payments (Stripe)"). The console names Stripe at the point of purchase, and says in advance what the end of the trial changes, because the Store requires both (10.8.2 and 10.8.4). |
-| The Store package (`.appx`) | **Never built, never installed.** The Action's Store step has not been run once. Do this early: it shows what has to change. See "Testing the package". |
+| The Store package (`.appx`) | **Builds, but has never been installed.** The Action built it on 17 October (run 38998787282): `Encore-Karaoke-0.2.0.appx`, 157 MB, version `0.2.0.0`, a full-trust desktop app with the three network capabilities, all the tile and logo assets, unsigned as expected (the Store signs it). Its identity is still the placeholder. See "Testing the package". |
 | Partner Center account | Not known to exist. It has to be a **company** account (see below), and business verification can take days to weeks, so start it first. |
 | Product identity in `electron-builder.yml` | Still the placeholder `CN=00000000-…`. Comes from Partner Center once the name is reserved. |
 | A demo account for the certifiers | Not made. Encore needs a sign-in, so policy 10.3.1 requires one (see below). |
@@ -52,7 +52,7 @@ The first time Encore starts, Windows Firewall asks whether it may use the netwo
 
 ### Testing the package
 
-The `.appx` has never been built, so treat the first build as a test, on a real Windows PC that isn't the one Encore was developed on:
+The `.appx` builds cleanly, but nobody has installed or run it yet, so treat the first install as a test, on a real Windows PC that isn't the one Encore was developed on:
 
 - It installs, opens, and signs in (the email code arrives and works).
 - Phones on the same Wi-Fi can join over the local link (the port is 4747), after the firewall prompt.
