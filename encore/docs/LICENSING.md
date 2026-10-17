@@ -215,7 +215,7 @@ Anything else is acknowledged and ignored. There are no `customer.subscription.*
 
 ## Step 2b: Encore Monthly
 
-Built on the branch `claude/encore-monthly` (stacked on the docs branch). **Not applied or deployed to the live project yet:** it needs Matthew's go-ahead, then a migration, both functions redeployed and the secret `STRIPE_PRICE_MONTHLY`. It changes nothing for anyone until that secret exists (the console then shows *Subscribe · $29 a month* beside *Buy Encore*; without it everything behaves as in step 2).
+Built on the branch `claude/encore-monthly` (stacked on the docs branch). **Applied and deployed to the live project on 2026-10-17 (Matthew said "deploy Monthly"), against Stripe's sandbox:** the migration, both functions redeployed, and the secret `STRIPE_PRICE_MONTHLY`. It changes nothing for anyone until that secret exists (the console then shows *Subscribe · $29 a month* beside *Buy Encore*; without it everything behaves as in step 2).
 
 **The idea.** It is paid for the way a Cloud year is, and reads the same way: the sum of the periods that were paid for. Nothing has to hear that a subscription was cancelled. The database keeps one new date, `licenses.app_until` (the end of the last paid month; `app_forever` outranks it). The license service gives Encore and Cloud while `now < app_until + 3 days` (`SUBSCRIPTION_GRACE_DAYS` in `functions/encore-license/core.ts`), and signs the pass with `source: 'subscription'`, the paid-until date as `appUntil` (so Settings can say so), and an expiry that never runs past the grace, so a lapsed subscription can't be coasted on even offline.
 

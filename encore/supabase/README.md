@@ -187,7 +187,7 @@ To rehearse a failed renewal or a year passing, use Stripe's **test clocks** (se
 
 ### Encore Monthly ($29 a month, Encore and Cloud while subscribed)
 
-Built on top of the payments above, **not applied or deployed yet**. It does nothing until its price secret exists, and the plan is in [`docs/LICENSING.md`](../docs/LICENSING.md) ("Step 2b"). Steps 3 to 5 change the live project, so check with Matthew first.
+Built on top of the payments above. **Applied and deployed on the live project on 2026-10-17 against Stripe's sandbox** (the migration, `stripe-webhook` and `encore-license`, then `STRIPE_PRICE_MONTHLY` = the sandbox price); the steps below are what was done, and what to do again for live mode. It does nothing until its price secret exists, and the plan is in [`docs/LICENSING.md`](../docs/LICENSING.md) ("Step 2b"). Steps 3 to 5 change the live project, so check with Matthew first.
 
 1. **In Stripe, make the price:** Product catalog → Add product → *Encore Monthly*, with the description given in step 2 of the Stripe steps above and a recurring price of $29 USD every month, in the same category as the other two (Electronically Supplied Services). In the sandbox this is `price_1URYLZFGM3Hi9qsLnCz3eW5T`. The customer portal needs nothing new (cancelling at the end of the period is already on).
 2. **Apply the migration** `migrations/20261018000000_monthly.sql`. It adds `licenses.app_until`, replaces `license_stripe_apply` with a version that also takes a paid month (the old ten-argument one is dropped, so there is one function for the webhook to find), and makes `revoke_purchase` end paid months too.
