@@ -5,7 +5,7 @@
 
 import { useState, type FormEvent, type ReactNode } from 'react';
 import type { DjAction } from '../../shared/protocol.ts';
-import { formatDay, MONTHS_TO_BREAK_EVEN, offersOf, planSentence, PRICES } from '../../shared/license.ts';
+import { formatDay, MONTHS_TO_BREAK_EVEN, offersOf, planSentence, PRICES, renewalFrom } from '../../shared/license.ts';
 import * as I from '../common/icons.tsx';
 import { request } from '../common/socket.ts';
 import { useDj } from './context.ts';
@@ -277,6 +277,8 @@ export function Offers() {
  * else is Cloud. In particular YouTube is in every plan, so nothing here is something that is paid for.
  */
 export function CloudExplainer({ open }: { open?: boolean }) {
+  const { view } = useDj();
+  const l = view.license;
   return (
     <details className="cloud-explainer" open={open}>
       <summary>What does Cloud do?</summary>
@@ -307,6 +309,7 @@ export function CloudExplainer({ open }: { open?: boolean }) {
         </ul>
         <p className="muted small">
           Either way, the show, the queue, the big screen, your song library, printing, and YouTube search and playback all work the same. Cloud needs this laptop to be online: if the internet drops, the code on the big screen switches to the Wi-Fi link by itself. If Cloud runs out in the middle of a show, tonight’s show keeps it until you start a new list or close Encore.
+          {l.payments && ` Cloud comes with the first year of Encore${l.monthly ? ' and with Encore Monthly' : ''}; after that it’s ${PRICES.cloud} a year.`}
         </p>
       </div>
     </details>
@@ -321,6 +324,8 @@ export function YourEncore() {
   const { view, act } = useDj();
   const l = view.license;
   const [confirmOut, setConfirmOut] = useState(false);
+  // Where and when to renew Cloud, while that isn't on offer yet (it is, two months before it ends).
+  const renewal = renewalFrom(l, Date.now());
 
   if (l.state === 'off') return <p className="muted small">{planSentence(l)}</p>;
 
@@ -344,6 +349,11 @@ export function YourEncore() {
             {l.cloud
               ? 'Encore Cloud is on: singers can join from any network, the QR code never changes, and they can get lock-screen alerts.'
               : 'Encore Cloud isn’t part of your plan. Singers join over this laptop’s Wi-Fi, a printed QR code can go stale at another venue, and there are no lock-screen alerts.'}
+          </span>
+        )}
+        {renewal && (
+          <span className="muted small">
+            You can renew Cloud here from {formatDay(renewal)}, for {PRICES.cloud} a year.
           </span>
         )}
         {/* Microsoft Store policy 10.8.4: say in advance what a trial's end changes. */}

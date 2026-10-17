@@ -140,6 +140,19 @@ export function offersOf(v: LicenseView, now: number): Offers {
   return { ...none, cloud: !v.cloud || endsSoon, manage };
 }
 
+/**
+ * The day (ISO) from which the console will offer to renew Cloud, when Cloud is part of the plan now and that offer isn't showing yet,
+ * so the KJ is told where and when to renew instead of left to wonder (a year of it comes with Encore, and the offer only appears
+ * RENEW_WITHIN_DAYS before it ends). Undefined when there is nothing to say: the offer is showing already, Cloud never ends, comes with
+ * Encore Monthly or isn't part of the plan, or buying is off.
+ */
+export function renewalFrom(v: LicenseView, now: number): string | undefined {
+  if (!v.payments || !v.email || v.state !== 'licensed' || v.source === 'subscription') return undefined;
+  if (!v.cloud || !v.cloudUntil || v.cloudUntil === 'forever') return undefined;
+  const from = Date.parse(v.cloudUntil) - RENEW_WITHIN_DAYS * DAY;
+  return from > now ? new Date(from).toISOString() : undefined;
+}
+
 /** "3 May 2027", in the computer's own time zone (or the one given: the tests pin UTC). */
 export function formatDay(iso: string, timeZone?: string): string {
   return new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone }).format(new Date(iso));
