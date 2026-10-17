@@ -1,6 +1,6 @@
 # Encore Karaoke: Terms of Use
 
-**Last updated:** October 5, 2026
+**Last updated:** October 17, 2026
 
 These terms cover Encore Karaoke ("Encore"): the desktop app, the phone pages at sing.scriblio.co, and the search service the app uses. Encore is made by Scriblio, a brand of ALM Partners LLC ("Scriblio", "we"). By installing or using Encore, you agree to these terms.
 
@@ -27,7 +27,29 @@ We grant you a personal, non-transferable licence to use Encore according to the
 - **Unlock codes.** We sometimes give out unlock codes. A code unlocks Encore (and Encore Cloud, unless we say otherwise) for the email account that uses it. Codes are personal, so please don't post one publicly or pass it around. We can turn off a code that has been shared, and it stops working the next time Encore checks your licence online.
 - **Your account.** A licence belongs to your email account, not to one computer, so a new computer or a reinstall is just a sign-in. Encore checks your licence online when it starts and about every 12 hours, and keeps working without the internet for up to 14 days between checks.
 - **Encore Cloud** is the online join link and the lock-screen alerts, which run on our servers. Without it Encore works as before, and phones join over the venue's Wi-Fi. No YouTube feature is part of Encore Cloud or of any plan, so a plan or a code never changes which YouTube features you get.
-- **Buying.** Encore isn't on sale yet. When it is, the price, what it includes and the refund terms will be shown at checkout and added here. If you got Encore from the Microsoft Store, the Store's terms apply to the download.
+- **Buying.** You can buy a licence, as set out under "Buying Encore" below. If you got Encore from the Microsoft Store, the Store's terms apply to the download.
+
+## Buying Encore
+
+There are three ways to buy, all from Settings → Your Encore inside Encore. Prices are in US dollars and are shown on Stripe's payment page before you pay. Payments are taken by Stripe, so we never see your card number. Where the law requires us to collect sales tax or VAT, it is added and shown there too.
+
+- **Encore, $149, once.** Encore is yours to keep. It includes one year of Encore Cloud.
+- **Encore Cloud, $49 a year.** Optional after that first year: Encore offers it in Settings two months before your Cloud ends, and at any time after. It renews every year until you stop it. A new year is added after the end of the one you have, so renewing early loses nothing.
+- **Encore Monthly, $29 a month.** Encore and Encore Cloud for as long as you're subscribed. It renews every month until you stop it.
+
+**Stopping.** You can stop Encore Cloud or Encore Monthly at any time from **Manage billing** in Encore. It keeps working until the end of the period you've paid for, and you aren't charged again. When Encore Monthly ends, Encore goes back to how it is after the free trial (see above). Encore bought outright is never affected. If a renewal doesn't go through, Encore Monthly carries on for three more days so you can fix your card.
+
+**Buying Encore while you subscribe.** You can buy Encore ($149) at any time, including while you are subscribed to Encore Monthly. That stops the monthly renewals, and you keep the month you've paid for. There is no credit for it.
+
+**Refunds.**
+
+- Encore ($149): email us within 30 days of buying and we'll refund your purchase in full.
+- An Encore Cloud renewal: the same, within 14 days.
+- Encore Monthly: there are no refunds for a month that has already begun. Stop it before the next renewal and you won't be charged again.
+
+Once we've refunded you, that purchase and the Cloud time that came with it are turned off.
+
+**Price changes.** We may change our prices. A change applies to new purchases straight away, and to renewals only after we've emailed you at least 30 days beforehand, so you can stop before it takes effect.
 
 ## No warranty
 
@@ -47,4 +69,4 @@ If these terms change, the new version will be posted at https://sing.scriblio.c
 
 ## Contact
 
-Scriblio (ALM Partners LLC) · [mattclancaster@gmail.com](mailto:mattclancaster@gmail.com)
+Scriblio (ALM Partners LLC) · [support@scriblio.co](mailto:support@scriblio.co)

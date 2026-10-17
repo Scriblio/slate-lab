@@ -111,7 +111,7 @@ ${body}
 </main>
 <footer>
 <a href="/encore">Encore Karaoke</a> · <a href="/privacy">Privacy Policy</a> · <a href="/terms">Terms of Use</a> · <a href="https://www.youtube.com/t/terms">YouTube Terms of Service</a> · <a href="https://policies.google.com/privacy">Google Privacy Policy</a><br>
-Scriblio, a brand of ALM Partners LLC · <a href="mailto:mattclancaster@gmail.com">mattclancaster@gmail.com</a>
+Scriblio, a brand of ALM Partners LLC · <a href="mailto:support@scriblio.co">support@scriblio.co</a>
 </footer>
 </body>
 </html>
@@ -133,7 +133,7 @@ export function thanksPage() {
 <p class="lede">You can close this tab and go back to Encore. It keeps an eye out for your payment and unlocks by itself, usually within a few seconds.</p>
 <div class="card">
 <p><strong>Nothing has changed yet?</strong> In Encore, open <strong>Settings</strong>, find <strong>Your Encore</strong>, and press <strong>Check again</strong>. Some payments take a minute or two to come through.</p>
-<p>Still stuck? Email <a href="mailto:mattclancaster@gmail.com">mattclancaster@gmail.com</a> from the address you signed in to Encore with, and we’ll sort it out.</p>
+<p>Still stuck? Email <a href="mailto:support@scriblio.co">support@scriblio.co</a> from the address you signed in to Encore with, and we’ll sort it out.</p>
 </div>
 `,
   });
@@ -168,7 +168,7 @@ export function encorePage() {
 </div>
 <h2>Get Encore</h2>
 <p>Encore is coming to the Microsoft Store for Windows 10 and 11. Until then, a preview is available: <a href="https://github.com/Scriblio/slate-lab/releases/download/encore-v0.1.0-preview/Encore-Karaoke-Setup-0.1.0.exe">download the Windows installer</a> (<a href="https://github.com/Scriblio/slate-lab/releases/tag/encore-v0.1.0-preview">release notes</a>). It isn't code-signed yet, so Windows may show a SmartScreen warning: choose <strong>More info → Run anyway</strong>. Demo songs are included.</p>
-<p>Questions: <a href="mailto:mattclancaster@gmail.com">mattclancaster@gmail.com</a>.</p>
+<p>Questions: <a href="mailto:support@scriblio.co">support@scriblio.co</a>.</p>
 `,
   });
 }
