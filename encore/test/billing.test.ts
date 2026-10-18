@@ -384,6 +384,7 @@ describe('the Stripe calls', () => {
       'line_items[0][price]': 'price_app',
       'line_items[0][quantity]': '1',
       'payment_method_types[0]': 'card',
+      'wallet_options[link][display]': 'never',
       client_reference_id: who.userId,
       'metadata[user_id]': who.userId,
       'metadata[kind]': 'app',
@@ -405,6 +406,7 @@ describe('the Stripe calls', () => {
       'line_items[0][price]': 'price_cloud',
       'line_items[0][quantity]': '1',
       'payment_method_types[0]': 'card',
+      'wallet_options[link][display]': 'never',
       client_reference_id: who.userId,
       'metadata[user_id]': who.userId,
       'metadata[kind]': 'cloud',
@@ -424,6 +426,7 @@ describe('the Stripe calls', () => {
       'line_items[0][price]': 'price_monthly',
       'line_items[0][quantity]': '1',
       'payment_method_types[0]': 'card',
+      'wallet_options[link][display]': 'never',
       client_reference_id: who.userId,
       'metadata[user_id]': who.userId,
       'metadata[kind]': 'monthly',
@@ -443,6 +446,8 @@ describe('the Stripe calls', () => {
         const sent = Object.fromEntries(s.calls[0]!.body);
         expect(sent['payment_method_types[0]'], `${kind} ${customer}`).toBe('card');
         expect(Object.keys(sent).filter((k) => k.startsWith('payment_method_types')), `${kind} ${customer}`).toEqual(['payment_method_types[0]']);
+        // Asking for cards doesn't keep Link away, and Link brings bank accounts, Klarna and crypto with it, so it is switched off.
+        expect(sent['wallet_options[link][display]'], `${kind} ${customer}`).toBe('never');
       }
     }
   });

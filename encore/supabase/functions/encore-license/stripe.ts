@@ -94,6 +94,9 @@ export function stripePayments(cfg: StripeConfig, fetchImpl: typeof fetch = fetc
         // the account's other payment methods, which Scriblio sells with, aren't offered for Encore. Set per page, so
         // the account's own list is left alone.
         payment_method_types: ['card'],
+        // Link is Stripe's own wallet, and it brings bank accounts, Klarna and crypto with it ("Powered by Link"); asking for
+        // cards doesn't stop that (seen on a sandbox page on 2026-10-17), so it is switched off for this page too.
+        wallet_options: { link: { display: 'never' } },
         client_reference_id: userId,
         metadata: who,
         // The one-time payment's statement reads "SCRIBLIO.CO* ENCORE": the account's name with this on the end. A
