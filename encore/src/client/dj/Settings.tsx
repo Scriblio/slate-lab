@@ -4,7 +4,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import type { ServerConfigView } from '../../shared/protocol.ts';
 import { formatTipAmount, parseTipAmounts, parseTipLink } from '../../shared/tips.ts';
 import type { Settings } from '../../shared/types.ts';
-import { listOutputDevices, playTestSound, type OutputDevice } from '../common/audio-output.ts';
+import { listOutputDevices, playTestSound, rememberSpeakerNames, revealSpeakerNames, speakerNamesWanted, type OutputDevice } from '../common/audio-output.ts';
 import { desktop } from '../common/desktop.ts';
 import * as I from '../common/icons.tsx';
 import { request } from '../common/socket.ts';
@@ -21,18 +21,36 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   const [folders, setFolders] = useState('');
   const [breakFolders, setBreakFolders] = useState('');
   const [devices, setDevices] = useState<OutputDevice[] | null>(null);
+  const [namesHidden, setNamesHidden] = useState(false);
 
-  // The speakers this computer has, kept up to date as they're plugged in and out.
+  // The speakers this computer has, kept up to date as they're plugged in and out. Windows hides their names
+  // until a microphone has been allowed, so Encore only asks when the KJ clicks "Show speaker names" (and on later
+  // visits by itself, because they said yes). Until then nothing here touches the microphone.
   useEffect(() => {
     let live = true;
-    const load = () => void listOutputDevices().then((d) => live && setDevices(d));
-    load();
-    navigator.mediaDevices?.addEventListener?.('devicechange', load);
+    const load = async () => {
+      let found = await listOutputDevices();
+      if (found.namesHidden && speakerNamesWanted() && (await revealSpeakerNames())) found = await listOutputDevices();
+      if (!live) return;
+      setDevices(found.devices);
+      setNamesHidden(found.namesHidden);
+    };
+    const reload = () => void load();
+    reload();
+    navigator.mediaDevices?.addEventListener?.('devicechange', reload);
     return () => {
       live = false;
-      navigator.mediaDevices?.removeEventListener?.('devicechange', load);
+      navigator.mediaDevices?.removeEventListener?.('devicechange', reload);
     };
   }, []);
+  const showSpeakerNames = async () => {
+    const allowed = await revealSpeakerNames();
+    const found = await listOutputDevices();
+    setDevices(found.devices);
+    setNamesHidden(found.namesHidden);
+    if (allowed && !found.namesHidden) rememberSpeakerNames(true);
+    else toast(allowed ? 'Windows didn’t share the speakers’ names. The numbered ones still work.' : 'Couldn’t show the names: the microphone is blocked or missing. The numbered ones still work.', 'error');
+  };
   const [showName, setShowName] = useState(s.showName);
   const [blocked, setBlocked] = useState(s.blockedWords);
   const [tipLink, setTipLink] = useState(s.tipLink);
@@ -312,6 +330,14 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
               </button>
             </div>
           </Field>
+          {namesHidden && (
+            <div className="settings-row">
+              <button className="btn sm" onClick={() => void showSpeakerNames()}>
+                <I.Mic /> Show speaker names
+              </button>
+              <span className="muted small">Windows hides the names until an app may use the microphone. This lets Encore use it for a moment to read them. It doesn’t listen to or record anything.</span>
+            </div>
+          )}
           {config?.audioOutput && devices && !devices.some((d) => d.id === config.audioOutput) && (
             <p className="settings-error">
               <I.Alert /> The speakers you picked aren’t connected, so sound is using the Windows default. Plug them back in and they’ll be used again.
