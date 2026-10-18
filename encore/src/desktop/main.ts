@@ -7,6 +7,7 @@ import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { createApp, type App } from '../server/app.ts';
 import { makeDemoLibrary } from '../server/demo.ts';
+import { adoptInstallerData, dataDirFor, installerDataDir } from './datadir.ts';
 
 const PORT = 4747;
 const PRODUCT = 'Encore Karaoke';
@@ -35,7 +36,19 @@ if (!app.requestSingleInstanceLock()) {
 }
 
 async function start(): Promise<void> {
-  const dataDir = join(app.getPath('userData'), 'data');
+  const userData = app.getPath('userData');
+  // Windows redirects a Store app's writes to AppData to a private place that Explorer can't open and that
+  // uninstalling deletes, so the Store build keeps its data in a folder in the user's profile instead
+  // (see datadir.ts and STORE.md, "The data folder"). Its first run carries an installer version's data over.
+  const dataDir = dataDirFor({ windowsStore: Boolean(process.windowsStore), userData, home: app.getPath('home') });
+  if (process.windowsStore) {
+    try {
+      const adopted = await adoptInstallerData(installerDataDir(userData), dataDir);
+      if (adopted?.failed.length) console.warn(`Couldn't carry these over from the installer version: ${adopted.failed.join(', ')}`);
+    } catch (err) {
+      console.warn(`Couldn't carry the installer version's data over: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
   const demo = await makeDemoLibrary(join(dataDir, 'demo-library'), { video: false });
   encore = await createApp({
     port: PORT,

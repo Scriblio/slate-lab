@@ -60,6 +60,6 @@ linux:
 # Updates are delivered by the Store (or a new installer), not auto-update.
 publish: null
 
-# Once everything is built, switch off Windows' redirection of AppData in the Store package, so
-# Show -> Open Data Folder works and uninstalling keeps the KJ's data (scripts/patch-appx.mjs, STORE.md).
-afterAllArtifactBuild: ./scripts/after-all-artifact-build.cjs
+# The Store package asks Microsoft for no restricted capability but the runFullTrust that electron-builder
+# adds for any desktop app. Windows redirects a Store app's writes to AppData, so the Store build keeps
+# its data in the user's profile instead (src/desktop/datadir.ts, STORE.md "The data folder").
