@@ -240,7 +240,8 @@ describe('shared reports: "won’t play here" and "not karaoke"', () => {
     expect(await search(d)).toEqual([VIDEO]);
   });
 
-  it('keeps only hashes of who reported, and turns away nonsense and floods', async () => {
+  // 201 reports in a row: it can take over the default 5 seconds when the PC is busy (a build just ran, say).
+  it('keeps only hashes of who reported, and turns away nonsense and floods', { timeout: 30_000 }, async () => {
     const d = deps({ salt: 'pepper' });
     await report(d, 'refused', '198.51.100.1');
     const [key, network] = [...d.mem.reports][0]!;
