@@ -1,6 +1,6 @@
 # Encore Karaoke: Privacy Policy
 
-**Last updated:** October 17, 2026
+**Last updated:** October 18, 2026
 
 Encore Karaoke ("Encore") is software that a karaoke host (KJ) runs on their own computer. It's made by Scriblio, a brand of ALM Partners LLC ("Scriblio", "we"). This policy explains what information Encore handles and where it goes. It's published at https://sing.scriblio.co/privacy.
 
@@ -44,6 +44,10 @@ On a singer's phone, the browser keeps a random code so the singer keeps their p
   - Thumbnails load from YouTube's servers.
 
 Apart from KJ sign-in, license checks and buying, YouTube searches and the player page described above, Encore sends nothing to Scriblio.
+
+## Microphone
+
+If the KJ clicks "Show speaker names" in Settings, Encore uses the computer's microphone for a moment so Windows will show the names of the speakers. Encore doesn't listen to, record or send anything from it.
 
 ## KJ accounts and licenses
 
