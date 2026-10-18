@@ -8,10 +8,10 @@ Everything Partner Center asks for, written and checked against Microsoft's limi
 
 | Decision | Recommendation |
 |---|---|
-| **The restricted capability `unvirtualizedResources`.** Microsoft's capability reference describes it as meant for certain desktop PC games published by Microsoft and its partners (and for apps packaged with external location), and says it isn't intended for other scenarios because it could stop the system uninstalling the app cleanly. Encore's reason (data that must survive an uninstall) is close to what that warns about, and policy 10.2.7 requires that a user can cleanly uninstall a product. If Microsoft refuses it, the whole submission fails and costs one certification round. | Don't gamble the first submission on it. Either (A) submit as built and be ready to resubmit, or (B) use the waiting time to build a Store version that keeps its data where Windows doesn't redirect it, so it needs no such capability. **Recommended: B.** The text for A is below, and the notes need only one paragraph removed for B. |
+| **The second restricted capability, `unvirtualizedResources`: removed.** Microsoft's capability reference describes it as meant for certain desktop PC games published by Microsoft and its partners (and for apps packaged with external location), and says it isn't intended for other scenarios because it could stop the system uninstalling the app cleanly, and policy 10.2.7 requires a clean uninstall. If Microsoft had refused it, the whole submission would have failed. | **Decided on 2026-10-18, and built:** the Store build keeps its data in `C:\Users\<name>\Encore Karaoke`, outside AppData, so it needs no such capability (`src/desktop/datadir.ts`, tried with the real package). Only `runFullTrust` is left, and the notes below no longer need a paragraph about the other. |
 | **Markets** | Start with the **United States** only. No sales tax is collected at launch, and a company account selling in the EU or France has extra consumer-law and contact-information duties (Microsoft's support-info page says so for France). Widen it later. |
 | **When it goes live** | In *Submission options → Publishing hold options* choose **Don't publish this submission until I select Publish now**, and press it only after Google grants the YouTube quota extension (until then Encore can do about 99 uncached searches a day across all customers). |
-| **OneDrive backups** (a Product declaration, ticked by default) | **Untick it** for now. Encore's data folder holds a sign-in that can only be refreshed from one place; restoring it onto a second PC from a backup would break one of the two. |
+| **OneDrive backups** (a Product declaration, ticked by default) | **Untick it.** The KJ's data lives in their profile folder, not in the package's own data, so there is nothing worth restoring from a backup (and the sign-in in that folder can only be refreshed from one place). |
 | **Phone and address in Support info** | Microsoft says these are for regulatory and legal use and are generally not shown to customers browsing the Store. Use the LLC's address. |
 
 ## 1. Properties
@@ -181,9 +181,9 @@ Restricted capabilities are explained in that section of this page.
 4. The `DEMO_PLUS_EMAIL` trick works on Outlook.com and Gmail: `name+trial@outlook.com` arrives in `name@outlook.com`'s inbox, and to Encore it's a different, brand-new account, which shows the free trial and the Buy buttons.
 5. Keep Supabase, the sign-in email (Resend) and the YouTube search function running until certification finishes.
 
-### Restricted capabilities
+### Restricted capability
 
-Partner Center finds these in the package and asks, for each, why the app needs it and how it uses it.
+Partner Center finds the package's restricted capabilities and asks why each is needed and how it is used. There is one, `runFullTrust`.
 
 **`runFullTrust`** (682 characters):
 
@@ -195,21 +195,7 @@ The app needs full trust to: read the host's own karaoke files (MP3, CDG and vid
 It does not install services, drivers, scheduled tasks or startup entries, it does not run elevated, and it does not change Windows settings.
 ```
 
-**`unvirtualizedResources`**, plan A, if you submit as built (1372 characters). Read the first row of *Decisions* first:
-
-```text
-Encore Karaoke declares unvirtualizedResources only so that it can turn off file-system write virtualization (desktop6:FileSystemWriteVirtualization = disabled). It does not disable registry virtualization.
-
-What it stores, and where: in %APPDATA%\Encore Karaoke\data, the host's settings, show history, each singer's song keys, the sign-in and license files, and the room name and key that its printed QR codes depend on. A host prints those QR codes on table tents and posters and uses them at every venue, so the data has to be in a place the host can see and that survives reinstalling the app.
-
-Why virtualization breaks that: with the default redirection, Windows sends these writes to a private folder under LocalCache. The folder shown by Encore's "Show > Open Data Folder" menu then does not exist in Explorer, and uninstalling deletes the room key, so the host's printed QR codes stop working.
-
-Encore is also distributed as a direct installer, and the two builds must read the same folder so that a host who moves between them keeps their data. Encore removes its program files normally on uninstall; only the host's own data remains in that folder, and "Show > Open Data Folder" opens it so the host can delete it.
-
-We understand this capability is not intended for general use. We declare it for this single, documented reason and use it for no other purpose.
-```
-
-Plan B (no `unvirtualizedResources`): remove `afterAllArtifactBuild` from `electron-builder.yml`, so the package is not patched, and keep the Store build's data (Electron's `userData`) in a folder directly under the user's profile, which Windows doesn't redirect. Not under AppData (that is what's redirected) and not in Documents (OneDrive may sync it, and the sign-in must not be synced). Then only the `runFullTrust` paragraph is needed. The cost: a few hours of work, one more sideload test, and a decision about whether a host moving from the beta installer keeps their data (the package can read the real AppData folder, so it could copy it over once). `STORE.md` ("Testing the package") describes the redirection problem this solves. The first Store version must already carry whichever plan you choose: a build that redirects can't be switched to one that doesn't later without stranding the user's data.
+The package used to ask for a second one, `unvirtualizedResources`. It was removed on 2026-10-18 (see *Decisions that are yours*), so there is nothing else to explain. `STORE.md` ("The data folder") says how the Store build keeps its data without it.
 
 ## 6. Before you submit
 
