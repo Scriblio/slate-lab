@@ -134,20 +134,24 @@ YouTube is a trademark of Google LLC. Encore Karaoke isn't affiliated with or en
   - `A phone for each singer (iPhone or Android).`
   - `Speakers or a PA system connected to the laptop.`
 
-**Store logo:** the 1:1 app tile icon (300 x 300 pixels) is recommended; without it the Store uses the icon in the package. `build/icon.png` is 1024 x 1024, so it needs scaling down to 300 x 300 and saving as PNG. Poster and box art (2:3 and 1:1) are for games, so skip them.
+**Store logo:** the 1:1 app tile icon (300 x 300 pixels) is recommended; without it the Store uses the icon in the package. It is made: `docs/store-screenshots/store-logo-300x300.png`, `build/icon.png` (1024 x 1024) scaled down to 300 x 300. Poster and box art (2:3 and 1:1) are for games, so skip them.
 
 ### Screenshots
 
 Requirements: PNG, **at least 1366 x 768**, up to 3840 x 2160, at most 50 MB each; one is required, 4 to 8 are recommended, up to 10 are allowed. Keep the important parts in the top two-thirds, and don't add logos, icons or marketing text on top. Caption limit 200 characters.
 
-| # | File | Size | Caption | Status |
-|---|---|---|---|---|
-| 1 | `src/site/encore-console.png` | 1600 x 1000 | The DJ console: who's on stage, who's next, and songs from your library or YouTube. | Ready. It's the current console. |
-| 2 | venue screen, idle | needs 1920 x 1080 | The venue screen between singers: a QR code to join and who is up next. | `docs/display-idle.png` is only 1280 x 720: retake. |
-| 3 | venue screen, singer introduced | needs 1920 x 1080 | The venue screen introduces the singer, with the next singer and the join code. | `docs/display-intro.png` is only 1280 x 720: retake. |
-| 4 | phone page, "The line" | needs 1366 x 768 or larger | A singer's phone: their place in line, with no app to install. | `docs/phone-line.png` is a phone-sized 390 x 664: place on a plain background, or skip. |
+**Made on 2026-10-18** by `scripts/store-screenshots.mjs`: real pages in Electron's own Chromium at 1920 x 1080, with a made-up night in them (singers, songs found by a real YouTube search, a lyric on the venue screen). Nothing appears on screen and nothing plays aloud. To make them again after the look of the app changes: run `npm run demo` with `PORT=4790` and `ENCORE_DATA` pointing at an empty folder (so your own data stays out of it), run `npm run build:desktop` once, then `SHOTS_URL=http://127.0.0.1:4790 npx electron scripts/store-screenshots.mjs`. The files are in `docs/store-screenshots/`.
 
-`docs/dj-console.png` is out of date (it still says "add an API key in Settings to search YouTube", which Encore no longer asks for): don't use it.
+| # | File (in `docs/store-screenshots/`) | Size | Caption |
+|---|---|---|---|
+| 1 | `01-console.png` | 1920 x 1080 | Run the night from one screen: who is singing, who is up next, and every request in order. |
+| 2 | `02-console-youtube.png` | 1920 x 1080 | Search YouTube for karaoke videos without leaving Encore, or play files from your own library. |
+| 3 | `03-venue-screen.png` | 1920 x 1080 | The venue screen between singers: a QR code to join, and who is up next. |
+| 4 | `04-venue-welcome.png` | 1920 x 1080 | The venue screen welcomes each singer to the stage, with the next singer and the join code. |
+| 5 | `05-lyrics.png` | 1920 x 1080 | Lyrics on the big screen for MP3+G karaoke, lighting up as they are sung. |
+| 6 | `06-setup-guide.png` | 1920 x 1080 | A short setup guide on the first run: your music, the big screen, then singers. |
+
+Upload them in this order (the first is the one people see first). The older files are not for the Store: `docs/dj-console.png` still says "add an API key in Settings to search YouTube", which Encore no longer asks for, and `docs/display-*.png` and `docs/phone-line.png` are below Microsoft's 1366 x 768 minimum. A phone screenshot isn't needed: Windows listings show the app's own window.
 
 ## 5. Submission options
 
@@ -204,5 +208,5 @@ The package used to ask for a second one, `unvirtualizedResources`. It was remov
 - [ ] Store package built (run the *Encore desktop* Action with **Store package** ticked), and tried: signing in with a real email from the package, phones joining over Wi-Fi, a YouTube search.
 - [ ] Windows App Certification Kit run on the package (it needs an administrator).
 - [ ] Demo account made and tested (section 5); Supabase, Resend and the YouTube search function up.
-- [ ] Screenshots made (section 4) and the 300 x 300 icon saved.
+- [ ] Screenshots uploaded in order (section 4), with the 300 x 300 logo (`docs/store-screenshots/store-logo-300x300.png`).
 - [ ] Everything above pasted; publishing hold set to **Don't publish until I select Publish now**.
