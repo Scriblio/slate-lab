@@ -15,7 +15,7 @@ Encore is a karaoke hosting (KJ) app by Scriblio (Matthew Lancaster). It's being
 | --- | --- |
 | Install | `npm ci` (use `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci` if you don't need Electron) |
 | Typecheck | `npm run typecheck` |
-| Tests | `npm test` (766 tests; some run the licensing and payments SQL in an in-process Postgres, so the first start takes a moment) |
+| Tests | `npm test` (773 tests; some run the licensing and payments SQL in an in-process Postgres, so the first start takes a moment) |
 | Run with a demo library | `npm run demo`, then open http://localhost:4747/dj (venue screen at `/display`, phone page at `/join`) |
 | Desktop app | `npm run build:desktop && npm run desktop` |
 | Windows installer | built by GitHub Actions on every push to the branch: download the "Encore-Karaoke-Windows" artifact from the run; `npm run dist:win` needs Windows |
@@ -101,6 +101,8 @@ The YouTube API Services policies apply because Encore uses the search API. Brea
 
 ## Done recently (all on the branch, tested)
 
+- **Settings asks for the microphone only when the KJ clicks "Show speaker names" (2026-10-18):** Windows hides the speakers' names until a microphone has been allowed, and Settings used to open one every time it opened. Now `listOutputDevices` only lists, and `revealSpeakerNames` (`src/client/common/audio-output.ts`) is the one place that opens a microphone (audio only, closed at once) when the button in Settings is clicked; the KJ's yes is remembered in `localStorage`. The Privacy Policy has a "Microphone" section that says so. Encore never uses the camera.
+- **Store screenshots (2026-10-18):** `scripts/store-screenshots.mjs` makes six 1920 x 1080 pictures from a running `npm run demo` (in Electron, off-screen and muted; how to run it is in `docs/STORE_LISTING.md`, section 4), saved in `docs/store-screenshots/` with the 300 x 300 logo for the listing.
 - **Licensing, step 1 (sign-in, 14-day trial, unlock codes, checks in the app):** what was built is in `docs/LICENSING.md` ("Step 1: as built"), how it works is under Architecture above, and Matthew's set-up steps are in `supabase/README.md` ("Licensing").
   - **Tests, all in `npm test`:** the migration runs for real in an in-process Postgres (PGlite, a dev dependency: `test/license-sql.test.ts`); the service's rules run against both an in-memory store and that real SQL, which have to agree (`license-service.test.ts`); the laptop's sign-in and pass checks run against a fake Supabase (`account.test.ts`, `license.test.ts`); and the app runs over real sockets (`license-app.test.ts`): a closed show, a running show that isn't cut off, Cloud on and off, and YouTube in every state.
   - **Seen working in a browser** against a fake backend: the guide's first step, signing in with a code, the trial badge, Settings → Your Encore, the notice when the trial ends mid-show, a late singer joining that running show, the show closing after a new list, an unlock code opening it again (the online link starts by itself), and a revoked code stopping at the next check.
