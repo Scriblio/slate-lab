@@ -31,7 +31,7 @@ We grant you a personal, non-transferable licence to use Encore according to the
 
 ## Buying Encore
 
-There are three ways to buy, all from Settings → Your Encore inside Encore. Prices are in US dollars and are shown on Stripe's payment page before you pay. Payments are taken by Stripe, so we never see your card number. Where the law requires us to collect sales tax or VAT, it is added and shown there too.
+There are three ways to buy, all from Settings → Your Encore inside Encore. Prices are in US dollars and are shown on Stripe's payment page before you pay. Payments are taken by Stripe, so we never see your card number.
 
 - **Encore, $149, once.** Encore is yours to keep. It includes one year of Encore Cloud.
 - **Encore Cloud, $49 a year.** Optional after that first year: Encore offers it in Settings two months before your Cloud ends, and at any time after. It renews every year until you stop it. A new year is added after the end of the one you have, so renewing early loses nothing.
