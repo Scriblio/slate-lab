@@ -1015,10 +1015,6 @@ kbd {
 }
 .yt-btn {
   height: 40px;
-  border-color: rgba(255, 59, 48, 0.3);
-}
-.yt-btn svg {
-  color: var(--yt);
 }
 .finder-foot {
   margin: 0;

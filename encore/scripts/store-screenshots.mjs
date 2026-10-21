@@ -6,7 +6,8 @@
 //   SHOTS_URL=http://127.0.0.1:4790 npx electron scripts/store-screenshots.mjs
 //
 // The PNGs go to docs/store-screenshots/ (or SHOTS_OUT). Each one is at least 1366 x 768, which is Microsoft's
-// minimum for a desktop screenshot (docs/STORE_LISTING.md has the rest of the rules).
+// minimum for a desktop screenshot (docs/STORE_LISTING.md has the rest of the rules). It also makes the console
+// picture on Encore's own web page, 1600 x 1000, into src/site/ (or SITE_OUT), so that page matches the app.
 
 import { app, BrowserWindow } from 'electron';
 import { mkdir, writeFile } from 'node:fs/promises';
@@ -15,6 +16,7 @@ import { io } from 'socket.io-client';
 
 const BASE = (process.env.SHOTS_URL ?? 'http://127.0.0.1:4790').replace(/\/$/, '');
 const OUT = resolve(process.env.SHOTS_OUT ?? 'docs/store-screenshots');
+const SITE_OUT = resolve(process.env.SITE_OUT ?? 'src/site');
 const PRELOAD = resolve('dist-desktop/preload.cjs'); // from npm run build:desktop
 const W = 1920;
 const H = 1080;
@@ -72,12 +74,12 @@ async function openPage(path, { width = W, height = H } = {}) {
   return win;
 }
 
-async function shot(win, name) {
+async function shot(win, name, dir = OUT) {
   await wait(700); // let the last paint land
   const image = await win.webContents.capturePage();
   const size = image.getSize();
-  await mkdir(OUT, { recursive: true });
-  await writeFile(join(OUT, name), image.toPNG());
+  await mkdir(dir, { recursive: true });
+  await writeFile(join(dir, name), image.toPNG());
   console.log(`  saved ${name}  ${size.width} x ${size.height}`);
 }
 
@@ -158,6 +160,15 @@ async function main() {
   await act({ type: 'callNext' });
   await wait(2500);
   await shot(display, '04-venue-welcome.png');
+
+  // 3b. the picture on Encore's own web page: the console while the first singer is being called up
+  const site = await openPage('/dj', { width: 1600, height: 1000 });
+  await wait(2000);
+  await clickText(site, /Skip|Maybe later|Not now|Got it/i); // the first-run guide, if it is up (never "Start song")
+  await typeInto(site, 'input[placeholder^="Search"]', 'step');
+  await wait(1500);
+  await shot(site, 'encore-console.png', SITE_OUT);
+  await site.destroy();
 
   // 4. the song plays; lyrics wipe across the screen
   const console_ = await openPage('/dj');

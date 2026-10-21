@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { Song } from '../../shared/types.ts';
 import { CLOUD } from '../../shared/cloud.ts';
-import { Alert, Check, Disc, Film, Music, X, YouTube } from './icons.tsx';
+import { Alert, Check, Disc, Film, Music, X } from './icons.tsx';
 
 // --- toasts ------------------------------------------------------------------
 
@@ -82,12 +82,7 @@ export function Modal({ title, onClose, children, width }: { title: ReactNode; o
 // --- song bits -----------------------------------------------------------------
 
 export function SourceBadge({ song }: { song: Song }) {
-  if (song.source.kind === 'youtube')
-    return (
-      <span className="badge yt">
-        <YouTube /> YouTube
-      </span>
-    );
+  if (song.source.kind === 'youtube') return <span className="badge yt">YouTube</span>;
   const label = { video: 'Video', 'mp3+g': 'MP3+G', zip: 'MP3+G', audio: 'Audio' }[song.source.format];
   return (
     <span className="badge local">
@@ -107,7 +102,7 @@ export function SongThumb({ song, size = 44 }: { song: Song; size?: number }) {
     );
   return (
     <div className="thumb" style={style}>
-      {song.source.kind === 'youtube' ? <YouTube /> : song.source.kind === 'local' && song.source.format === 'video' ? <Film /> : <Music />}
+      {song.source.kind === 'youtube' || (song.source.kind === 'local' && song.source.format === 'video') ? <Film /> : <Music />}
     </div>
   );
 }

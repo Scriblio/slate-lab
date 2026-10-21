@@ -181,7 +181,7 @@ function SongSearch({ inputRef }: { inputRef: RefObject<HTMLInputElement | null>
             {yt?.q === query ? (
               yt.results.length ? (
                 <>
-                  <ResultList title="YouTube" icon={<I.YouTube />} results={yt.results} onAdd={add} canAdd={Boolean(singer || swapping)} swap={Boolean(swapping)} />
+                  <ResultList title="YouTube" icon={<I.Film />} results={yt.results} onAdd={add} canAdd={Boolean(singer || swapping)} swap={Boolean(swapping)} />
                   <p className="muted small pad">
                     <YouTubeTerms short />
                   </p>
@@ -191,11 +191,11 @@ function SongSearch({ inputRef }: { inputRef: RefObject<HTMLInputElement | null>
               )
             ) : view.youtubeSearch ? (
               <button className="btn block yt-btn" onClick={searchYouTube} disabled={ytBusy}>
-                {ytBusy ? <I.Loader /> : <I.YouTube />} Search YouTube for “{query}”
+                {ytBusy ? <I.Loader /> : <I.Search />} Search YouTube for “{query}”
               </button>
             ) : (
               <p className="muted small pad">
-                <I.YouTube className="inline-icon" /> Paste a YouTube link to queue it.
+                <I.Link className="inline-icon" /> Paste a YouTube link to queue it.
               </p>
             )}
           </div>

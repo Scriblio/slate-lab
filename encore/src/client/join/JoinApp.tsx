@@ -781,7 +781,7 @@ function SearchTab({
           {yt?.q === query ? (
             <>
               <h3 className="section-title">
-                <I.YouTube /> YouTube
+                <I.Film /> YouTube
               </h3>
               {yt.results.length === 0 ? (
                 <p className="muted pad">No karaoke videos found that can play here.</p>
@@ -800,7 +800,7 @@ function SearchTab({
             </>
           ) : (
             <button className="btn block yt-search" onClick={searchYouTube} disabled={ytBusy}>
-              {ytBusy ? <I.Loader /> : <I.YouTube />} Search YouTube for “{query}”
+              {ytBusy ? <I.Loader /> : <I.Search />} Search YouTube for “{query}”
             </button>
           )}
         </section>
