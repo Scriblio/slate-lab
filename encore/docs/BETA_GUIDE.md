@@ -11,7 +11,7 @@ Thank you for trying Encore. This is a beta: it works, but it hasn't met a real 
 
 ## Install
 
-1. Download `Encore-Karaoke-Setup-0.2.0.exe` from the beta page: https://github.com/Scriblio/slate-lab/releases/tag/encore-v0.2.0-beta
+1. Download `Encore-Karaoke-Setup-0.2.1.exe` from the beta page: https://github.com/Scriblio/slate-lab/releases/tag/encore-v0.2.1-beta
 2. Run it. Windows may say "Windows protected your PC" because the installer isn't code-signed yet: click **More info**, then **Run anyway**.
 3. Open Encore. It asks for your email address and emails you a 6-digit code (from "Encore", `hello@scriblio.co`; check your junk folder). Type the code in. That starts a 14-day free trial.
 4. Open **Settings → Your Encore**, find **Have an unlock code?**, and type the code you were given. It looks like `ENC-XXXX-XXXX-XXXX`. It unlocks Encore and Encore Cloud for your email address, so please don't share it.
@@ -43,5 +43,5 @@ Reply to whoever sent you this, with a few lines and a screenshot where you can.
 ## For whoever is running the beta
 
 - **Codes.** Make one per tester in Supabase's SQL editor: `select make_unlock_code('beta friend 6');` (see `supabase/README.md` for options, and for the query that shows who has used which). Codes are single-use and stay in your own Documents folder, never in the repo or in email threads you don't control.
-- **Keep the beta build and the payment state in mind.** Build 0.2.0 has no Buy buttons, which is right for a beta. A later build shows the buttons, and today they open Stripe's sandbox (test cards only), so don't hand a build with Buy buttons to testers before Stripe is in live mode.
+- **Keep the payment state in mind.** Builds from 0.2.1 show buy buttons under Settings → Your Encore, and since Stripe went live (2026-10-18) they open Stripe's real checkout, so a tester who clicks one can really pay. A tester with an unlock code never needs to. (Build 0.2.0 had no buy buttons.)
 - **After the first real shows,** look at Supabase's Realtime report to see what Encore Cloud costs per KJ (the estimate is a few dollars a year).
