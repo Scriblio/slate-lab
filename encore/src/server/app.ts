@@ -31,6 +31,7 @@ import { loadIdentity, RelayHost, type RelayIdentity } from './relay.ts';
 import { blockedMessage, NOT_OPEN, Show, UserError } from './show.ts';
 import { YouTube } from './youtube.ts';
 import { REFUSAL_CODES, YouTubeGuard } from './ytguard.ts';
+import { forgetOldYouTube, forgetOldYouTubeInPastShows } from './ytretention.ts';
 
 export interface AppOptions {
   port: number;
@@ -806,8 +807,17 @@ export async function createApp(opts: AppOptions) {
     const dir = join(opts.dataDir, 'past-shows');
     await mkdir(dir, { recursive: true });
     const stamp = new Date(old.createdAt).toISOString().slice(0, 16).replace(/[:T]/g, '-');
-    await writeFile(join(dir, `${stamp}-${old.id}.json`), JSON.stringify(old, null, 1));
+    await writeFile(join(dir, `${stamp}-${old.id}.json`), JSON.stringify(forgetOldYouTube(old, Date.now()), null, 1));
   }
+
+  /** YouTube lets an app keep what it says about a video for 30 days: tidy tonight's records and the past shows. */
+  async function forgetOldYouTubeData() {
+    show.forgetOldYouTube();
+    await forgetOldYouTubeInPastShows(opts.dataDir, Date.now()).catch((err) => log(`Couldn’t tidy the past shows: ${(err as Error).message}`));
+  }
+  const FORGET_YOUTUBE_EVERY_MS = 6 * 60 * 60 * 1000;
+  const forgetTimer = setInterval(() => void forgetOldYouTubeData(), FORGET_YOUTUBE_EVERY_MS);
+  forgetTimer.unref?.();
 
   async function rescan() {
     if (library.getStatus().scanning) return;
@@ -958,6 +968,7 @@ export async function createApp(opts: AppOptions) {
     }
     const addr = server.address();
     if (addr && typeof addr === 'object') port = addr.port;
+    void forgetOldYouTubeData();
     void rescan();
     void rescanBreak();
     await startRelay().catch((err) => console.warn('Online join link unavailable:', (err as Error).message));
@@ -968,6 +979,7 @@ export async function createApp(opts: AppOptions) {
   async function close(): Promise<void> {
     clearTimeout(joinPageTimer);
     clearInterval(planTimer);
+    clearInterval(forgetTimer);
     license?.stop();
     relay?.stop();
     show.dispose();
