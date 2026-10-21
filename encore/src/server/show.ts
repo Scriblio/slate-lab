@@ -34,6 +34,7 @@ import {
   type YouTubeEmbed,
 } from '../shared/types.ts';
 import { writeFileAtomic } from './atomicfile.ts';
+import { forgetOldYouTube } from './ytretention.ts';
 
 /** A problem to show the user as-is. `code` lets the client react (e.g. 'name-taken'). */
 export class UserError extends Error {
@@ -170,6 +171,18 @@ export class Show {
   private changed(): void {
     this.deps.onChange();
     this.scheduleSave();
+  }
+
+  /**
+   * Delete what YouTube told us about videos requested or sung 30 days ago or more (see ytretention.ts).
+   * Returns whether anything was removed.
+   */
+  forgetOldYouTube(): boolean {
+    const next = forgetOldYouTube(this.state, this.now());
+    if (next === this.state) return false;
+    this.state = next;
+    this.changed();
+    return true;
   }
 
   private scheduleSave(): void {

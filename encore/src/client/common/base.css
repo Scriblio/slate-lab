@@ -26,7 +26,6 @@
   --red-soft: rgba(255, 93, 93, 0.13);
   --violet: #9a8cff;
   --violet-soft: rgba(154, 140, 255, 0.14);
-  --yt: #ff3b30;
   --spot: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
   --radius: 14px;
   --radius-sm: 9px;
@@ -254,10 +253,6 @@ select.input {
 .badge svg {
   width: 12px;
   height: 12px;
-}
-.badge.yt {
-  background: rgba(255, 59, 48, 0.15);
-  color: #ff7a72;
 }
 .badge.local {
   background: var(--cyan-soft);

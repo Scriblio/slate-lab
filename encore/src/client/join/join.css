@@ -435,10 +435,6 @@ body {
 .yt-search {
   margin-top: 14px;
   height: 50px;
-  border-color: rgba(255, 59, 48, 0.35);
-}
-.yt-search svg {
-  color: var(--yt);
 }
 .empty.small {
   padding: 18px;

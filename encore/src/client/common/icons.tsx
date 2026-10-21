@@ -96,12 +96,9 @@ export const Search = (p: P) => (
     <path d="m20 20-3.5-3.5" />
   </Svg>
 );
-export const YouTube = (p: P) => (
-  <Svg {...p}>
-    <rect x="2" y="5" width="20" height="14" rx="4" />
-    <path d="m10 9 5 3-5 3V9Z" fill="currentColor" />
-  </Svg>
-);
+// There is no YouTube icon here on purpose. YouTube's branding rules (policy III.F.2.a) allow only its own,
+// unaltered logo and icon, on a single solid background, so a look-alike drawn in the page's colors breaks
+// them. Encore says "YouTube" in words instead and shows no YouTube logo of its own.
 export const Disc = (p: P) => (
   <Svg {...p}>
     <circle cx="12" cy="12" r="10" />
