@@ -161,8 +161,9 @@ export function encorePage() {
 <ul>
 <li>Search results are shown as YouTube provides them, with a link to the YouTube Terms of Service.</li>
 <li>Videos play unaltered in YouTube's player, ads included. Nothing is drawn over the player, and nothing is downloaded or recorded.</li>
+<li>Encore names YouTube in words. It draws no YouTube logo or icon of its own.</li>
 <li>KJs never need a YouTube account or API key, and Encore never asks anyone to sign in with Google.</li>
-<li>YouTube data is kept for no more than 30 days.</li>
+<li>What YouTube provides (video titles, channel names, thumbnails) is deleted within 30 days, on our server and in Encore's own records on the KJ's computer. The <a href="/privacy">Privacy Policy</a> has the details.</li>
 </ul>
 <p>By using Encore's YouTube features you agree to the <a href="https://www.youtube.com/t/terms">YouTube Terms of Service</a>. See also the <a href="https://policies.google.com/privacy">Google Privacy Policy</a>, and Encore's <a href="/privacy">Privacy Policy</a> and <a href="/terms">Terms of Use</a>.</p>
 </div>

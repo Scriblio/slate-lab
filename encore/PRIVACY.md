@@ -1,6 +1,6 @@
 # Encore Karaoke: Privacy Policy
 
-**Last updated:** October 18, 2026
+**Last updated:** October 21, 2026
 
 Encore Karaoke ("Encore") is software that a karaoke host (KJ) runs on their own computer. It's made by Scriblio, a brand of ALM Partners LLC ("Scriblio", "we"). This policy explains what information Encore handles and where it goes. It's published at https://sing.scriblio.co/privacy.
 
@@ -11,14 +11,14 @@ Encore Karaoke ("Encore") is software that a karaoke host (KJ) runs on their own
 - Singers don't need an account and never give an email address. KJs sign in with their email to use Encore, and Scriblio keeps that email and their license record (see "KJ accounts and licenses" below).
 - If a KJ buys Encore, the payment is taken by Stripe. Scriblio never sees the card number, and keeps only what the account has bought (see "Payments" below).
 - Encore has no advertising and no analytics or tracking. It never asks anyone to sign in with Google.
-- If the KJ uses YouTube features, YouTube (Google) receives the requests involved. YouTube searches pass through Scriblio's search service, which keeps the search text and results (not who searched) for up to 30 days.
+- If the KJ uses YouTube features, YouTube (Google) receives the requests involved. YouTube searches pass through Scriblio's search service, which keeps the search text and results (not who searched) for up to 30 days. Encore also deletes what YouTube told it about a video (title, channel name, thumbnail, length) from its own records after 30 days. The "YouTube API Services" section below has the details.
 
 ## What Encore stores, and where
 
 On the KJ's computer, in Encore's data folder:
 
 - **Singer names** that singers type when they join, or that the KJ enters.
-- **Song requests and tonight's history:** which singer sang which song, and when.
+- **Song requests and tonight's history:** which singer sang which song, and when. For a YouTube song, the title, channel name, thumbnail and length that YouTube gave are deleted 30 days after it was requested or sung.
 - **Song keys:** the musical key of library songs, worked out from the KJ's own files on their computer or set by the KJ.
 - **Key preferences:** when a singer or the KJ changes a library song's key, the singer's name, the song and the key, so it comes up in their key next time. Each one is forgotten after a year without use.
 - **Settings:** the show name, the KJ's music folder locations, the DJ PIN, and a random installation ID (used to share YouTube search limits fairly, and to tie a license to this computer).
@@ -36,7 +36,7 @@ On a singer's phone, the browser keeps a random code so the singer keeps their p
 - **On the venue's local network:** with the Wi-Fi link, phones connect directly to the KJ's computer to join the list and request songs. Other singers' phones see singer names in the queue and the song currently being performed. They see upcoming song titles only if the KJ turns that on.
 - **KJ sign-in and license checks:** to sign in, the KJ's computer sends their email address to Scriblio's sign-in service (hosted by Supabase), which emails a 6-digit code. After that, when Encore starts and about every 12 hours, the computer asks Scriblio's license service what the account has, sending the installation ID (and the unlock code, if the KJ uses one). The answer is a signed note saying what the account may do. Nothing about shows, singers or songs is sent. Details are under "KJ accounts and licenses" below.
 - **Buying (only if a KJ buys):** pressing a buy button asks Scriblio's license service for a payment page. The service asks Stripe to make it, giving Stripe the KJ's email address and account ID so the payment can be matched to the account, and Encore opens the page in the KJ's browser. The card and billing details are typed on Stripe's page and go to Stripe only. When Stripe says the payment went through, it tells Scriblio's payment service (hosted by Supabase) which account paid and for what period. Details are under "Payments" below.
-- **With YouTube (Google), only when YouTube features are used:**
+- **With YouTube (Google), only when YouTube features are used** (the "YouTube API Services" section below has the full details):
   - YouTube videos play through YouTube's embedded player, which loads inside a page on sing.scriblio.co (hosted by Vercel) so YouTube can tell which site is embedding it. Vercel sees that the page was loaded, like any website. Nothing about the show is sent to it.
   - Encore remembers, on the KJ's computer only, the ids of YouTube videos that wouldn't play there, for 30 days.
   - When a singer taps **Preview** on a YouTube song, their phone loads YouTube's player (the privacy-enhanced youtube-nocookie.com version) directly from YouTube.
@@ -68,17 +68,44 @@ Running a show needs a KJ account. The KJ signs in with their email address, whi
 
 ## YouTube API Services
 
-Encore uses YouTube API Services to search YouTube and to play YouTube videos. By using Encore's YouTube features, you agree to be bound by the [YouTube Terms of Service](https://www.youtube.com/t/terms), and Google's use of information is covered by the [Google Privacy Policy](https://policies.google.com/privacy).
+Encore uses **YouTube API Services** (the YouTube Data API and YouTube's embedded player) so a KJ, or a singer from their phone, can search YouTube for karaoke videos and play them on the venue screen. By using Encore's YouTube features, you agree to be bound by the [YouTube Terms of Service](https://www.youtube.com/t/terms), and Google's use of information is covered by the [Google Privacy Policy](https://policies.google.com/privacy). This section lists everything Encore handles for the YouTube features: what it gets from YouTube, what it collects and keeps, how it uses it, who it is shared with, and how long it is kept.
 
-- **What Encore gets from YouTube:** public information about videos: ids, titles, channel names, thumbnails, durations, and whether a video may be embedded. Encore never asks for access to anyone's Google or YouTube account, so it has no access to private account data. If you ever want to check which apps can reach your Google account, you can do that in your [Google security settings](https://security.google.com/settings/security/permissions).
-- **What's stored, and for how long:**
-  - Search results, in Scriblio's search service, are kept up to 30 days so repeat searches don't use up YouTube's daily quota.
-  - A catalog of popular karaoke videos is also kept there: public video information from a few karaoke channels, listed through the YouTube Data API. It holds no information about anyone using Encore, and it's refreshed before any entry is 30 days old.
-  - The ids of videos reported as not playing, or as not karaoke, are kept up to 30 days, along with one-way hashes of who reported them.
+### What Encore gets from YouTube
 
-  Anything older than 30 days is deleted automatically.
-- **Cookies and similar technologies:** Encore itself sets no cookies. YouTube's embedded player can store cookies or similar data on the device it plays on, under Google's policies. The phone page keeps a few values in the browser's local storage, described above.
-- **Deleting your information:** everything about a show lives on the KJ's computer, and the KJ can delete it at any time (**Show → Open Data Folder**). Singers can clear the phone page's data by clearing the site's data in their browser. To ask us to delete anything held by Scriblio's search service, email us at the address below. We'll delete it within 7 days. It's also deleted automatically within 30 days.
+Public information about videos, from the YouTube Data API: a video's id, title, channel name, thumbnail, length, and whether it may be embedded. This is YouTube's "API Data". Encore never asks for access to anyone's Google or YouTube account (there is no sign-in with Google), so it gets no private account data, no watch history and nothing about who is watching. If you ever want to check which apps can reach your Google account, you can do that in your [Google security settings](https://security.google.com/settings/security/permissions).
+
+### What information about you is collected, stored or used for the YouTube features
+
+- **What was searched for:** the words a KJ or a singer typed to search YouTube. The KJ's computer sends them to Scriblio's YouTube search service (hosted by Supabase), which passes them on to the YouTube Data API (with the word "karaoke" added if it isn't there). The search service keeps the words, with the results YouTube gave, so a repeat search needn't ask YouTube again. It does not keep who searched for what.
+- **The KJ's installation ID and IP address:** sent to the search service with each search. They are used only to keep everyone's use of YouTube inside YouTube's daily limits and to stop abuse: the service keeps a count of searches and reports per installation ID and per IP address for each day. The IP address is kept only as a one-way hash that changes every day. The counts are deleted after 3 days.
+- **Reports about videos:** when a YouTube video won't play inside Encore, or the KJ marks it "not karaoke", Encore tells the search service the video's id, with the installation ID and IP address. The service keeps the report, with only one-way hashes of the installation ID and IP address, so a video that many KJs found broken can be skipped for everyone.
+- **On the KJ's computer:** for each YouTube song in a show (tonight's list, the history, and the archive of past shows in Encore's data folder), the video's id and the title, channel name, thumbnail address and length that YouTube gave. Those details are deleted 30 days after the song was requested or sung; the video id, the singer's name, the times and how it went stay. Encore also remembers the ids of videos that wouldn't play there, for 30 days.
+- **On a singer's phone:** Encore stores nothing from YouTube there (YouTube's own player can store cookies; see below).
+- **Not collected:** singer names, song requests and anything else about a show are never sent to the search service or to YouTube.
+
+### How it is used and shared
+
+- **Used for:** searching YouTube, showing the results, queueing and playing the chosen video, staying inside YouTube's daily limits, and skipping videos that don't play. It is not used for advertising, analytics or profiling, and it is not sold.
+- **Shared with YouTube (Google):** the search service sends YouTube the words that were searched, from Scriblio's server, so YouTube does not get the installation ID or IP address from it. When a video plays or a thumbnail is shown, the device showing it (the venue screen, the KJ's computer or a singer's phone) loads it from YouTube, so YouTube receives what any website that shows its videos receives, such as that device's IP address, under Google's privacy policy.
+- **Shared with the services that run it for us:** Supabase (hosts the search service and its database) and Vercel (hosts the page that YouTube's player runs in). They handle the information for us, and like any hosting service they see connection details such as IP addresses and timing, under their own privacy policies.
+- **Not shared with anyone else.** Inside Scriblio, only the people who run the service can see what the search service keeps.
+
+### How long it is kept
+
+Anything YouTube gave us is deleted or refreshed within 30 days.
+
+- **Search results** in the search service are replaced with fresh results from YouTube when a search is repeated after 7 days, and anything older than 30 days is deleted automatically every day.
+- **A catalog of popular karaoke videos** (public information from a few karaoke channels, listed through the YouTube Data API) is rebuilt every 25 days, and anything older than 30 days is deleted. It holds no information about anyone using Encore.
+- **Reports about videos** are deleted after 30 days, and **search counts** after 3 days.
+- **On the KJ's computer,** a YouTube song's title, channel name, thumbnail address and length are deleted 30 days after it was requested or sung. Encore checks when it starts and every few hours while it runs.
+
+### Ads, cookies and similar technologies
+
+Encore shows no advertising and lets no third party serve ads in it. YouTube videos play in YouTube's own player, which may show YouTube's ads as YouTube chooses. Encore itself sets no cookies. YouTube's embedded player can store cookies or similar data on the device it plays on (the venue screen, the KJ's computer or a singer's phone), under Google's policies. The phone page keeps a few values in the browser's local storage, described above.
+
+### Deleting your information
+
+Everything about a show lives on the KJ's computer, and the KJ can delete it at any time (**Show → Open Data Folder**). Singers can clear the phone page's data by clearing the site's data in their browser. To ask us to delete anything held by Scriblio's search service, email us at the address below. We'll delete it within 7 days. It's also deleted automatically within 30 days.
 
 ## Children
 
