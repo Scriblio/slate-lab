@@ -34,13 +34,15 @@ nsis:
 
 appx:
   artifactName: Encore-Karaoke-${version}.${ext}
-  # Replace these three with the values from Partner Center → your app →
-  # Product management → Product identity, after you reserve the name.
-  identityName: Scriblio.EncoreKaraoke
-  publisher: CN=00000000-0000-0000-0000-000000000000
-  publisherDisplayName: Scriblio
+  # From Partner Center → Encore Karaoke Host (Store ID 9N6MQFM19C44) →
+  # Product management → Product identity. Reserved 2026-11-27 under the
+  # ALM Partners LLC company account. "Encore Karaoke" was already taken,
+  # and the Store requires displayName to match a reserved name.
+  identityName: ALMPartnersLLC.EncoreKaraokeHost
+  publisher: CN=9DC187E4-94AD-408D-872D-4752131B82EC
+  publisherDisplayName: ALM Partners LLC
   applicationId: EncoreKaraoke
-  displayName: Encore Karaoke
+  displayName: Encore Karaoke Host
   backgroundColor: "#07070c"
   languages: [en-US]
   # Phones on the venue Wi-Fi connect to the app to join the list.
